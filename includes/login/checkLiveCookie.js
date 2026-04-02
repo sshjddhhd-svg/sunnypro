@@ -1,13 +1,14 @@
 const axios = require("axios");
 
 /**
- * Validates a Facebook session by attempting to load a user-specific page.
+ * Validates a Facebook session by attempting to load user-specific pages.
  *
  * Strategy:
- *   1. Hit mbasic.facebook.com root — if redirected to /login, session is dead.
- *   2. Fallback: hit www.facebook.com/home.php — same logic.
- *   3. If both network requests fail for non-auth reasons (e.g. 404, timeout),
- *      return null ("uncertain") so the caller can still try the cookie with FCA.
+ *   1. Hit mbasic.facebook.com root — lightest, fastest signal.
+ *   2. Fallback: hit www.facebook.com/home.php — standard desktop check.
+ *   3. Fallback: hit m.facebook.com/ — mobile web as final arbiter.
+ *   4. If all three requests fail for non-auth reasons (timeout, 5xx),
+ *      return null ("uncertain") so the caller can still try with FCA.
  *
  * @param {string} cookie     Cookie string "c_user=123; xs=456; ..."
  * @param {string} [userAgent]
@@ -26,7 +27,12 @@ module.exports = async function checkLiveCookie(cookie, userAgent) {
     'action="/login/device-based/regular/login/',
     "/login/?next=",
     "/login/identify",
-    "You must log in to continue"
+    "You must log in to continue",
+    "checkpoint/?next=",
+    'name="email"',
+    'name="pass"',
+    "Log into Facebook",
+    "Log In to Facebook"
   ];
 
   const ALIVE_SIGNALS = [
@@ -36,7 +42,13 @@ module.exports = async function checkLiveCookie(cookie, userAgent) {
     'content="fb://',
     "mbasic_logout_button",
     "/logout.php",
-    "userLink"
+    "userLink",
+    "composer_photo",
+    "feed_story",
+    "pagelet_bluebar",
+    "home_stream",
+    '"USER_ID"',
+    "c_user"
   ];
 
   async function tryUrl(url) {
@@ -45,21 +57,24 @@ module.exports = async function checkLiveCookie(cookie, userAgent) {
         url,
         method: "GET",
         maxRedirects: 5,
-        timeout: 12000,
+        timeout: 15000,
         headers: {
           cookie,
           "user-agent": UA,
           "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
           "accept-language": "en-US,en;q=0.9",
-          "upgrade-insecure-requests": "1"
+          "upgrade-insecure-requests": "1",
+          "sec-fetch-dest": "document",
+          "sec-fetch-mode": "navigate",
+          "sec-fetch-site": "none"
         },
         validateStatus: () => true
       });
 
-      const html = String(resp.data || "");
+      const html     = String(resp.data || "");
       const finalUrl = String(resp.request?.res?.responseUrl || resp.config?.url || url);
 
-      // If the final URL after redirects contains /login → dead
+      // Final URL after redirects contains /login → dead
       if (/\/login[/?]/.test(finalUrl)) return false;
 
       // Check body for dead signals
@@ -68,10 +83,10 @@ module.exports = async function checkLiveCookie(cookie, userAgent) {
       // Check body for alive signals
       if (ALIVE_SIGNALS.some(s => html.includes(s))) return true;
 
-      // Got a 200 with no recognisable signals — treat as alive if status is 200
+      // 200 with no recognisable signals — treat as alive
       if (resp.status === 200) return true;
 
-      // Status 4xx/5xx with no dead signals — uncertain
+      // Non-200 with no dead signals — uncertain
       return null;
     } catch (e) {
       // Network error (ECONNREFUSED, ETIMEDOUT, etc.) — uncertain
@@ -79,16 +94,21 @@ module.exports = async function checkLiveCookie(cookie, userAgent) {
     }
   }
 
-  // Try mbasic root first (most lightweight)
+  // 1. Try mbasic root first (most lightweight)
   const r1 = await tryUrl("https://mbasic.facebook.com/");
   if (r1 === true)  return true;
   if (r1 === false) return false;
 
-  // Fallback: home.php
+  // 2. Fallback: home.php
   const r2 = await tryUrl("https://www.facebook.com/home.php");
   if (r2 === true)  return true;
   if (r2 === false) return false;
 
-  // Both returned uncertain — cannot determine
+  // 3. Final fallback: mobile web
+  const r3 = await tryUrl("https://m.facebook.com/");
+  if (r3 === true)  return true;
+  if (r3 === false) return false;
+
+  // All three returned uncertain — cannot determine
   return null;
 };
