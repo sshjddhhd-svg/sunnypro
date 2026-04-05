@@ -369,6 +369,22 @@ You are a Design Engineer who creates polished, elevated visuals.
 
 - Never show all content at once
 - Stagger children with transition delays to guide the viewer's eye
+- **Never use conditional rendering (`{phase >= N && ...}`) for phased elements inside flex-centered containers.** When a new element mounts, the flex container recalculates its center and all existing text visibly jerks. Instead, always render every element in the DOM from frame 1 and control visibility purely through `animate` state:
+
+  ```tsx
+  // BAD — causes layout jump when element mounts
+  {phase >= 2 && (
+    <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }}>Line two</motion.p>
+  )}
+
+  // GOOD — element always in DOM, layout stable
+  <motion.p
+    initial={{ opacity: 0, y: 20 }}
+    animate={phase >= 2 ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+  >Line two</motion.p>
+  ```
+
+  This keeps layout stable because all elements occupy space from the start — only their visual properties change. Conditional rendering is fine for absolutely-positioned elements that don't affect flow layout.
 
 **Rhythm:**
 
@@ -660,28 +676,26 @@ export function Scene1() {
       )}
 
       {/* Foreground: choreographed text with per-character spring animation */}
+      {/* All text elements are always in the DOM — phase controls animate state, not mounting.
+         This prevents layout jumps in the flex-centered container. */}
       <div className="text-center px-12 relative z-10">
-        {phase >= 2 && (
-          <motion.h1 className="text-[7vw] font-black tracking-tighter text-white leading-none"
-            style={{ fontFamily: 'var(--font-display)' }}>
-            {'LAUNCH'.split('').map((char, i) => (
-              <motion.span key={i} style={{ display: 'inline-block' }}
-                initial={{ opacity: 0, y: 60, rotateX: -40 }}
-                animate={{ opacity: 1, y: 0, rotateX: 0 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 25, delay: i * 0.04 }}>
-                {char}
-              </motion.span>
-            ))}
-          </motion.h1>
-        )}
-        {phase >= 3 && (
-          <motion.p className="text-[1.5vw] text-white/60 mt-4"
-            initial={{ opacity: 0, filter: 'blur(10px)' }}
-            animate={{ opacity: 1, filter: 'blur(0px)' }}
-            transition={{ duration: 0.5 }}>
-            The future of video, in code
-          </motion.p>
-        )}
+        <motion.h1 className="text-[7vw] font-black tracking-tighter text-white leading-none"
+          style={{ fontFamily: 'var(--font-display)' }}>
+          {'LAUNCH'.split('').map((char, i) => (
+            <motion.span key={i} style={{ display: 'inline-block' }}
+              initial={{ opacity: 0, y: 60, rotateX: -40 }}
+              animate={phase >= 2 ? { opacity: 1, y: 0, rotateX: 0 } : { opacity: 0, y: 60, rotateX: -40 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 25, delay: phase >= 2 ? i * 0.04 : 0 }}>
+              {char}
+            </motion.span>
+          ))}
+        </motion.h1>
+        <motion.p className="text-[1.5vw] text-white/60 mt-4"
+          initial={{ opacity: 0, filter: 'blur(10px)' }}
+          animate={phase >= 3 ? { opacity: 1, filter: 'blur(0px)' } : { opacity: 0, filter: 'blur(10px)' }}
+          transition={{ duration: 0.5 }}>
+          The future of video, in code
+        </motion.p>
       </div>
     </motion.div>
   );

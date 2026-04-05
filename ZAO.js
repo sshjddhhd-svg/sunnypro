@@ -592,6 +592,253 @@ async function onBot({ models }) {
   global['_botApi']       = _api;
   global['_botStartTime'] = Date.now();
 
+  // ══════════════════════════════════════════════════════════
+  //  Internal Panel API Server — port 3001 (localhost only)
+  // ══════════════════════════════════════════════════════════
+  (function startPanelApi() {
+    const _panelHttp = require('http');
+    const _panelPath = require('path');
+    const _panelFs   = require('fs-extra');
+
+    function _parseBody(req) {
+      return new Promise((resolve) => {
+        let body = '';
+        req.on('data', chunk => body += chunk);
+        req.on('end', () => {
+          try { resolve(body ? JSON.parse(body) : {}); } catch (_) { resolve({}); }
+        });
+        req.on('error', () => resolve({}));
+      });
+    }
+
+    function _json(res, data, status) {
+      const body = JSON.stringify(data);
+      res.writeHead(status || 200, { 'Content-Type': 'application/json' });
+      res.end(body);
+    }
+
+    function _reloadCommands() {
+      const cmdDir = _panelPath.join(__dirname, 'SCRIPTS', 'ZAO-CMDS');
+      const files  = _panelFs.readdirSync(cmdDir).filter(f => f.endsWith('.js'));
+      for (const file of files) {
+        const fp = _panelPath.join(cmdDir, file);
+        try { delete require.cache[require.resolve(fp)]; } catch (_) {}
+      }
+      global['client']['commands'].clear();
+      global['client']['eventRegistered'] = [];
+      global['client']['handleReply']     = [];
+      global['client']['handleReaction']  = [];
+
+      const loaded = [], errors = [];
+      const disabled = global['config']['commandDisabled'] || [];
+
+      for (const file of files) {
+        if (disabled.includes(file)) continue;
+        try {
+          const cmd = require(_panelPath.join(cmdDir, file));
+          if (!cmd || !cmd['config'] || !cmd['run']) { errors.push({ file, error: 'missing config/run' }); continue; }
+          if (global['client']['commands'].has(cmd['config']['name'])) { errors.push({ file, error: 'duplicate name' }); continue; }
+          if (cmd['onLoad']) { try { cmd['onLoad']({ api: _api, models: _models }); } catch (_) {} }
+          if (cmd['handleEvent']) global['client']['eventRegistered'].push(cmd['config']['name']);
+          global['client']['commands'].set(cmd['config']['name'], cmd);
+          loaded.push({ name: cmd['config']['name'], file });
+        } catch (e) { errors.push({ file, error: e.message }); }
+      }
+      return { loaded, errors, total: global['client']['commands'].size };
+    }
+
+    const _panelServer = _panelHttp.createServer(async (req, res) => {
+      const remote = req.socket.remoteAddress;
+      if (remote !== '127.0.0.1' && remote !== '::1' && remote !== '::ffff:127.0.0.1') {
+        res.writeHead(403); return res.end('Forbidden');
+      }
+      const { method } = req;
+      const pathname = req.url.split('?')[0];
+      const body = (method === 'POST' || method === 'PUT') ? await _parseBody(req) : {};
+
+      try {
+        if (pathname === '/bot/status' && method === 'GET') {
+          return _json(res, {
+            connected:  !!_api,
+            botID:      global['botUserID'] || '',
+            commands:   global['client']['commands'].size,
+            events:     global['client']['events'].size,
+            uptime:     global['_botStartTime'] ? Math.floor((Date.now() - global['_botStartTime']) / 1000) : 0,
+            mqttAlive:  global['lastMqttActivity'] ? (Date.now() - global['lastMqttActivity'] < 120000) : false
+          });
+        }
+
+        if (pathname === '/bot/reload-commands' && method === 'POST') {
+          const result = _reloadCommands();
+          return _json(res, { ok: true, ...result });
+        }
+
+        if (pathname === '/bot/groups' && method === 'GET') {
+          const groups = [];
+          if (global['data'] && global['data']['threadInfo']) {
+            for (const [threadID, info] of global['data']['threadInfo'].entries()) {
+              if (!info) continue;
+              groups.push({
+                threadID: String(threadID),
+                name:     info.threadName || info.name || String(threadID),
+                members:  info.participantIDs ? info.participantIDs.length : 0
+              });
+            }
+          }
+          return _json(res, groups);
+        }
+
+        if (pathname === '/bot/group-status' && method === 'POST') {
+          const { threadID } = body;
+          if (!threadID) return _json(res, { error: 'Missing threadID' }, 400);
+          const tid = String(threadID);
+          return _json(res, {
+            motor: global['motorData']  && global['motorData'][tid]  ? {
+              status:  global['motorData'][tid].status,
+              message: global['motorData'][tid].message,
+              time:    global['motorData'][tid].time
+            } : { status: false, message: null, time: null },
+            motor2: global['motorData2'] && global['motorData2'][tid] ? {
+              status:  global['motorData2'][tid].status,
+              message: global['motorData2'][tid].message,
+              time:    global['motorData2'][tid].time
+            } : { status: false, message: null, time: null },
+            nameLock: {
+              locked: !!(global['nameLocks'] && global['nameLocks'].has(tid)),
+              name:   global['nameLocks'] ? (global['nameLocks'].get(tid) || null) : null
+            }
+          });
+        }
+
+        if (pathname === '/bot/send-message' && method === 'POST') {
+          const { threadID, message } = body;
+          if (!threadID || !message) return _json(res, { error: 'Missing threadID or message' }, 400);
+          if (!_api) return _json(res, { error: 'Bot not connected' }, 503);
+          await new Promise((resolve, reject) =>
+            _api.sendMessage(message, String(threadID), err => err ? reject(err) : resolve())
+          );
+          return _json(res, { ok: true });
+        }
+
+        if (pathname === '/bot/leave-group' && method === 'POST') {
+          const { threadID } = body;
+          if (!threadID) return _json(res, { error: 'Missing threadID' }, 400);
+          if (!_api) return _json(res, { error: 'Bot not connected' }, 503);
+          const myID = global['botUserID'] || (_api.getCurrentUserID ? _api.getCurrentUserID() : '');
+          await new Promise((resolve) =>
+            _api.removeUserFromGroup(myID, String(threadID), () => resolve())
+          );
+          return _json(res, { ok: true });
+        }
+
+        if (pathname === '/bot/motor' && method === 'POST') {
+          const { threadID, action, message, time } = body;
+          if (!threadID) return _json(res, { error: 'Missing threadID' }, 400);
+          const tid = String(threadID);
+          global['motorData'] = global['motorData'] || {};
+          if (!global['motorData'][tid]) global['motorData'][tid] = { status: false, message: null, time: null, interval: null };
+          const d = global['motorData'][tid];
+          if (action === 'set-message') { d.message = message; return _json(res, { ok: true }); }
+          if (action === 'set-time')    { d.time = parseInt(time); return _json(res, { ok: true }); }
+          if (action === 'activate') {
+            if (d.status) return _json(res, { error: 'Already active' }, 400);
+            if (!d.message) return _json(res, { error: 'No message set' }, 400);
+            if (!d.time || d.time < 5000) return _json(res, { error: 'Set time first (min 5s)' }, 400);
+            d.status = true;
+            d.interval = setInterval(() => { if (_api) _api.sendMessage(d.message, tid).catch(() => {}); }, d.time);
+            return _json(res, { ok: true });
+          }
+          if (action === 'deactivate') {
+            if (d.interval) clearInterval(d.interval);
+            d.status = false; d.interval = null;
+            return _json(res, { ok: true });
+          }
+          return _json(res, { status: d.status, message: d.message, time: d.time });
+        }
+
+        if (pathname === '/bot/motor2' && method === 'POST') {
+          const { threadID, action, message, time } = body;
+          if (!threadID) return _json(res, { error: 'Missing threadID' }, 400);
+          const tid = String(threadID);
+          global['motorData2'] = global['motorData2'] || {};
+          global['lastActivity'] = global['lastActivity'] || {};
+          if (!global['motorData2'][tid]) global['motorData2'][tid] = { status: false, message: null, time: null, interval: null };
+          const d = global['motorData2'][tid];
+          if (action === 'set-message') { d.message = message; return _json(res, { ok: true }); }
+          if (action === 'set-time')    { d.time = parseInt(time); return _json(res, { ok: true }); }
+          if (action === 'activate') {
+            if (d.status) return _json(res, { error: 'Already active' }, 400);
+            if (!d.message) return _json(res, { error: 'No message set' }, 400);
+            if (!d.time || d.time < 5000) return _json(res, { error: 'Set time first (min 5s)' }, 400);
+            d.status = true;
+            d.interval = setInterval(() => {
+              if (!_api) return;
+              const lastActive = global['lastActivity'][tid];
+              if (!lastActive) return;
+              if (Date.now() - lastActive < d.time * 2) {
+                _api.sendMessage(d.message, tid).catch(() => {});
+              }
+            }, d.time);
+            return _json(res, { ok: true });
+          }
+          if (action === 'deactivate') {
+            if (d.interval) clearInterval(d.interval);
+            d.status = false; d.interval = null;
+            return _json(res, { ok: true });
+          }
+          return _json(res, { status: d.status, message: d.message, time: d.time });
+        }
+
+        if (pathname === '/bot/lock-name' && method === 'POST') {
+          const { threadID, action, name } = body;
+          if (!threadID) return _json(res, { error: 'Missing threadID' }, 400);
+          const tid = String(threadID);
+          global['nameLocks'] = global['nameLocks'] || new Map();
+          if (action === 'lock') {
+            if (!name) return _json(res, { error: 'Missing name' }, 400);
+            global['nameLocks'].set(tid, name);
+            if (_api) { try { await _api.setTitle(name, tid); } catch (_) {} }
+            return _json(res, { ok: true });
+          }
+          if (action === 'unlock') {
+            global['nameLocks'].delete(tid);
+            return _json(res, { ok: true });
+          }
+          return _json(res, { locked: global['nameLocks'].has(tid), name: global['nameLocks'].get(tid) || null });
+        }
+
+        if (pathname === '/bot/accept-request' && method === 'POST') {
+          const { threadID } = body;
+          if (!threadID) return _json(res, { error: 'Missing threadID' }, 400);
+          if (!_api) return _json(res, { error: 'Bot not connected' }, 503);
+          try {
+            await new Promise((resolve) =>
+              _api.handleMessageRequest(String(threadID), true, () => resolve())
+            );
+          } catch (_) {}
+          return _json(res, { ok: true });
+        }
+
+        res.writeHead(404); res.end('Not found');
+      } catch (e) {
+        _json(res, { error: e.message }, 500);
+      }
+    });
+
+    _panelServer.listen(3001, '127.0.0.1', () => {
+      logger.log([
+        { message: '[ PANEL ]: ', color: ['red', 'cyan'] },
+        { message: 'Internal API ready on 127.0.0.1:3001', color: 'white' }
+      ]);
+    });
+    _panelServer.on('error', e => {
+      logger.log([
+        { message: '[ PANEL ]: ', color: ['red', 'cyan'] },
+        { message: 'Internal API error: ' + e.message, color: 'yellow' }
+      ]);
+    });
+  })();
+
   // ── MQTT silence watchdog — tracks last message timestamp ────
   global['lastMqttActivity']      = Date.now();
   global['lastAltJsonSave']        = Date.now();

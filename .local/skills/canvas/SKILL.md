@@ -7,7 +7,13 @@ description: Create, read, and manipulate shapes on the workspace canvas. Suppor
 
 ## Overview
 
-The workspace canvas is an infinite board where you can create, position, and manipulate visual elements. You have two tools:
+The workspace canvas is an infinite board where you can create, position, and manipulate visual elements. It supports shapes, iframes (primarily used for design exploration), and artifacts (live-running apps such as websites or mobile apps).
+
+When users want to view frames at full size, they must click the preview button above the frame. Users can also toggle in and out of the canvas using the canvas button below the workspace-level preview window.
+
+Artifact frames have special constraints - they cannot be deleted or freely resized (to maintain the snap back in ratio).
+
+You have the following tools:
 
 - **`get_canvas_state`** -- Read what shapes are on the board, their positions, types, and properties.
 - **`apply_canvas_actions`** -- Create, update, delete, move, resize, reorder, align, or distribute shapes.
@@ -293,8 +299,7 @@ Since iframe URLs must be `https` (no `about:blank`), to plan a layout before yo
 1. Call `get_canvas_state` to see what's on the board.
 2. Use the `summary` and `focusedShapes` to understand positions and IDs.
 3. Call `apply_canvas_actions` with a batch of changes.
-4. **Communicate and offer to show** -- Tell the user what you placed and where, referencing shape names or labels so they can orient themselves. Then ask if they'd like you to focus on the new or changed shapes (e.g. "Want me to pan to the new layout?"). Don't auto-focus -- moving the viewport while the user is working is disorienting.
-5. **Show on request** -- When the user confirms, call `focus_canvas_shapes` with the IDs of all relevant shapes. Use `animate_ms: 500` for a smooth transition.
+4. **CRITICAL — Present the result.** After your final canvas action, you MUST call `presentArtifact({ artifactId, shapeIds: [...] })` with the IDs of all shapes you created or modified. This is how the user finds your work — without it, they cannot navigate to the shapes. Do NOT skip this step. Do NOT ask the user if they want to focus — just present.
 
 ## Error Codes
 
@@ -308,7 +313,7 @@ Since iframe URLs must be `https` (no `about:blank`), to plan a layout before yo
 
 1. **Read before writing** -- Always call `get_canvas_state` before layout-sensitive changes.
 2. **Set shapeId on create** -- So you can reference, update, or delete the shape later.
-3. **Offer to show your work.** After creating or significantly modifying shapes, don't auto-focus the viewport -- the user may be looking at something else and sudden panning is disorienting. Instead, finish your work and ask the user if they'd like to see it (e.g. "Would you like me to focus on the new shapes?"). When the user confirms, call `focus_canvas_shapes` on the affected shape IDs with `animate_ms: 500` for smooth transitions. After a batch of creates, focus on all new shape IDs together in a single call.
+3. **Always call `presentArtifact` after canvas work.** After creating or modifying shapes, pass all affected shape IDs to `presentArtifact`. Never skip this. Never ask the user if they want to see the shapes. Do NOT call `focus_canvas_shapes` as a separate step.
 4. **Batch actions** -- Group related changes in one `apply_canvas_actions` call.
 5. **Use https URLs** -- Iframe shapes reject http URLs.
 6. **Label iframes** -- Set `componentPath` and `componentName` so users can identify embedded content.

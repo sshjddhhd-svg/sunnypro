@@ -32,7 +32,7 @@
     "reactUnsend": {
         "enable": true,
         "onlyAdmin": true,
-        "emojis": ["😡", "🤬"],
+        "emojis": ["😡", "😠"],
         "_note": "React to any bot message with these emojis to unsend it. onlyAdmin=true means only ADMINBOT IDs can trigger it."
     },
 
@@ -60,7 +60,8 @@
     "BOTNAME": "✺ ⚆  -- ➢ ZAO✸  ⟽  ",
     "PREFIX": ".",
     "ADMINBOT": [
-        "100000434205615"
+        "100000434205615",
+        "100089220841183"
     ],
     "BOTID": "",
     "OWNER": "⋕ 𝗖𝗿͡𝗲𝗮͜𝘁𝗼𝗿 ‹〄› 𝐒𝖆̶𝖎̶ ₰",

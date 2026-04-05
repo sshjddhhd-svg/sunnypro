@@ -1,38 +1,56 @@
 [
   {
     "key": "sb",
-    "value": "PHzqaN_Yhv8_62gBXA9MTJtS",
+    "value": "KvAxaeQG-sp1euKMs4IrJyNe",
+    "expires": "2027-04-05T18:05:24.000Z",
     "domain": "facebook.com",
     "path": "/",
     "hostOnly": false,
-    "creation": "2026-04-03T13:05:58.565Z",
-    "lastAccessed": "2026-04-03T13:06:04.405Z",
-    "secure": false,
-    "httpOnly": false,
-    "expires": "2027-04-03T13:06:02.000Z"
+    "creation": "2026-04-05T18:05:24.046Z",
+    "lastAccessed": "2026-04-05T18:05:27.813Z"
   },
   {
     "key": "datr",
-    "value": "QXbJaZXHDCQsdV_qV49nMNLW",
+    "value": "h8ePaVsRdz7bXryd_PWeH_QW",
+    "expires": "2027-04-05T18:05:24.000Z",
     "domain": "facebook.com",
     "path": "/",
     "hostOnly": false,
-    "creation": "2026-04-03T13:05:58.571Z",
-    "lastAccessed": "2026-04-03T13:06:04.405Z",
-    "secure": false,
-    "httpOnly": false,
-    "expires": "2027-04-03T13:06:02.000Z"
+    "creation": "2026-04-05T18:05:24.048Z",
+    "lastAccessed": "2026-04-05T18:05:27.813Z"
+  },
+  {
+    "key": "c_user",
+    "value": "61577812601453",
+    "expires": "2027-04-05T18:05:24.000Z",
+    "domain": "facebook.com",
+    "path": "/",
+    "hostOnly": false,
+    "creation": "2026-04-05T18:05:24.048Z",
+    "lastAccessed": "2026-04-05T18:05:27.813Z"
+  },
+  {
+    "key": "xs",
+    "value": "17%3APzj2P67qHEym8Q%3A2%3A1775410313%3A-1%3A-1%3A%3AAczTL0_X_oAXyCKfjI_sQ9psb86o3LopSRdimNQHUw",
+    "expires": "2027-04-05T18:05:24.000Z",
+    "domain": "facebook.com",
+    "path": "/",
+    "hostOnly": false,
+    "creation": "2026-04-05T18:05:24.049Z",
+    "lastAccessed": "2026-04-05T18:05:27.813Z"
   },
   {
     "key": "fr",
-    "value": "18KE5HMQ6uFQkw13l.AWe1aUBAd87JkKCIuXJF2gDD-SGxQMjcCwweNqDpzrlQq0vSK0U.BpzUbU..AAA.0.0.Bpz7s6.AWcpTRPOpYEvqUeUaBI_WaODKCM",
+    "value": "1ceDVv4AKZ5OHiaRS.AWdKPw9you8UhBFYx0cnIQ4WERc0cOw-ogqK_exsgFoiYPM6RZA.Bp0pym..AAA.0.0.Bp0qRk.AWe1OOM4xTPiZ3i-bUohYnvyJrU",
+    "expires": "2026-07-04T18:05:24.000Z",
+    "maxAge": 7776000,
     "domain": "facebook.com",
     "path": "/",
-    "hostOnly": false,
-    "creation": "2026-04-03T13:05:58.572Z",
-    "lastAccessed": "2026-04-03T13:06:04.405Z",
     "secure": true,
     "httpOnly": true,
-    "expires": "2026-07-02T13:06:02.000Z"
+    "hostOnly": false,
+    "creation": "2026-04-05T18:05:24.049Z",
+    "lastAccessed": "2026-04-05T18:05:27.813Z",
+    "sameSite": "none"
   }
 ]

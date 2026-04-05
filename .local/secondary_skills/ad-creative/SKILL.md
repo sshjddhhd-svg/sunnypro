@@ -334,7 +334,7 @@ Design rules:
 await waitForBackgroundTasks();
 ```
 
-After all subagents finish, embed each page as an iframe on the canvas using `apply_canvas_actions`. Tell the user what was created and offer to focus the viewport.
+After all subagents finish, embed each page as an iframe on the canvas using `apply_canvas_actions`. Then call `presentArtifact({ artifactId, shapeIds: [...] })` with the IDs of the new iframe shapes. Do not ask the user if they want to focus — just present.
 
 #### File Setup
 
