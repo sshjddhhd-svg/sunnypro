@@ -11,7 +11,7 @@ healthcheckPath = "/health"
 healthcheckTimeout = 30
 
 [phases.install]
-cmds = ["npm install --production=false"]
+cmds = ["echo Skipping install"]
 
 [phases.build]
 cmds = ["echo Build complete"]
