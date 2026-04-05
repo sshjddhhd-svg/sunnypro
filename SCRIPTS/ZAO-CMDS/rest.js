@@ -21,5 +21,5 @@ module.exports.run = async function ({ api, event }) {
     return api.sendMessage("⛔ هذا الأمر خاص بأدمن البوت فقط.", threadID, messageID);
 
   await api.sendMessage("🔄 جاري إعادة تشغيل البوت...", threadID, messageID);
-  process.exit(1);
+  process.exit(0);
 };

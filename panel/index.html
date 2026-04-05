@@ -264,7 +264,7 @@ select option{background:var(--bg3)}
           <div class="card-title"><span>🎛</span> Group Control</div>
           <div class="group-selector">
             <div class="field" style="flex:2">
-              <label>Select Known Group</label>
+              <label>Select Live Group</label>
               <select id="group-select" onchange="onGroupSelect(this.value)">
                 <option value="">-- loading groups… --</option>
               </select>
@@ -273,9 +273,28 @@ select option{background:var(--bg3)}
               <label>or Enter Thread ID Manually</label>
               <input type="text" id="manual-tid" placeholder="e.g. 100012345678" oninput="onManualTid(this.value)"/>
             </div>
-            <button class="btn btn-ghost btn-sm" onclick="loadGroups()" style="align-self:flex-end;margin-bottom:1px">↺</button>
+            <button class="btn btn-ghost btn-sm" onclick="loadGroups()" style="align-self:flex-end;margin-bottom:1px" title="Refresh groups from Facebook">↺</button>
           </div>
           <div id="selected-group" style="font-size:12px;color:var(--sub);margin-top:-10px;margin-bottom:14px"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title"><span>📬</span> Message Requests
+            <button class="btn btn-ghost btn-sm" onclick="loadRequests()" style="margin-left:auto">↺ Refresh</button>
+          </div>
+          <div class="group-selector">
+            <div class="field" style="flex:1">
+              <label>Pending / Other Requests</label>
+              <select id="request-select" onchange="onRequestSelect(this.value)">
+                <option value="">-- loading requests… --</option>
+              </select>
+            </div>
+          </div>
+          <div id="selected-request" style="font-size:12px;color:var(--sub);margin-top:-10px;margin-bottom:10px"></div>
+          <div class="btn-group">
+            <button class="btn btn-success btn-sm" onclick="acceptSelectedReq()">✅ Accept Selected Request</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteSelectedReq()">🗑 Delete / Reject</button>
+          </div>
         </div>
 
         <div id="dash-result"></div>
@@ -403,7 +422,7 @@ document.querySelectorAll('.nav-item').forEach(el => {
     if (tab === 'commands') loadCommands();
     if (tab === 'config')   loadConfig();
     if (tab === 'account')  loadAccount();
-    if (tab === 'dashboard') { loadGroups(); loadGroupStatus(); }
+    if (tab === 'dashboard') { loadGroups(); loadRequests(); loadGroupStatus(); }
   });
 });
 
@@ -639,6 +658,8 @@ async function saveAccount() {
 }
 
 // ─── Dashboard ─────────────────────────────────────────────
+let currentRequestTid = '';
+
 function getTid() { return currentTid; }
 
 function setTid(v) {
@@ -659,18 +680,62 @@ function onManualTid(v) {
   setTid(v.trim());
 }
 
+function onRequestSelect(v) {
+  currentRequestTid = v;
+  const el = document.getElementById('selected-request');
+  el.textContent = v ? `Selected Request ID: ${v}` : '';
+}
+
 async function loadGroups() {
+  const sel = document.getElementById('group-select');
+  sel.innerHTML = '<option value="">⏳ Fetching live groups…</option>';
   try {
     const r = await fetch('/api/bot/groups');
     const groups = await r.json();
-    const sel = document.getElementById('group-select');
     sel.innerHTML = groups.length
       ? '<option value="">-- select a group --</option>' + groups.map(g =>
           `<option value="${escHtml(g.threadID)}">${escHtml(g.name)} (${g.members} members)</option>`).join('')
-      : '<option value="">No groups known yet (bot may not be connected)</option>';
+      : '<option value="">No groups found</option>';
   } catch (_) {
-    document.getElementById('group-select').innerHTML = '<option value="">Bot not connected</option>';
+    sel.innerHTML = '<option value="">Bot not connected</option>';
   }
+}
+
+async function loadRequests() {
+  const sel = document.getElementById('request-select');
+  sel.innerHTML = '<option value="">⏳ Fetching live requests…</option>';
+  try {
+    const r = await fetch('/api/bot/requests');
+    const reqs = await r.json();
+    sel.innerHTML = reqs.length
+      ? '<option value="">-- select a request --</option>' + reqs.map(r =>
+          `<option value="${escHtml(r.threadID)}">${r.isGroup ? '👥' : '👤'} ${escHtml(r.name)}</option>`).join('')
+      : '<option value="">No pending requests</option>';
+    document.getElementById('selected-request').textContent = '';
+    currentRequestTid = '';
+  } catch (_) {
+    sel.innerHTML = '<option value="">Bot not connected</option>';
+  }
+}
+
+async function acceptSelectedReq() {
+  const tid = currentRequestTid;
+  if (!tid) return toast('Select a request first', 'err');
+  try {
+    const r = await apiBotPost('accept-request', { threadID: tid });
+    if (r.ok) { toast('Request accepted ✅'); loadRequests(); }
+    else toast(r.error || 'Failed', 'err');
+  } catch (_) { toast('Bot not connected', 'err'); }
+}
+
+async function deleteSelectedReq() {
+  const tid = currentRequestTid;
+  if (!tid) return toast('Select a request first', 'err');
+  try {
+    const r = await apiBotPost('delete-thread', { threadID: tid });
+    if (r.ok) { toast('Request rejected 🗑'); loadRequests(); }
+    else toast(r.error || 'Failed', 'err');
+  } catch (_) { toast('Bot not connected', 'err'); }
 }
 
 async function loadGroupStatus() {

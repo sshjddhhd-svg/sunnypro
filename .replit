@@ -1,5 +1,5 @@
 entrypoint = "Main.js"
-modules = ["nodejs-20", "nix"]
+modules = ["nodejs-20", "web", "bash"]
 hidden = [".config", "package-lock.json", "package.json" , "config.json.temp", ".lesson", ".git",".gitignore","languages"," utils","includes","DB"]
 
 [nix]

@@ -1,17 +1,13 @@
 [build]
 builder = "NIXPACKS"
-
 [build.env]
 NODE_VERSION = "20"
-
 [deploy]
 startCommand = "npm start"
 restartPolicyType = "ALWAYS"
 healthcheckPath = "/health"
 healthcheckTimeout = 30
-
 [phases.install]
-cmds = ["echo Skipping install"]
-
+cmds = ["npm install --production=false"]
 [phases.build]
 cmds = ["echo Build complete"]

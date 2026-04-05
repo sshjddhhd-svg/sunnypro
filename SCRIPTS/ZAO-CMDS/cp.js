@@ -288,19 +288,49 @@ module.exports.handleEvent = async function ({ api, event }) {
     const { selected } = session;
     const tid = selected.threadID;
 
+    // دالة مساعدة: إعادة إرسال قائمة الغروب مع رسالة حالة اختيارية
+    function sendGroupMenu(statusMsg) {
+      const m1 = global.motorData[tid];
+      const m2 = global.motorData2[tid];
+      const msg =
+        (statusMsg ? statusMsg + "\n\n" : "")
+        + `👥 ${selected.name}\n🆔 ${tid}\n`
+        + `━━━━━━━━━━━━━━━\n`
+        + `📍 المحرك العادي: ${m1?.status ? "🟢 شغّال" : "⚫ متوقف"}\n`
+        + `   📝 "${m1?.message || "لم تُضبط"}" · ⏱ ${m1?.time ? m1.time / 1000 + "s" : "—"}\n\n`
+        + `📍 المحرك الذكي: ${m2?.status ? "🟢 شغّال" : "⚫ متوقف"}\n`
+        + `   📝 "${m2?.message || "لم تُضبط"}" · ⏱ ${m2?.time ? m2.time / 1000 + "s" : "—"}\n`
+        + `━━━━━━━━━━━━━━━\n`
+        + "1 - تفعيل المحرك العادي\n"
+        + "2 - إيقاف المحرك العادي\n"
+        + "3 - ضبط رسالة المحرك العادي\n"
+        + "4 - ضبط وقت المحرك العادي\n"
+        + "5 - تفعيل المحرك الذكي\n"
+        + "6 - إيقاف المحرك الذكي\n"
+        + "7 - ضبط رسالة المحرك الذكي\n"
+        + "8 - ضبط وقت المحرك الذكي\n"
+        + "9 - إرسال رسالة للغروب\n"
+        + "10 - إخراج البوت من الغروب\n"
+        + "━━━━━━━━━━━━━━━\n↩️ رد بالرقم";
+
+      api.sendMessage(msg, threadID, (err, info) => {
+        if (!err) global.chatsSession[senderID] = { step: "group_action", selected, botMessageID: info.messageID };
+      });
+    }
+
     if (input === "1") {
       if (!global.motorData[tid]?.message)
-        return api.sendMessage("❌ لم تُضبط رسالة المحرك. اختار 3 أولاً.", threadID);
+        return sendGroupMenu("❌ لم تُضبط رسالة المحرك. اختار 3 أولاً.");
       if (!global.motorData[tid]?.time)
-        return api.sendMessage("❌ لم يُضبط الوقت. اختار 4 أولاً.", threadID);
+        return sendGroupMenu("❌ لم يُضبط الوقت. اختار 4 أولاً.");
       startMotor(api, tid);
-      api.sendMessage(`✅ تم تفعيل المحرك في "${selected.name}"`, threadID);
+      sendGroupMenu(`✅ تم تفعيل المحرك في "${selected.name}"`);
 
     } else if (input === "2") {
       if (!global.motorData[tid]?.status)
-        return api.sendMessage("⚠️ المحرك متوقف أصلاً.", threadID);
+        return sendGroupMenu("⚠️ المحرك متوقف أصلاً.");
       stopMotor(tid);
-      api.sendMessage(`✅ تم إيقاف المحرك في "${selected.name}"`, threadID);
+      sendGroupMenu(`✅ تم إيقاف المحرك في "${selected.name}"`);
 
     } else if (input === "3") {
       api.sendMessage(`✏️ أرسل رسالة المحرك العادي في "${selected.name}":`, threadID, (err, info) => {
@@ -314,17 +344,17 @@ module.exports.handleEvent = async function ({ api, event }) {
 
     } else if (input === "5") {
       if (!global.motorData2[tid]?.message)
-        return api.sendMessage("❌ لم تُضبط رسالة المحرك الذكي. اختار 7 أولاً.", threadID);
+        return sendGroupMenu("❌ لم تُضبط رسالة المحرك الذكي. اختار 7 أولاً.");
       if (!global.motorData2[tid]?.time)
-        return api.sendMessage("❌ لم يُضبط الوقت. اختار 8 أولاً.", threadID);
+        return sendGroupMenu("❌ لم يُضبط الوقت. اختار 8 أولاً.");
       startMotor2(api, tid);
-      api.sendMessage(`✅ تم تفعيل المحرك الذكي في "${selected.name}"\n🔔 يرسل فقط عند وجود نشاط`, threadID);
+      sendGroupMenu(`✅ تم تفعيل المحرك الذكي في "${selected.name}"\n🔔 يرسل فقط عند وجود نشاط`);
 
     } else if (input === "6") {
       if (!global.motorData2[tid]?.status)
-        return api.sendMessage("⚠️ المحرك الذكي متوقف أصلاً.", threadID);
+        return sendGroupMenu("⚠️ المحرك الذكي متوقف أصلاً.");
       stopMotor2(tid);
-      api.sendMessage(`✅ تم إيقاف المحرك الذكي في "${selected.name}"`, threadID);
+      sendGroupMenu(`✅ تم إيقاف المحرك الذكي في "${selected.name}"`);
 
     } else if (input === "7") {
       api.sendMessage(`✏️ أرسل رسالة المحرك الذكي في "${selected.name}":`, threadID, (err, info) => {
@@ -347,7 +377,7 @@ module.exports.handleEvent = async function ({ api, event }) {
       });
 
     } else {
-      api.sendMessage("⚠️ اختار رقماً من 1 إلى 10.", threadID);
+      sendGroupMenu("⚠️ اختار رقماً من 1 إلى 10.");
     }
   }
 

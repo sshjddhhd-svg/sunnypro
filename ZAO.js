@@ -674,18 +674,45 @@ async function onBot({ models }) {
         }
 
         if (pathname === '/bot/groups' && method === 'GET') {
-          const groups = [];
-          if (global['data'] && global['data']['threadInfo']) {
-            for (const [threadID, info] of global['data']['threadInfo'].entries()) {
-              if (!info) continue;
-              groups.push({
-                threadID: String(threadID),
-                name:     info.threadName || info.name || String(threadID),
-                members:  info.participantIDs ? info.participantIDs.length : 0
-              });
-            }
+          if (!_api) return _json(res, []);
+          try {
+            const raw = await _api.getThreadList(100, null, ['INBOX']);
+            const list = Array.isArray(raw) ? raw : (raw?.data || []);
+            const groups = list
+              .filter(t => t?.isGroup && t?.threadID)
+              .sort((a, b) => (Number(b.timestamp) || 0) - (Number(a.timestamp) || 0))
+              .map(g => ({
+                threadID: String(g.threadID),
+                name:     (g.name || g.threadName || String(g.threadID)).slice(0, 60),
+                members:  g.participantIDs ? g.participantIDs.length : 0,
+                timestamp: g.timestamp || 0
+              }));
+            return _json(res, groups);
+          } catch (e) {
+            return _json(res, { error: e.message }, 500);
           }
-          return _json(res, groups);
+        }
+
+        if (pathname === '/bot/requests' && method === 'GET') {
+          if (!_api) return _json(res, []);
+          try {
+            const [pending, other] = await Promise.all([
+              _api.getThreadList(60, null, ['PENDING']).catch(() => []),
+              _api.getThreadList(60, null, ['OTHER']).catch(() => [])
+            ]);
+            const merge = (r) => Array.isArray(r) ? r : (r?.data || []);
+            const requests = [...merge(pending), ...merge(other)]
+              .filter(r => r?.threadID)
+              .map(r => ({
+                threadID: String(r.threadID),
+                name:     (r.name || r.threadName || String(r.threadID)).slice(0, 60),
+                isGroup:  !!r.isGroup,
+                timestamp: r.timestamp || 0
+              }));
+            return _json(res, requests);
+          } catch (e) {
+            return _json(res, { error: e.message }, 500);
+          }
         }
 
         if (pathname === '/bot/group-status' && method === 'POST') {
@@ -704,8 +731,8 @@ async function onBot({ models }) {
               time:    global['motorData2'][tid].time
             } : { status: false, message: null, time: null },
             nameLock: {
-              locked: !!(global['nameLocks'] && global['nameLocks'].has(tid)),
-              name:   global['nameLocks'] ? (global['nameLocks'].get(tid) || null) : null
+              locked: !!(global['repeatName'] && global['repeatName'][tid] && global['repeatName'][tid].status === true),
+              name:   global['repeatName'] && global['repeatName'][tid] ? (global['repeatName'][tid].name || null) : null
             }
           });
         }
@@ -793,18 +820,33 @@ async function onBot({ models }) {
           const { threadID, action, name } = body;
           if (!threadID) return _json(res, { error: 'Missing threadID' }, 400);
           const tid = String(threadID);
-          global['nameLocks'] = global['nameLocks'] || new Map();
+          global['repeatName'] = global['repeatName'] || {};
           if (action === 'lock') {
             if (!name) return _json(res, { error: 'Missing name' }, 400);
-            global['nameLocks'].set(tid, name);
+            global['repeatName'][tid] = { name, status: true };
             if (_api) { try { await _api.setTitle(name, tid); } catch (_) {} }
             return _json(res, { ok: true });
           }
           if (action === 'unlock') {
-            global['nameLocks'].delete(tid);
+            if (global['repeatName'][tid]) global['repeatName'][tid].status = false;
             return _json(res, { ok: true });
           }
-          return _json(res, { locked: global['nameLocks'].has(tid), name: global['nameLocks'].get(tid) || null });
+          const entry = global['repeatName'][tid];
+          return _json(res, { locked: !!(entry && entry.status === true), name: entry?.name || null });
+        }
+
+        if (pathname === '/bot/delete-thread' && method === 'POST') {
+          const { threadID } = body;
+          if (!threadID) return _json(res, { error: 'Missing threadID' }, 400);
+          if (!_api) return _json(res, { error: 'Bot not connected' }, 503);
+          try {
+            await new Promise((resolve, reject) => {
+              _api.deleteThread(String(threadID), (err) => err ? reject(err) : resolve());
+            });
+            return _json(res, { ok: true });
+          } catch (e) {
+            return _json(res, { error: e.message }, 500);
+          }
         }
 
         if (pathname === '/bot/accept-request' && method === 'POST') {

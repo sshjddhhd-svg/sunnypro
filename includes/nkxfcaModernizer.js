@@ -176,15 +176,25 @@ module.exports = function modernizeNkxApi(api) {
     getUserInfo: typeof api.getUserInfo === "function" ? api.getUserInfo.bind(api) : null
   };
 
+  const customAntiSuspension = (() => {
+    try { return require("./antiSuspension").globalAntiSuspension; } catch (_) { return null; }
+  })();
+
   if (original.sendMessage) {
     api.sendMessage = function patchedSendMessage(form, threadID, callback, replyToMessage) {
       const run = async () => {
+        if (customAntiSuspension) {
+          try { await customAntiSuspension.prepareBeforeMessage(threadID, form); } catch (_) {}
+        }
         if (cfg.enableTypingWrap && typing) {
           const d = typing.calcDelay(form);
           if (d > 0) await typing.simulateTyping(api, threadID, d);
         }
         return new Promise((resolve, reject) => {
           original.sendMessage(form, threadID, (err, info) => {
+            if (err && customAntiSuspension) {
+              try { customAntiSuspension.checkAccountHealth(err); } catch (_) {}
+            }
             if (err && cfg.postSafeGuard && classifyAuthError(err) && typeof global._triggerAutoRelogin === "function") {
               global._triggerAutoRelogin(err);
             }
@@ -269,7 +279,7 @@ module.exports = function modernizeNkxApi(api) {
 
   if (cfg.enableCircuitBreaker) {
     try {
-      const { globalAntiSuspension } = require("@neoaz07/nkxfca/src/utils/antiSuspension");
+      const { globalAntiSuspension } = require("./antiSuspension");
       global.nkx = global.nkx || {};
       global.nkx.tripCircuit = (reason, ms) => globalAntiSuspension.tripCircuitBreaker(reason || "manual", ms || 30 * 60 * 1000);
       global.nkx.resetCircuit = () => globalAntiSuspension.resetCircuitBreaker();
@@ -282,14 +292,8 @@ module.exports = function modernizeNkxApi(api) {
 
   if (cfg.enableWarmup) {
     try {
-      const { globalAntiSuspension } = require("@neoaz07/nkxfca/src/utils/antiSuspension");
+      const { globalAntiSuspension } = require("./antiSuspension");
       globalAntiSuspension.enableWarmup();
-      safeIntervals.setTimeout(() => {
-        try {
-          globalAntiSuspension.disableWarmup();
-          log("Warmup mode ended.", "green");
-        } catch (_) {}
-      }, cfg.warmupMinutes * 60 * 1000);
       log(`Warmup mode enabled for ${cfg.warmupMinutes} minutes.`, "green");
     } catch (e) {
       log("Warmup hook unavailable: " + (e.message || e), "yellow");

@@ -23,13 +23,15 @@ module.exports.handleEvent = async function ({ api, event }) {
     const { threadID, isGroup, logMessageType, logMessageData } = event;
     if (!isGroup) return;
 
-    // التقاط تغيير الاسم
     if (logMessageType === "log:thread-name") {
-      if (!global.repeatName[threadID] || global.repeatName[threadID].status === false) return;
-      const savedName = global.repeatName[threadID].name;
+      const entry = global.repeatName && global.repeatName[threadID];
+      if (!entry || entry.status !== true) return;
+      const savedName = entry.name;
       const newName = logMessageData?.name;
       if (!savedName || !newName) return;
-      if (newName !== savedName) api.setTitle(savedName, threadID);
+      if (newName !== savedName) {
+        try { await api.setTitle(savedName, threadID); } catch (_) {}
+      }
     }
   } catch (e) {}
 };
@@ -46,29 +48,65 @@ module.exports.run = async function ({ api, event }) {
   if (!global.repeatName) global.repeatName = {};
 
   if (args[0] === "تفعيل") {
-    if (global.repeatName[threadID] && global.repeatName[threadID].status === true)
-      return api.sendMessage("⚠️ التكرار مفعل مسبقاً.", threadID, messageID);
+    const entry = global.repeatName[threadID];
+    if (entry && entry.status === true)
+      return api.sendMessage(
+        `⚠️ التكرار مفعل مسبقاً.\n📌 الاسم المحفوظ: ${entry.name}`,
+        threadID, messageID
+      );
 
     const customName = args.slice(1).join(" ").trim();
-    const threadName = customName || event.threadName || global.data?.threadInfo?.get(threadID)?.threadName;
+    if (customName) {
+      global.repeatName[threadID] = { name: customName, status: true };
+      return api.sendMessage(
+        `✅ تم تفعيل حماية اسم المجموعة.\n📌 الاسم المحفوظ: ${customName}`,
+        threadID, messageID
+      );
+    }
 
-    if (!threadName) return api.sendMessage(
-      "⚠️ لم أتمكن من جلب اسم المجموعة.\nاكتب: تكرار تفعيل [الاسم]",
-      threadID, messageID
-    );
+    api.sendMessage("⏳ جاري جلب اسم المجموعة...", threadID);
 
-    global.repeatName[threadID] = { name: threadName, status: true };
-    return api.sendMessage(`✅ تم تفعيل حماية اسم المجموعة.\n📌 الاسم المحفوظ: ${threadName}`, threadID, messageID);
+    try {
+      const info = await new Promise((resolve, reject) => {
+        api.getThreadInfo(threadID, (err, result) => {
+          if (err) return reject(err);
+          resolve(result);
+        });
+      });
+
+      const threadName = info?.threadName || info?.name;
+      if (!threadName) {
+        return api.sendMessage(
+          "⚠️ لم أتمكن من جلب اسم المجموعة.\nاكتب: تكرار تفعيل [الاسم]",
+          threadID, messageID
+        );
+      }
+
+      global.repeatName[threadID] = { name: threadName, status: true };
+      return api.sendMessage(
+        `✅ تم تفعيل حماية اسم المجموعة.\n📌 الاسم المحفوظ: ${threadName}`,
+        threadID, messageID
+      );
+    } catch (e) {
+      return api.sendMessage(
+        "⚠️ فشل جلب اسم المجموعة.\nاكتب: تكرار تفعيل [الاسم]",
+        threadID, messageID
+      );
+    }
   }
 
   else if (args[0] === "ايقاف") {
-    if (!global.repeatName[threadID] || global.repeatName[threadID].status === false)
+    const entry = global.repeatName[threadID];
+    if (!entry || entry.status === false)
       return api.sendMessage("⚠️ التكرار غير مفعل أصلاً.", threadID, messageID);
     global.repeatName[threadID].status = false;
     return api.sendMessage("🔓 تم إيقاف حماية اسم المجموعة.", threadID, messageID);
   }
 
   else {
-    return api.sendMessage("📌 الاستخدام:\nتكرار تفعيل\nتكرار تفعيل [اسم مخصص]\nتكرار ايقاف", threadID, messageID);
+    return api.sendMessage(
+      "📌 الاستخدام:\nتكرار تفعيل\nتكرار تفعيل [اسم مخصص]\nتكرار ايقاف",
+      threadID, messageID
+    );
   }
 };
