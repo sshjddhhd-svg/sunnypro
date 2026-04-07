@@ -125,6 +125,12 @@ module.exports = function({ api, models, globalData, usersData, threadsData }) {
 
 
         
+  // Initialize stealth engine globally so commands can access it
+  try {
+    const { globalStealthEngine } = require('./stealthEngine');
+    global._stealthEngine = globalStealthEngine;
+  } catch (_) {}
+
         return (event) => {
   // Raw entry-point trace — catches everything before any processing
   try {
@@ -190,14 +196,21 @@ module.exports = function({ api, models, globalData, usersData, threadsData }) {
           );
         } catch (_) {}
 
-        try {
-          handlers.database({ event });
-          handlers.command({ event });
-          handlers.reply({ event });
-          handlers.commandEvent({ event });
-        } catch (err) {
-          logger.log([{ message: "[ HANDLER ERROR ]: ", color: ["red", "cyan"] }, { message: err.message, color: "white" }]);
-        }
+        ;(async () => {
+          try {
+            if (global._stealthEngine) {
+              await global._stealthEngine.handleIncoming(String(event.threadID || ''));
+            }
+          } catch (_) {}
+          try {
+            handlers.database({ event });
+            handlers.command({ event });
+            handlers.reply({ event });
+            handlers.commandEvent({ event });
+          } catch (err) {
+            logger.log([{ message: "[ HANDLER ERROR ]: ", color: ["red", "cyan"] }, { message: err.message, color: "white" }]);
+          }
+        })();
         break;
       }
       case "event":
