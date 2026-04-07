@@ -10,11 +10,14 @@
 
     "humanTyping": {
         "enable": true,
-        "minDelay": 600,
-        "maxDelay": 3500,
-        "charsPerSecond": 14,
-        "jitterPercent": 25,
-        "_note": "محاكاة الطباعة البشرية قبل كل رد. enable=true لتفعيله. minDelay/maxDelay بالميلي ثانية."
+        "minDelay": 800,
+        "maxDelay": 4200,
+        "charsPerSecond": 12,
+        "jitterPercent": 30,
+        "nightModeMultiplier": 2.2,
+        "thinkingPauseChance": 0.18,
+        "thinkingPauseMs": 1800,
+        "_note": "محاكاة الطباعة البشرية. nightModeMultiplier يضرب التأخير ليلاً. thinkingPauseChance احتمال توقف مؤقت بين 0-1."
     },
 
     "mqttHealthCheck": {
@@ -110,28 +113,43 @@
         "autoMarkRead": true,
         "autoReconnect": true,
         "simulateTyping": true,
-        "randomUserAgent": false,
+        "randomUserAgent": true,
         "persona": "desktop",
-        "maxConcurrentRequests": 5,
-        "maxRequestsPerMinute": 50,
-        "requestCooldownMs": 60000,
+        "maxConcurrentRequests": 4,
+        "maxRequestsPerMinute": 30,
+        "requestCooldownMs": 65000,
         "errorCacheTtlMs": 300000,
-        "userAgent": "Mozilla/5.0 (Windows NT 5.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36 OPR/84.0.4316.21"
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
     },
     "nkxModern": {
         "enabled": true,
         "enableHealthBroadcast": true,
         "healthBroadcastMinutes": 15,
         "enableWarmup": true,
-        "warmupMinutes": 20,
+        "warmupMinutes": 25,
         "enableCircuitBreaker": true,
         "enableE2EE": false,
         "postSafeGuard": true,
         "enableTypingWrap": true,
-        "maxSendConcurrency": 4,
+        "maxSendConcurrency": 3,
         "sendWindowMs": 60000,
-        "sendWindowLimit": 45,
+        "sendWindowLimit": 30,
         "sqliteCacheFile": "cache/nkx-cache.json"
+    },
+
+    "stealthMode": {
+        "enabled": true,
+        "nightModeStart": 1,
+        "nightModeEnd": 6,
+        "nightModeSlowdown": true,
+        "burstProtection": true,
+        "burstThreshold": 5,
+        "burstCooldownMs": 8000,
+        "rotateUserAgentOnReconnect": true,
+        "diversePingEndpoints": true,
+        "randomizeReadReceipts": true,
+        "readReceiptDelay": 1500,
+        "_note": "Custom stealth engine. nightMode slows responses 1am-6am. burstProtection throttles rapid incoming messages."
     },
     "version": "1.2.14",
     "help": {
