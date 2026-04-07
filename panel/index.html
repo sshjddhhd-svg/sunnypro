@@ -357,10 +357,11 @@ select option{background:var(--bg3)}
           <div class="control-card">
             <div class="control-title">📨 Accept Message Request</div>
             <p style="font-size:12px;color:var(--sub);margin-bottom:14px;line-height:1.6">
-              Accept a pending group chat or message request for the selected thread ID.
+              Use the <strong>Message Requests</strong> card above — select a request from the dropdown, then click Accept or Reject.
             </p>
             <div class="btn-group">
-              <button class="btn btn-success btn-sm" onclick="acceptReq()">✅ Accept Request</button>
+              <button class="btn btn-success btn-sm" onclick="acceptSelectedReq()">✅ Accept Selected Request</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteSelectedReq()">🗑 Reject Selected</button>
             </div>
           </div>
 
@@ -788,21 +789,30 @@ async function botPost(endpoint, body) {
   return r.json();
 }
 
+async function apiBotPost(endpoint, body) {
+  const r = await fetch('/api/bot/' + endpoint, {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(body || {})
+  });
+  return r.json();
+}
+
 async function motorSet() {
   const msg  = document.getElementById('motor-msg').value.trim();
   const time = parseInt(document.getElementById('motor-time').value);
-  if (!msg)       { toast('Enter a message first', 'warn'); return; }
-  if (!time || time < 5000) { toast('Minimum interval is 5000ms', 'warn'); return; }
-  try {
-    await botPost('motor', { action: 'set-message', message: msg });
-    await botPost('motor', { action: 'set-time', time });
-    dashMsg('✓ Motor message and time saved', 'ok');
-  } catch (_) { dashMsg('Bot not connected', 'err'); }
+  if (!msg)             { toast('Enter a message first', 'warn'); return false; }
+  if (!time || time < 5000) { toast('Minimum interval is 5000ms (e.g. 30000)', 'warn'); return false; }
+  await botPost('motor', { action: 'set-message', message: msg });
+  await botPost('motor', { action: 'set-time', time });
+  return true;
 }
 
 async function motorAct(action) {
   try {
-    if (action === 'activate') await motorSet();
+    if (action === 'activate') {
+      const ok = await motorSet();
+      if (ok === false) return;
+    }
     const d = await botPost('motor', { action });
     if (d.ok) {
       dashMsg(`✓ Motor ${action === 'activate' ? 'activated' : 'stopped'}`, 'ok');
@@ -814,18 +824,19 @@ async function motorAct(action) {
 async function motor2Set() {
   const msg  = document.getElementById('motor2-msg').value.trim();
   const time = parseInt(document.getElementById('motor2-time').value);
-  if (!msg)       { toast('Enter a message first', 'warn'); return; }
-  if (!time || time < 5000) { toast('Minimum interval is 5000ms', 'warn'); return; }
-  try {
-    await botPost('motor2', { action: 'set-message', message: msg });
-    await botPost('motor2', { action: 'set-time', time });
-    dashMsg('✓ Motor2 message and time saved', 'ok');
-  } catch (_) { dashMsg('Bot not connected', 'err'); }
+  if (!msg)             { toast('Enter a message first', 'warn'); return false; }
+  if (!time || time < 5000) { toast('Minimum interval is 5000ms (e.g. 30000)', 'warn'); return false; }
+  await botPost('motor2', { action: 'set-message', message: msg });
+  await botPost('motor2', { action: 'set-time', time });
+  return true;
 }
 
 async function motor2Act(action) {
   try {
-    if (action === 'activate') await motor2Set();
+    if (action === 'activate') {
+      const ok = await motor2Set();
+      if (ok === false) return;
+    }
     const d = await botPost('motor2', { action });
     if (d.ok) {
       dashMsg(`✓ Motor2 ${action === 'activate' ? 'activated' : 'stopped'}`, 'ok');
