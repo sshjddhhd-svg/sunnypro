@@ -26,6 +26,15 @@ function saveLocks(locksMap) {
   } catch (_) {}
 }
 
+function setTitle(api, name, threadID) {
+  return new Promise((resolve, reject) => {
+    api.setTitle(name, threadID, (err) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
+}
+
 module.exports.config = {
   name: "nm",
   version: "2.0.0",
@@ -37,11 +46,14 @@ module.exports.config = {
   cooldowns: 3
 };
 
+module.exports.languages = {
+  "vi": {},
+  "en": {}
+};
+
 module.exports.onLoad = function ({ api }) {
-  // Load persisted locks on startup
   global.nameLocks = loadLocks();
 
-  // Clear any stale interval to avoid duplicates on hot-reload
   if (global._nmInterval) {
     clearInterval(global._nmInterval);
     global._nmInterval = null;
@@ -53,42 +65,31 @@ module.exports.onLoad = function ({ api }) {
 
     for (const [threadID, lockedName] of global.nameLocks.entries()) {
       try {
-        // Always re-assert the locked name directly.
-        // We intentionally skip getThreadInfo here because the API layer
-        // caches thread info and would return stale data, making the
-        // interval think the name hasn't changed even when it has.
-        await botApi.setTitle(lockedName, threadID);
-      } catch (e) {
-        // setTitle may fail if bot lacks admin rights or group is gone — skip silently
-      }
+        await setTitle(botApi, lockedName, threadID);
+      } catch (_) {}
     }
   }, 6000);
 };
 
 module.exports.run = async function ({ api, event, args }) {
   const { threadID, messageID } = event;
-
   const action = args[0];
 
-  if (!action) {
-    return api.sendMessage(
-      "📌 أوامر nm:\n" +
-      "• nm تفعيل [الاسم] — قفل اسم المجموعة\n" +
-      "• nm ايقاف — إيقاف القفل\n" +
-      "• nm قائمة — عرض المجموعات المقفولة\n" +
-      "• nm تنظيف — حذف جميع الأقفال",
-      threadID, messageID
-    );
-  }
+  const helpMsg =
+    "📌 أوامر nm:\n" +
+    "• nm تفعيل [الاسم] — قفل اسم المجموعة\n" +
+    "• nm ايقاف — إيقاف القفل\n" +
+    "• nm قائمة — عرض المجموعات المقفولة\n" +
+    "• nm تنظيف — حذف جميع الأقفال";
+
+  if (!action) return api.sendMessage(helpMsg, threadID, messageID);
 
   if (action === "تفعيل") {
     const name = args.slice(1).join(" ").trim();
-    if (!name) {
-      return api.sendMessage("⚠️ أدخل الاسم المطلوب.\nمثال: nm تفعيل اسم المجموعة", threadID, messageID);
-    }
+    if (!name) return api.sendMessage("⚠️ أدخل الاسم.\nمثال: nm تفعيل اسم المجموعة", threadID, messageID);
 
     try {
-      await api.setTitle(name, threadID);
+      await setTitle(api, name, threadID);
     } catch (e) {
       return api.sendMessage(`❌ فشل تغيير الاسم: ${e.message || e}`, threadID, messageID);
     }
@@ -99,18 +100,16 @@ module.exports.run = async function ({ api, event, args }) {
   }
 
   if (action === "ايقاف") {
-    if (!global.nameLocks.has(threadID)) {
+    if (!global.nameLocks.has(threadID))
       return api.sendMessage("⚠️ لا يوجد قفل مفعل في هذه المجموعة.", threadID, messageID);
-    }
     global.nameLocks.delete(threadID);
     saveLocks(global.nameLocks);
     return api.sendMessage("🔓 تم إيقاف قفل اسم المجموعة.", threadID, messageID);
   }
 
   if (action === "قائمة") {
-    if (global.nameLocks.size === 0) {
+    if (global.nameLocks.size === 0)
       return api.sendMessage("📋 لا توجد مجموعات مقفولة حالياً.", threadID, messageID);
-    }
     let list = "🔒 المجموعات المقفولة:\n";
     let i = 1;
     for (const [tid, name] of global.nameLocks.entries()) {
@@ -122,20 +121,11 @@ module.exports.run = async function ({ api, event, args }) {
 
   if (action === "تنظيف") {
     const count = global.nameLocks.size;
-    if (count === 0) {
-      return api.sendMessage("🗑️ لا توجد بيانات لحذفها.", threadID, messageID);
-    }
+    if (count === 0) return api.sendMessage("🗑️ لا توجد بيانات لحذفها.", threadID, messageID);
     global.nameLocks.clear();
     saveLocks(global.nameLocks);
     return api.sendMessage(`🧹 تم حذف جميع الأقفال.\nعدد المجموعات المحذوفة: ${count}`, threadID, messageID);
   }
 
-  return api.sendMessage(
-    "📌 أوامر nm:\n" +
-    "• nm تفعيل [الاسم] — قفل اسم المجموعة\n" +
-    "• nm ايقاف — إيقاف القفل\n" +
-    "• nm قائمة — عرض المجموعات المقفولة\n" +
-    "• nm تنظيف — حذف جميع الأقفال",
-    threadID, messageID
-  );
+  return api.sendMessage(helpMsg, threadID, messageID);
 };
