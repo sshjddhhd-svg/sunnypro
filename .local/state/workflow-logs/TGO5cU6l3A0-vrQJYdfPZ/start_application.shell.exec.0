@@ -1,0 +1,92 @@
+[2026-04-15 12:59:52] [ZAO] ══════════════════════════════════════
+[2026-04-15 12:59:52] [ZAO]    ZAO Bot — Unified Launcher          
+[2026-04-15 12:59:52] [ZAO]    by SAIM — Single-bot mode           
+[2026-04-15 12:59:52] [ZAO] ══════════════════════════════════════
+[2026-04-15 12:59:52] [WATCHDOG] تم تشغيل ZAO.js — PID 666 — إعادة تشغيل رقم 0
+[2026-04-15 12:59:52] [SERVER] Panel server listening on 0.0.0.0:5000
+node:internal/modules/cjs/loader:1210
+  throw err;
+  ^
+
+Error: Cannot find module 'chalk'
+Require stack:
+- /home/runner/workspace/ZAO.js
+[90m    at Module._resolveFilename (node:internal/modules/cjs/loader:1207:15)[39m
+[90m    at Module._load (node:internal/modules/cjs/loader:1038:27)[39m
+[90m    at Module.require (node:internal/modules/cjs/loader:1289:19)[39m
+[90m    at require (node:internal/modules/helpers:182:18)[39m
+    at Object.<anonymous> [90m(/home/runner/workspace/[39mZAO.js:5:15[90m)[39m
+[90m    at Module._compile (node:internal/modules/cjs/loader:1521:14)[39m
+[90m    at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)[39m
+[90m    at Module.load (node:internal/modules/cjs/loader:1266:32)[39m
+[90m    at Module._load (node:internal/modules/cjs/loader:1091:12)[39m
+[90m    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)[39m {
+  code: [32m'MODULE_NOT_FOUND'[39m,
+  requireStack: [ [32m'/home/runner/workspace/ZAO.js'[39m ]
+}
+
+Node.js v20.20.0
+[2026-04-15 12:59:52] [WATCHDOG] انتهى بكود 1 — محاولة 1/100
+[2026-04-15 12:59:52] [WATCHDOG] إعادة التشغيل بعد 3 ثانية...
+[2026-04-15 12:59:55] [WATCHDOG] تم تشغيل ZAO.js — PID 675 — إعادة تشغيل رقم 1
+node:internal/modules/cjs/loader:1210
+  throw err;
+  ^
+
+Error: Cannot find module 'fs-extra'
+Require stack:
+- /home/runner/workspace/ZAO.js
+[90m    at Module._resolveFilename (node:internal/modules/cjs/loader:1207:15)[39m
+[90m    at Module._load (node:internal/modules/cjs/loader:1038:27)[39m
+[90m    at Module.require (node:internal/modules/cjs/loader:1289:19)[39m
+[90m    at require (node:internal/modules/helpers:182:18)[39m
+    at Object.<anonymous> [90m(/home/runner/workspace/[39mZAO.js:6:54[90m)[39m
+[90m    at Module._compile (node:internal/modules/cjs/loader:1521:14)[39m
+[90m    at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)[39m
+[90m    at Module.load (node:internal/modules/cjs/loader:1266:32)[39m
+[90m    at Module._load (node:internal/modules/cjs/loader:1091:12)[39m
+[90m    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)[39m {
+  code: [32m'MODULE_NOT_FOUND'[39m,
+  requireStack: [ [32m'/home/runner/workspace/ZAO.js'[39m ]
+}
+
+Node.js v20.20.0
+[2026-04-15 12:59:55] [WATCHDOG] انتهى بكود 1 — محاولة 2/100
+[2026-04-15 12:59:55] [WATCHDOG] إعادة التشغيل بعد 6 ثانية...
+[2026-04-15 13:00:01] [WATCHDOG] تم تشغيل ZAO.js — PID 682 — إعادة تشغيل رقم 2
+[1m[38;2;19;144;240m──ZAOFAN-SETTINGS─●[39m[22m
+[38;2;255;0;0m[[39m [38;2;213;43;43mS[39m[38;2;170;85;85mA[39m[38;2;128;128;128mI[39m[38;2;85;170;170mN[39m [38;2;43;213;213m][39m[38;2;0;255;255m:[39m [38;2;255;255;255mZAO Is working[39m 
+[38;2;255;0;0m[[39m [38;2;213;43;43mS[39m[38;2;170;85;85mA[39m[38;2;128;128;128mI[39m[38;2;85;170;170mN[39m [38;2;43;213;213m][39m[38;2;0;255;255m:[39m [38;2;255;255;255mThis Bot Is SAIN - ♤[39m 
+node:internal/modules/cjs/loader:1210
+  throw err;
+  ^
+
+Error: Cannot find module 'moment'
+Require stack:
+- /home/runner/workspace/node_modules/moment-timezone/moment-timezone.js
+- /home/runner/workspace/node_modules/moment-timezone/index.js
+- /home/runner/workspace/includes/Ema/lts.js
+- /home/runner/workspace/ZAO.js
+[90m    at Module._resolveFilename (node:internal/modules/cjs/loader:1207:15)[39m
+[90m    at Module._load (node:internal/modules/cjs/loader:1038:27)[39m
+[90m    at Module.require (node:internal/modules/cjs/loader:1289:19)[39m
+[90m    at require (node:internal/modules/helpers:182:18)[39m
+    at [90m/home/runner/workspace/[39mnode_modules/[4mmoment-timezone[24m/moment-timezone.js:12:28
+    at Object.<anonymous> [90m(/home/runner/workspace/[39mnode_modules/[4mmoment-timezone[24m/moment-timezone.js:18:2[90m)[39m
+[90m    at Module._compile (node:internal/modules/cjs/loader:1521:14)[39m
+[90m    at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)[39m
+[90m    at Module.load (node:internal/modules/cjs/loader:1266:32)[39m
+[90m    at Module._load (node:internal/modules/cjs/loader:1091:12)[39m {
+  code: [32m'MODULE_NOT_FOUND'[39m,
+  requireStack: [
+    [32m'/home/runner/workspace/node_modules/moment-timezone/moment-timezone.js'[39m,
+    [32m'/home/runner/workspace/node_modules/moment-timezone/index.js'[39m,
+    [32m'/home/runner/workspace/includes/Ema/lts.js'[39m,
+    [32m'/home/runner/workspace/ZAO.js'[39m
+  ]
+}
+
+Node.js v20.20.0
+[2026-04-15 13:00:02] [WATCHDOG] انتهى بكود 1 — محاولة 3/100
+[2026-04-15 13:00:02] [WATCHDOG] إعادة التشغيل بعد 12 ثانية...
+[2026-04-15 13:00:07] [LAUNCHER] استُقبل SIGTERM — إيقاف تشغيل ZAO...

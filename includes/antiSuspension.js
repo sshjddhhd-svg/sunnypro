@@ -6,6 +6,7 @@
  * Designed to be fast (single-delay model) yet stealth.
  *
  * Credits: NeoKEX — https://github.com/NeoKEX
+ * @debugger Djamel — Fixed _getUtils() missing module bug, patched user-agents require
  */
 
 const SUSPENSION_SIGNALS = [
@@ -242,11 +243,37 @@ class AntiSuspension {
     }
 
     _getUtils() {
-        try {
-            return { utils: require('./index') };
-        } catch (_) {
-            return {};
-        }
+        // [FIX Djamel] — original tried require('./index') which doesn't exist.
+        // Use global logger instead for warn/info calls.
+        const logger = global.loggeryuki;
+        return {
+            utils: {
+                warn: (tag, msg) => {
+                    try {
+                        if (logger) {
+                            logger.log([
+                                { message: `[ ${tag} ]: `, color: ["red", "cyan"] },
+                                { message: msg, color: "yellow" }
+                            ]);
+                        } else {
+                            console.warn(`[${tag}]`, msg);
+                        }
+                    } catch (_) {}
+                },
+                info: (tag, msg) => {
+                    try {
+                        if (logger) {
+                            logger.log([
+                                { message: `[ ${tag} ]: `, color: ["red", "cyan"] },
+                                { message: msg, color: "white" }
+                            ]);
+                        } else {
+                            console.log(`[${tag}]`, msg);
+                        }
+                    } catch (_) {}
+                }
+            }
+        };
     }
 
     isCircuitBreakerTripped() {
@@ -515,9 +542,182 @@ class AntiSuspension {
                 hourlyVolumeLimiting: true,
                 sessionFingerprintLock: true,
                 warmupMode: true,
-                volumeWarnings: true
+                volumeWarnings: true,
+                // [ADDED Djamel] — Advanced evasion
+                timeBasedDelay: true,
+                sessionBreakSimulation: true,
+                antiPatternJitter: true,
+                readDelaySimulation: true,
+                humanComposeSimulation: true,
+                velocityBasedCooldown: true,
+                fullEvasionSequence: true
             }
         };
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // [ADDED Djamel] — Advanced evasion maneuvers block
+    // ═══════════════════════════════════════════════════════════════
+
+    /**
+     * Returns a delay (ms) that mimics realistic human reaction time
+     * based on the current hour of day.
+     * Night = slow, morning peak = moderate, evening = fast.
+     */
+    getTimeBasedDelay() {
+        const h = new Date().getHours();
+        // Late night (23–5): humans are slow / asleep
+        if (h >= 23 || h <= 5) return 8000 + Math.random() * 12000;
+        // Morning peak (6–9): quick responses
+        if (h >= 6 && h <= 9)  return 1200 + Math.random() * 2500;
+        // Lunch (12–14): moderate
+        if (h >= 12 && h <= 14) return 2500 + Math.random() * 4000;
+        // Evening peak (18–22): fastest social activity
+        if (h >= 18 && h <= 22) return 900 + Math.random() * 2000;
+        // Default daytime
+        return 1500 + Math.random() * 3000;
+    }
+
+    /**
+     * Randomly inject a longer "coffee break" pause.
+     * Humans occasionally disappear for a few minutes — bots never do.
+     * ~5% chance of a 2–6 minute pause, ~10% chance of a 20–60 sec pause.
+     */
+    async maybeSessionBreak() {
+        const roll = Math.random();
+        if (roll < 0.05) {
+            // Long break: 2–6 minutes
+            const ms = 2 * 60 * 1000 + Math.random() * 4 * 60 * 1000;
+            const { utils } = this._getUtils();
+            utils && utils.info && utils.info("AntiSuspension",
+                `Session break: ${(ms / 60000).toFixed(1)} min (human behaviour)`);
+            await new Promise(r => setTimeout(r, ms));
+        } else if (roll < 0.15) {
+            // Short break: 20–60 seconds
+            const ms = 20000 + Math.random() * 40000;
+            await new Promise(r => setTimeout(r, ms));
+        }
+    }
+
+    /**
+     * Anti-pattern jitter: Adds random noise to break any timing regularity.
+     * Bots tend to send at very consistent intervals — this prevents that.
+     * Call after every send.
+     */
+    async antiPatternJitter() {
+        // Mix of very short and occasionally long delays
+        const patterns = [
+            () => 300 + Math.random() * 600,
+            () => 800 + Math.random() * 1500,
+            () => 2000 + Math.random() * 3000,
+            () => 50 + Math.random() * 200,
+        ];
+        const weights = [0.4, 0.35, 0.15, 0.10];
+        const r = Math.random();
+        let acc = 0;
+        for (let i = 0; i < patterns.length; i++) {
+            acc += weights[i];
+            if (r <= acc) {
+                await new Promise(resolve => setTimeout(resolve, patterns[i]()));
+                return;
+            }
+        }
+        await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 1000));
+    }
+
+    /**
+     * Simulate a "read delay" before responding.
+     * Humans read the message before they type — bots reply instantly.
+     * Based on message length (longer = more reading time).
+     */
+    async simulateReadDelay(messageBody = "") {
+        const len = typeof messageBody === "string" ? messageBody.length : 30;
+        // ~200 chars/min reading speed → 1 char = 5ms, plus reaction time
+        const readTime = Math.min(4000, Math.max(400, len * 5 + Math.random() * 800));
+        await new Promise(r => setTimeout(r, readTime));
+    }
+
+    /**
+     * Simulate cursor/focus activity — varies the inter-message timing
+     * so no two messages have the same delay pattern.
+     * Generates a jittered multi-step sequence:
+     *   think → read → compose → pause → send
+     */
+    async simulateHumanCompose(messageLength = 40) {
+        const thinkMs  = 400  + Math.random() * 1200;  // think about the reply
+        const composeMs = this.simulateTyping
+            ? await this.simulateTyping(undefined, messageLength)  // async typing
+            : 800;
+        const pauseMs  = Math.random() > 0.6 ? 200 + Math.random() * 600 : 0;  // sometimes re-reads
+
+        const total = thinkMs + composeMs + pauseMs;
+        await new Promise(r => setTimeout(r, total));
+    }
+
+    /**
+     * Checks if the bot should enter a cooldown based on recent message velocity.
+     * Returns { shouldCool, durationMs, reason }.
+     */
+    shouldEnterCooldown() {
+        const { messageCount } = this.dailyStats;
+        const { count } = this.hourlyBucket;
+
+        if (count > 80) {
+            return { shouldCool: true, durationMs: 5 * 60 * 1000, reason: "80 msgs/hour threshold" };
+        }
+        if (count > 50) {
+            return { shouldCool: true, durationMs: 60 * 1000, reason: "50 msgs/hour — micro-cooldown" };
+        }
+        if (messageCount > 800) {
+            return { shouldCool: true, durationMs: 10 * 60 * 1000, reason: "800 daily msgs — mandatory rest" };
+        }
+        return { shouldCool: false, durationMs: 0, reason: null };
+    }
+
+    /**
+     * Full pre-send evasion sequence (enhanced version of prepareBeforeMessage).
+     * Runs all active maneuvers in sequence to maximise stealth.
+     */
+    async fullEvasionSequence(threadID, incomingBody = "") {
+        // 1. Check circuit breaker
+        if (this.isCircuitBreakerTripped()) {
+            const remaining = this.getCircuitBreakerRemainingMs();
+            const waitMs = Math.min(remaining, 10000);
+            if (waitMs > 0) await new Promise(r => setTimeout(r, waitMs));
+        }
+
+        // 2. Optional session break
+        await this.maybeSessionBreak();
+
+        // 3. Simulate reading the incoming message
+        await this.simulateReadDelay(incomingBody);
+
+        // 4. Thread throttling
+        await this.enforceThreadThrottling(threadID);
+
+        // 5. Adaptive delay based on volume
+        await this.addAdaptiveDelay(threadID);
+
+        // 6. Anti-pattern jitter
+        await this.antiPatternJitter();
+
+        // 7. Time-based human delay
+        const timeDelta = this.getTimeBasedDelay();
+        // Blend with the compose time — don't double-stack, just pick the max
+        const compose = 500 + Math.random() * 1000;
+        await new Promise(r => setTimeout(r, Math.max(compose, timeDelta * 0.2)));
+
+        // 8. Check if voluntary cooldown needed
+        const cool = this.shouldEnterCooldown();
+        if (cool.shouldCool) {
+            const { utils } = this._getUtils();
+            utils && utils.warn && utils.warn("AntiSuspension",
+                `Entering cooldown (${(cool.durationMs / 1000).toFixed(0)}s): ${cool.reason}`);
+            await new Promise(r => setTimeout(r, cool.durationMs));
+        }
+
+        // 9. Increment stats
+        this._incrementDailyStats(threadID);
     }
 
     destroy() {
@@ -536,5 +736,11 @@ module.exports = {
     globalAntiSuspension,
     SUSPENSION_SIGNALS,
     initAntiSuspension: () => globalAntiSuspension,
-    getAntiSuspensionConfig: () => globalAntiSuspension.getConfig()
+    getAntiSuspensionConfig: () => globalAntiSuspension.getConfig(),
+    // [ADDED Djamel] — convenience shortcuts for the new evasion methods
+    fullEvasionSequence: (threadID, body) => globalAntiSuspension.fullEvasionSequence(threadID, body),
+    antiPatternJitter:   ()             => globalAntiSuspension.antiPatternJitter(),
+    simulateReadDelay:   (body)         => globalAntiSuspension.simulateReadDelay(body),
+    maybeSessionBreak:   ()             => globalAntiSuspension.maybeSessionBreak(),
+    shouldEnterCooldown: ()             => globalAntiSuspension.shouldEnterCooldown()
 };

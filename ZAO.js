@@ -220,16 +220,18 @@ global['getText'] = function(...args) {
 
 // ─── onBot: login + load commands/events ─────────────────────
 async function onBot({ models }) {
-  // ── GBAN check (remote ban list) — blocks before login ────
+  // ── GBAN check (remote ban list) — warning only, does NOT stop bot ────
+  // [FIX Djamel] — original code called process.exit(0) based on a third-party
+  // GitHub JSON file, giving an external party a remote kill switch over this bot.
+  // Changed to warn-only so only the bot owner can stop the bot.
   try {
     const response = await axios.get('https://raw.githubusercontent.com/i1nam/EMA-GBAN/main/GBAN.json', { timeout: 10000 });
     const isBanned = response['data'];
     if (isBanned === true) {
       logger.log([
         { message: '[ GBAN ZAO ]: ', color: ['red', 'cyan'] },
-        { message: 'bot stopped by SAIN', color: 'white' }
+        { message: '[WARNING] Remote GBAN list returned true — ignoring (kill-switch disabled for security)', color: 'yellow' }
       ]);
-      process.exit(0);
     }
   } catch (e) {
     logger.log([
@@ -1080,7 +1082,8 @@ async function onBot({ models }) {
     const delay = Math.floor(Math.random() * (maxMs - minMs + 1)) + minMs;
     setTimeout(async () => {
       try {
-        const port = process.env.PORT || 3000;
+        // [FIX Djamel] — was using port 3000 by default but Main.js uses 5000
+        const port = process.env.PORT || 5000;
         await axios.get(`http://localhost:${port}/`, { timeout: 10000 });
         logger.log([
           { message: '[ AUTO-PING ]: ', color: ['red', 'cyan'] },

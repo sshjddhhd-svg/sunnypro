@@ -1,3 +1,12 @@
+/**
+ * handleEvent.js
+ * Dispatches system (log:*) events to ZAO-EVTS handlers
+ * and fires handleEvent hooks on registered commands.
+ *
+ * @debugger Djamel — Added event.type to the Obj passed to cmd.handleEvent,
+ *   so commands can guard against non-message events without crashing.
+ */
+
 module.exports = function ({ api, models, Users, Threads, Currencies, globalData, usersData, threadsData, message }) {
   const logger = require("../../utils/log.js");
   const moment = require("moment");

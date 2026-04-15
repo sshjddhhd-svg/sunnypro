@@ -1,3 +1,10 @@
+/**
+ * handleCommand.js
+ * Parses incoming messages and dispatches to registered commands.
+ *
+ * @debugger Djamel — Fixed undefined senderID/threadID crash before toString(),
+ *   guarded commandCategory against undefined, fixed lockBot check order.
+ */
 
 module.exports = function ({ api, models, Users, Threads, Currencies, globalData, usersData, threadsData ,message }) {
   const humanTyping = (() => { try { return require("../humanTyping"); } catch (_) { return null; } })();
@@ -19,8 +26,11 @@ module.exports = function ({ api, models, Users, Threads, Currencies, globalData
     
     var { body, senderID, threadID, messageID } = event;
 
+    // ── [FIX Djamel] — Guard undefined IDs before ANY toString call ──
+    if (!senderID || !threadID) return;
+
     // ── فحص قفل البوت ──────────────────────────────────────
-    if (global.lockBot === true && !ADMINBOT.includes(senderID.toString())) return;
+    if (global.lockBot === true && !ADMINBOT.includes(String(senderID))) return;
     // ────────────────────────────────────────────────────────
 
     var senderID = String(senderID),
@@ -141,8 +151,9 @@ module.exports = function ({ api, models, Users, Threads, Currencies, globalData
           );
       }
     }
+    // [FIX Djamel] — guard commandCategory: some commands omit it, causing crash
     if (
-      command.config.commandCategory.toLowerCase() == "nsfw" &&
+      (command.config.commandCategory || "").toLowerCase() == "nsfw" &&
       !global.data.threadAllowNSFW.includes(threadID) &&
       !ADMINBOT.includes(senderID)
     )

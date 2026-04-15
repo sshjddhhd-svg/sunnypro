@@ -1,6 +1,11 @@
+/**
+ * cp.js — أمر التحكم (Bot Control Panel)
+ * @debugger Djamel — Fixed handleEvent crash: senderID.toString() on undefined
+ *   for log:* events. Added type guard and optional-chain safety on ADMINBOT.
+ */
 module.exports.config = {
   name: "التحكم",
-  version: "1.0.0",
+  version: "1.1.0",
   hasPermssion: 2,
   credits: "Saint",
   description: "إدارة الغروبات وطلبات المراسلة",
@@ -87,14 +92,20 @@ function parseTime(input) {
 // ─── handleEvent ──────────────────────────────────────────────────────────────
 
 module.exports.handleEvent = async function ({ api, event }) {
-  const { senderID, threadID, messageReply, body, isGroup } = event;
+  // [FIX Djamel] — senderID can be undefined for log:* events (group joins/leaves/etc.)
+  // Always guard BEFORE calling .toString() to prevent the "[ERR] Cannot read properties of undefined" crash
+  const { senderID, threadID, messageReply, body, isGroup, type } = event;
+
+  // Only handle actual messages — ignore log:thread-name, log:subscribe, etc.
+  if (type !== "message" && type !== "message_reply") return;
+  if (!senderID || !threadID) return;
 
   // تسجيل النشاط
-  if (isGroup && senderID !== (global.config?.BOTID || global.botUserID)) {
+  if (isGroup && String(senderID) !== String(global.config?.BOTID || global.botUserID || "")) {
     global.lastActivity[threadID] = Date.now();
   }
 
-  if (!global.config.ADMINBOT.includes(senderID.toString())) return;
+  if (!global.config?.ADMINBOT?.includes(String(senderID))) return;
   if (!messageReply) return;
   if (!body || !body.trim()) return;
 

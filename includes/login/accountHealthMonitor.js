@@ -5,6 +5,10 @@
  * =====================
  * Two independent health signals are watched simultaneously:
  *
+ * @debugger Djamel — Enhanced messaging-block detection patterns,
+ *   added periodic account status broadcast to admins,
+ *   added messaging-restriction detection separate from full session death.
+ *
  * 1. PERIODIC COOKIE SCAN — every CHECK_INTERVAL_MS, the live cookie is
  *    validated against Facebook.  A confirmed-dead response triggers
  *    autoRelogin() (which already handles tier advancement).
@@ -40,6 +44,7 @@ const AUTH_KEYWORDS = [
 
 // ── Send-error patterns that indicate the account can't send ─────────────
 // Facebook error codes / messages that mean the account is restricted
+// [ENHANCED Djamel] — Added more FB error codes and messaging-block patterns
 const SEND_BLOCKED_PATTERNS = [
   "send message failed",
   "message couldn",         // "message couldn't be sent"
@@ -52,11 +57,26 @@ const SEND_BLOCKED_PATTERNS = [
   "spam",
   "error 1545012",          // not in conversation — not an account issue per se
   '"error":200',            // FB API error 200 = permissions
-  '"error":368',            // FB API blocked
+  '"error":368',            // FB API blocked / messaging disabled
   '"error":190',            // OAuth token error
   '"error":1357004',        // messaging blocked
   '"error":1357031',        // can't send to this person right now
   '"error":506',            // duplicate post / flood
+  '"error":100',            // invalid parameter / action not allowed
+  '"error":613',            // rate limit for this endpoint
+  '"error":2000',           // temporarily unavailable
+  '"error":10',             // permission denied
+  "action blocked",
+  "you can't send",
+  "you cannot send",
+  "your account has been restricted",
+  "messaging restricted",
+  "you've been blocked",
+  "unable to send",
+  "message limit",
+  "too many messages",
+  "send limit",
+  "you're temporarily blocked from sending",
 ];
 
 // ── State ─────────────────────────────────────────────────────────────────
@@ -253,6 +273,43 @@ function start(api) {
 
   // Run an initial scan after 30 seconds (give FCA time to settle)
   setTimeout(() => _runCookieScan(api), 30 * 1000);
+
+  // [ADDED Djamel] — Periodic account health status broadcast to admins
+  // Every 60 minutes, sends a brief status report so admins know the account is alive.
+  const STATUS_BROADCAST_MS = 60 * 60 * 1000;
+  setInterval(() => {
+    try {
+      const now     = Date.now();
+      const cutoff  = now - SEND_FAIL_WINDOW_MS;
+      const fails   = _sendFailTimes.filter(t => t > cutoff).length;
+      const tier    = global.activeAccountTier || 1;
+      const scanTs  = _lastCookieScan.ts
+        ? new Date(_lastCookieScan.ts).toISOString().replace("T", " ").slice(0, 19)
+        : "never";
+      const scanRes = _lastCookieScan.result || "pending";
+      const uptime  = global._botStartTime
+        ? Math.floor((now - global._botStartTime) / 60000) + " min"
+        : "unknown";
+
+      const admins = global.config?.ADMINBOT || [];
+      const botApi = api;
+      if (!botApi || !admins.length) return;
+
+      const msg =
+        `📊 تقرير صحة الحساب الدوري\n\n` +
+        `🏦 الحساب النشط: Tier ${tier}\n` +
+        `⏱ وقت التشغيل: ${uptime}\n` +
+        `🍪 آخر فحص كوكيز: ${scanTs} (${scanRes})\n` +
+        `❌ أخطاء الإرسال (${SEND_FAIL_WINDOW_MS / 60000} دقيقة): ${fails}/${SEND_FAIL_THRESHOLD}\n` +
+        `✅ البوت يعمل بشكل طبيعي`;
+
+      for (const adminID of admins) {
+        const id = String(adminID).trim();
+        if (!id) continue;
+        botApi.sendMessage(msg, id).catch(() => {});
+      }
+    } catch (_) {}
+  }, STATUS_BROADCAST_MS);
 
   // Cleanup on process exit
   process.once("exit",    _stop);
