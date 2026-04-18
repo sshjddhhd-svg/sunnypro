@@ -129,7 +129,7 @@
         "enableWarmup": true,
         "warmupMinutes": 25,
         "enableCircuitBreaker": true,
-        "enableE2EE": false,
+        "enableE2EE": true,
         "postSafeGuard": true,
         "enableTypingWrap": true,
         "maxSendConcurrency": 3,
@@ -139,7 +139,7 @@
     },
 
     "e2ee": {
-        "enabled": false,
+        "enabled": true,
         "autoEncryptDMs": true,
         "autoDecryptIncoming": true,
         "keyFile": "data/e2ee-keys.json",
