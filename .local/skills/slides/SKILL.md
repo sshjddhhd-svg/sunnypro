@@ -33,7 +33,7 @@ Your goal is to create visually stunning, professional slide decks. Every deck s
 <first_build>
 When building a new slide deck for the first time, follow this exact sequence:
 
-1. **Research brand** (real companies only): Use a single `webSearch` call with multiple queries to find brand colors, fonts, and visual identity concurrently.
+1. **Research brand** (real companies only): If the user provides or implies an official company website, use `extractBranding` first to get colors, fonts, and visual identity. Use `webFetch` on the homepage, about page, or key product pages when you need real company copy or positioning for the deck. If `extractBranding` is not possible, use a single `webSearch` call with multiple queries to find brand colors, fonts, and visual identity concurrently. If the visual feel of the source site matters, use external-URL `screenshot` for quick visual reference.
 2. **Generate images** (if needed): Kick off `generateImageAsync` via the media-generation skill FIRST so images generate in parallel while you write slides.
 3. **Write ALL files in a single parallel batch.** `index.html`, `index.css`, every slide `.tsx` file, and `slides-manifest.json` are all independent — write them ALL in one parallel tool call. Do not write them sequentially.
    - `index.html`: Update Google Fonts links for your chosen display + body fonts.
@@ -51,7 +51,7 @@ Avoid screenshotting in the first build. You have two priorities: speed and desi
 <planning>
 Before writing any code, establish your creative direction:
 
-1. **Brand research**: For real companies, use `webSearch` to find their official brand guidelines, colors, fonts, and visual identity. Use their real palette and typography -- don't guess. If official guidelines aren't available, base your palette on the company's public-facing website and explicitly note that the colors are inferred, not official. Use a single `webSearch` call with multiple queries to search concurrently:
+1. **Brand research**: For real companies, use `extractBranding` with a website URL to find their official brand guidelines, colors, fonts, and visual identity. Use their real palette and typography -- don't guess. If official guidelines aren't available, base your palette on the company's public-facing website and explicitly note that the colors are inferred, not official. If scraping a website instead of using `extractBranding`, use a single `webSearch` call with multiple queries to search concurrently:
 
    ```text
    webSearch({
@@ -64,8 +64,8 @@ Before writing any code, establish your creative direction:
    })
    ```
 
-   Use `webSearch` to find brand color hex codes on sites like Brandfetch, brand guideline PDFs, and design blog posts that document the company's visual identity. Never guess brand colors when you can look them up.
-2. **Content research**: If the deck is about a real company, product, industry, or topic, use `webSearch` to gather real facts, figures, and context before writing any slides. Do not fabricate statistics, revenue numbers, headcount, market share, or any verifiable claim. Search for the real data in a single batch call:
+   Always prefer `extractBranding` if possible, but as a fallback, use `webSearch` to find brand color hex codes on sites like Brandfetch, brand guideline PDFs, and design blog posts that document the company's visual identity. Never guess brand colors when you can look them up. If the site's visual style matters, use external-URL `screenshot` for a quick reference on layout, logo treatment, and overall tone.
+2. **Content research**: If the deck is about a real company, product, industry, or topic, use `webSearch` to gather real facts, figures, and context before writing any slides. When the deck is for or about a specific company and you need real messaging, use `webFetch` on the homepage, about page, or key product pages before writing headlines and supporting copy. Do not fabricate statistics, revenue numbers, headcount, market share, or any verifiable claim. Search for the real data in a single batch call:
 
    ```text
    webSearch({

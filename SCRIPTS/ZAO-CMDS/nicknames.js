@@ -85,12 +85,6 @@ function startProtection(api, threadID, nickname, intervalMs) {
     state.intervalId = setInterval(async () => {
       if (!state.active) { clearInterval(state.intervalId); return; }
 
-      const health = global.nkx?.health;
-      if (health) {
-        const mqttOk = health?.mqtt?.isConnected ?? health?.mqttConnected ?? true;
-        if (!mqttOk) return;
-      }
-
       const currentApi = global._botApi || api;
 
       if (state.index >= state.participantIDs.length) {

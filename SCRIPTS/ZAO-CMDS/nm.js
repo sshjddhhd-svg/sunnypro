@@ -36,7 +36,7 @@ function saveLocks(locksMap) {
 function setTitle(api, name, threadID) {
   return new Promise((resolve, reject) => {
     try {
-      const result = api.gcname(name, threadID, (err) => {
+      const result = api.setTitle(name, threadID, (err) => {
         if (err) reject(err);
         else resolve();
       });
@@ -56,7 +56,11 @@ function isDeadThreadError(msg) {
     s.includes("no message_thread") ||
     s.includes("thread may not exist") ||
     s.includes("not a participant") ||
-    s.includes("you are not a member")
+    s.includes("you are not a member") ||
+    // shadowx-fca returns this when Facebook sends a binary/gzip response,
+    // which typically means the thread is gone or the bot lost access.
+    s.includes("binary response received") ||
+    s.includes("json.parse error")
   );
 }
 
@@ -88,19 +92,17 @@ module.exports.onLoad = function ({ api }) {
     const botApi = global._botApi || api;
     if (!botApi || global.nameLocks.size === 0) return;
 
-    const health = global.nkx?.health;
-    if (health) {
-      const mqttOk = health?.mqtt?.isConnected ?? health?.mqttConnected ?? true;
-      if (!mqttOk) return;
-    }
-
     for (const [threadID, lockedName] of global.nameLocks.entries()) {
       try {
         await setTitle(botApi, lockedName, threadID);
         // Success — reset fail counter for this thread
         _failCounts[threadID] = 0;
       } catch (err) {
-        const msg = String(err && (err.message || err));
+        // shadowx-fca errors may be plain objects: { error: '...', detail: Error, isBinaryResponse: true }
+        // so we pull from multiple fields before falling back to String(err)
+        const msg = String(
+          err && (err.message || err.error || (err.detail && err.detail.message) || err)
+        );
 
         // Skip MQTT/connectivity errors silently — don't count against the thread
         const s = msg.toLowerCase();
@@ -112,8 +114,11 @@ module.exports.onLoad = function ({ api }) {
           continue;
         }
 
+        // Also treat the isBinaryResponse flag as a dead-thread signal
+        const isBinary = !!(err && err.isBinaryResponse);
+
         // For definitively dead threads, increment fail counter
-        if (isDeadThreadError(msg)) {
+        if (isBinary || isDeadThreadError(msg)) {
           _failCounts[threadID] = (_failCounts[threadID] || 0) + 1;
           if (_failCounts[threadID] >= FAIL_THRESHOLD) {
             global.nameLocks.delete(threadID);

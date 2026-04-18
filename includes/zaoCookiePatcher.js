@@ -55,41 +55,11 @@ function patchCookieApi(api, accountInfo = {}) {
     console.log("[CookiePatch]", msg);
   };
 
-  // ── 1. Patch the FCA's built-in anti-suspension module ────────────────────
-  // The FCA ships its own AntiSuspension singleton. We monkey-patch its
-  // _onSuspensionSignalDetected to skip false-positive signal strings.
-  try {
-    const fcaAntiSuspension = require("@neoaz07/nkxfca/src/utils/antiSuspension");
-    const instance = fcaAntiSuspension.globalAntiSuspension;
-
-    if (instance && !instance.__zaoPatchedSignals) {
-      const originalDetect = instance.detectSuspensionSignal.bind(instance);
-      instance.detectSuspensionSignal = function patchedDetect(text) {
-        if (!text || typeof text !== "string") return false;
-        const lower = text.toLowerCase();
-        // Skip if it matches a known false-positive phrase
-        for (const fp of FALSE_POSITIVE_SIGNALS) {
-          if (lower === fp || lower.includes(fp)) {
-            // Only the full, standalone phrase triggers a false positive skip.
-            // If text also contains genuine suspension phrases, let it through.
-            const hasRealSignal = [
-              "checkpoint", "action_required", "account_locked", "account_suspended",
-              "account banned", "account has been disabled", "unusual_activity",
-              "verify_your_account", "login_approvals", "bot detected",
-              "automated_behavior", "spam_detected", "policy violation"
-            ].some(s => lower.includes(s));
-            if (!hasRealSignal) return false;
-          }
-        }
-        return originalDetect(text);
-      };
-
-      instance.__zaoPatchedSignals = true;
-      log("Anti-suspension false-positive filter applied ✓");
-    }
-  } catch (e) {
-    log("Could not patch FCA anti-suspension: " + e.message);
-  }
+  // ── 1. Anti-suspension module patch ───────────────────────────────────────
+  // shadowx-fca does not expose an internal antiSuspension singleton, so
+  // this step is intentionally skipped. Rate limiting is handled by the
+  // modernizer layer (fcaModernizer / nkxfcaModernizer).
+  log("Anti-suspension patch skipped (not needed for shadowx-fca) ✓");
 
   // ── 2. Cookie persistence — save fresh cookies after any successful action ─
   // The FCA refreshes tokens internally. We hook the getAppState method so

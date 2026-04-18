@@ -229,6 +229,7 @@ module.exports.handleEvent = async function ({ api, event }) {
       } catch (e) {
         api.sendMessage(`❌ فشل: ${e.message?.slice(0, 100)}`, threadID);
       }
+      delete global.chatsSession[senderID];
 
     } else if (input === "2") {
       try {
@@ -237,6 +238,7 @@ module.exports.handleEvent = async function ({ api, event }) {
       } catch (e) {
         api.sendMessage(`❌ فشل: ${e.message?.slice(0, 100)}`, threadID);
       }
+      delete global.chatsSession[senderID];
 
     } else if (input === "3") {
       api.sendMessage(`✏️ أرسل الرسالة التي تريد إرسالها لـ "${selected.name}":`, threadID, (err, info) => {

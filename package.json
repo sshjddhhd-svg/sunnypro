@@ -14,7 +14,6 @@
   "license": "ISC",
   "dependencies": {
     "@fastify/static": "^6.12.0",
-    "@neoaz07/nkxfca": "^1.0.9",
     "axios": "^1.15.0",
     "bing-translate-api": "^3.0.1",
     "canvas": "^2.11.2",
@@ -40,6 +39,7 @@
     "pastebin-api": "^7.0.0",
     "ping-monitor": "^0.8.2",
     "sequelize": "^6.37.8",
+    "shadowx-fca": "^2.8.0",
     "sqlite3": "^5.1.7",
     "string-similarity": "^1.2.2",
     "yt-search": "^2.13.1",

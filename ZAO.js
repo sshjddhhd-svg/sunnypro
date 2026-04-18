@@ -12,10 +12,10 @@ const logger = require('./utils/log.js');
 // ─── Ensure data directory exists at startup ──────────────────
 try { require('fs-extra').ensureDirSync(require('path').join(process.cwd(), 'data')); } catch (_) {}
 
-// ─── nkxfca library patcher ───────────────────────────────────
-// Prevents the library's old loginHelper from registering a
-// process.exit(1) handler that kills the bot before state is saved
-// or another tier is tried. Must run before login().
+// ─── shadowx-fca library patcher ──────────────────────────────
+// Prevents any FCA loginHelper from registering a process.exit(1)
+// handler that kills the bot before state is saved or another tier
+// is tried. Must run before login().
 const nkxPatcher = require('./includes/nkxfcaPatcher');
 nkxPatcher.preventLoginHelperHandlers();
 
@@ -276,7 +276,7 @@ async function onBot({ models }) {
     _api = loginResult;
     _api = modernizeNkxApi(_api);
 
-    // Patch nkxfca's internal antiSuspension limits after the library is loaded
+    // No-op for shadowx-fca (no internal antiSuspension singleton to patch)
     nkxPatcher.patchAntiSuspensionLimits();
   } catch (e) {
     logger.log([

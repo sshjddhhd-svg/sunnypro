@@ -1,0 +1,643 @@
+[2026-04-18 19:47:49] [ZAO] ══════════════════════════════════════
+[2026-04-18 19:47:49] [ZAO]    ZAO Bot — Unified Launcher          
+[2026-04-18 19:47:49] [ZAO]    by SAIM — Single-bot mode           
+[2026-04-18 19:47:49] [ZAO] ══════════════════════════════════════
+[2026-04-18 19:47:49] [WATCHDOG] تم تشغيل ZAO.js — PID 3508 — إعادة تشغيل رقم 0
+[2026-04-18 19:47:49] [SERVER] Panel server listening on 0.0.0.0:5000
+[1m[38;2;19;144;240m──ZAOFAN-SETTINGS─●[39m[22m
+[38;2;255;0;0m[[39m [38;2;213;43;43mS[39m[38;2;170;85;85mA[39m[38;2;128;128;128mI[39m[38;2;85;170;170mN[39m [38;2;43;213;213m][39m[38;2;0;255;255m:[39m [38;2;255;255;255mZAO Is working[39m 
+[38;2;255;0;0m[[39m [38;2;213;43;43mS[39m[38;2;170;85;85mA[39m[38;2;128;128;128mI[39m[38;2;85;170;170mN[39m [38;2;43;213;213m][39m[38;2;0;255;255m:[39m [38;2;255;255;255mThis Bot Is SAIN - ♤[39m 
+[38;2;255;0;0m[[39m [38;2;223;32;32mC[39m[38;2;191;64;64mO[39m[38;2;159;96;96mN[39m[38;2;128;128;128mF[39m[38;2;96;159;159mI[39m[38;2;64;191;191mG[39m [38;2;32;223;223m][39m[38;2;0;255;255m:[39m [38;2;255;255;0mMissing API keys (set via env secrets or config): youtube-video.YOUTUBE_API, linkword.APIKEY, ytb-video.YOUTUBE_API, math.WOLFRAM, sauce.SAUCENAO_API, weather.OPEN_WEATHER, simsimi.APIKEY, sim.APIKEY, slap.APIKEY, manslap.APIKEY, play.YOUTUBE_API, play.SOUNDCLOUD_API, video.YOUTUBE_API, testcovid.APIKEY, simv2.APIKEY, simvoice.APIKEY, sing.YOUTUBE_API, sing.SOUNDCLOUD_API, slapv2.APIKEY, videov2.YOUTUBE_API, bannerbw.APIKEY, بنك.APIKEY[39m 
+[38;2;255;0;0m[[39m [38;2;213;43;43mS[39m[38;2;170;85;85mA[39m[38;2;128;128;128mI[39m[38;2;85;170;170mN[39m [38;2;43;213;213m][39m[38;2;0;255;255m:[39m [38;2;255;255;255mLoaded config[39m 
+[1m[38;2;19;144;240m[39m[22m
+[1m[38;2;19;144;240m──ZAO DATA─●[39m[22m
+[38;2;255;0;0m[[39m [38;2;213;43;43mS[39m[38;2;170;85;85mA[39m[38;2;128;128;128mI[39m[38;2;85;170;170mN[39m [38;2;43;213;213m][39m[38;2;0;255;255m:[39m [38;2;255;255;255mConnected to DB [39m 
+[1m[38;2;19;144;240m[39m[22m
+[1m[38;2;19;144;240m──LOADING FACEBOOK─●[39m[22m
+[38;2;255;0;0m[[39m [38;2;227;28;28mG[39m[38;2;198;57;57mB[39m[38;2;170;85;85mA[39m[38;2;142;113;113mN[39m [38;2;113;142;142mZ[39m[38;2;85;170;170mA[39m[38;2;57;198;198mO[39m [38;2;28;227;227m][39m[38;2;0;255;255m:[39m [38;2;255;255;0mCould not reach ban list, continuing startup[39m 
+[ Login ]: ── Trying Tier 1 (ZAO-STATE.json) ──
+[ Login ]: Detected JSON array format.
+[ Login ]: Validating cookie against Facebook...
+[ Login ]: Cookie validation PASSED — session confirmed alive ✓
+[ Login ]: Tier 1/ZAO-STATE.json — session confirmed alive, logging in via AppState...
+Using default MQTT endpoint
+SAHU-FCA: Logging in...
+Shadowx-FCA: Connected ✔
+Shadowx-FCA: Listening...
+[ Login ]: Tier 1/ZAO-STATE.json — AppState login successful ✓  (uid=61574273961722)
+[38;2;255;0;0m[[39m [38;2;235;20;20mC[39m[38;2;216;39;39mo[39m[38;2;196;59;59mo[39m[38;2;177;78;78mk[39m[38;2;157;98;98mi[39m[38;2;137;118;118me[39m[38;2;118;137;137mP[39m[38;2;98;157;157ma[39m[38;2;78;177;177mt[39m[38;2;59;196;196mc[39m[38;2;39;216;216mh[39m [38;2;20;235;235m][39m[38;2;0;255;255m:[39m [38;2;255;255;255mAnti-suspension patch skipped (not needed for shadowx-fca) ✓[39m 
+[38;2;255;0;0m[[39m [38;2;235;20;20mC[39m[38;2;216;39;39mo[39m[38;2;196;59;59mo[39m[38;2;177;78;78mk[39m[38;2;157;98;98mi[39m[38;2;137;118;118me[39m[38;2;118;137;137mP[39m[38;2;98;157;157ma[39m[38;2;78;177;177mt[39m[38;2;59;196;196mc[39m[38;2;39;216;216mh[39m [38;2;20;235;235m][39m[38;2;0;255;255m:[39m [38;2;255;255;255mgetBotInfo shim installed for cookie session ✓[39m 
+[38;2;255;0;0m[[39m [38;2;235;20;20mC[39m[38;2;216;39;39mo[39m[38;2;196;59;59mo[39m[38;2;177;78;78mk[39m[38;2;157;98;98mi[39m[38;2;137;118;118me[39m[38;2;118;137;137mP[39m[38;2;98;157;157ma[39m[38;2;78;177;177mt[39m[38;2;59;196;196mc[39m[38;2;39;216;216mh[39m [38;2;20;235;235m][39m[38;2;0;255;255m:[39m [38;2;255;255;255mCookie patcher active — tier=1 method=appstate ✓[39m 
+[ Login ]: Active account — Tier 1 via ZAO-STATE.json ✓
+[38;2;255;0;0m[[39m [38;2;219;36;36mL[39m[38;2;182;73;73mo[39m[38;2;146;109;109mg[39m[38;2;109;146;146mi[39m[38;2;73;182;182mn[39m [38;2;36;219;219m][39m[38;2;0;255;255m:[39m [38;2;255;255;255mFound AppState[39m 
+[38;2;255;0;0m[[39m [38;2;204;51;51mF[39m[38;2;153;102;102mC[39m[38;2;102;153;153mA[39m [38;2;51;204;204m][39m[38;2;0;255;255m:[39m [38;2;0;255;0mCircuit breaker controls attached.[39m 
+[38;2;255;0;0m[[39m [38;2;204;51;51mF[39m[38;2;153;102;102mC[39m[38;2;102;153;153mA[39m [38;2;51;204;204m][39m[38;2;0;255;255m:[39m [38;2;0;255;0mWarmup mode enabled for 25 minutes.[39m 
+[38;2;255;0;0m[[39m [38;2;204;51;51mF[39m[38;2;153;102;102mC[39m[38;2;102;153;153mA[39m [38;2;51;204;204m][39m[38;2;0;255;255m:[39m [38;2;0;255;0mFCA modernizer enabled (shadowx-fca).[39m 
+[38;2;255;0;0m[[39m [38;2;227;28;28mm[39m[38;2;198;57;57mo[39m[38;2;170;85;85mn[39m[38;2;142;113;113mg[39m[38;2;113;142;142mo[39m[38;2;85;170;170mD[39m[38;2;57;198;198mB[39m [38;2;28;227;227m][39m[38;2;0;255;255m:[39m [38;2;255;255;255mDB connected ✓[39m 
+[38;2;255;0;0m━[39m[38;2;255;0;16m━[39m[38;2;255;0;31m━[39m[38;2;255;0;47m━[39m[38;2;255;0;62m━[39m[38;2;255;0;78m━[39m[38;2;255;0;94m━[39m[38;2;255;0;109m━[39m[38;2;255;0;125m━[39m[38;2;255;0;141m━[39m[38;2;255;0;156m━[39m[38;2;255;0;172m━[39m[38;2;255;0;187m━[39m[38;2;255;0;203m━[39m[38;2;255;0;219m━[39m[38;2;255;0;234m━[39m[38;2;255;0;250m━[39m[38;2;245;0;255m━[39m[38;2;229;0;255m━[39m[38;2;213;0;255m━[39m[38;2;198;0;255m━[39m[38;2;182;0;255m━[39m[38;2;167;0;255m━[39m[38;2;151;0;255m━[39m[38;2;135;0;255m━[39m[38;2;120;0;255m━[39m[38;2;104;0;255m━[39m[38;2;88;0;255m━[39m[38;2;73;0;255m━[39m[38;2;57;0;255m━[39m[38;2;42;0;255m━[39m[38;2;26;0;255m━[39m[38;2;10;0;255m━[39m[38;2;0;5;255m━[39m[38;2;0;21;255m━[39m[38;2;0;36;255m━[39m[38;2;0;52;255m━[39m[38;2;0;68;255m━[39m[38;2;0;83;255m━[39m[38;2;0;99;255m━[39m[38;2;0;114;255m━[39m[38;2;0;130;255m━[39m[38;2;0;146;255m━[39m[38;2;0;161;255m━[39m[38;2;0;177;255m━[39m[38;2;0;193;255m━[39m[38;2;0;208;255m━[39m[38;2;0;224;255m━[39m[38;2;0;239;255m━[39m[38;2;0;255;255m━[39m
+[1m[38;2;19;144;240m[39m[22m
+[1m[38;2;19;144;240m──LOADING LOADER─●[39m[22m
+[38;2;255;0;0m─[39m[38;2;230;26;26m─[39m[38;2;204;51;51mZ[39m[38;2;179;77;77mA[39m[38;2;153;102;102mO[39m [38;2;128;128;128mD[39m[38;2;102;153;153mA[39m[38;2;77;179;179mT[39m[38;2;51;204;204mA[39m[38;2;26;230;230m─[39m[38;2;0;255;255m●[39m[38;2;255;255;255mLoaded 26 Command Aand 2 Events[39m 
+[38;2;255;0;0m━[39m[38;2;255;0;16m━[39m[38;2;255;0;31m━[39m[38;2;255;0;47m━[39m[38;2;255;0;62m━[39m[38;2;255;0;78m━[39m[38;2;255;0;94m━[39m[38;2;255;0;109m━[39m[38;2;255;0;125m━[39m[38;2;255;0;141m━[39m[38;2;255;0;156m━[39m[38;2;255;0;172m━[39m[38;2;255;0;187m━[39m[38;2;255;0;203m━[39m[38;2;255;0;219m━[39m[38;2;255;0;234m━[39m[38;2;255;0;250m━[39m[38;2;245;0;255m━[39m[38;2;229;0;255m━[39m[38;2;213;0;255m━[39m[38;2;198;0;255m━[39m[38;2;182;0;255m━[39m[38;2;167;0;255m━[39m[38;2;151;0;255m━[39m[38;2;135;0;255m━[39m[38;2;120;0;255m━[39m[38;2;104;0;255m━[39m[38;2;88;0;255m━[39m[38;2;73;0;255m━[39m[38;2;57;0;255m━[39m[38;2;42;0;255m━[39m[38;2;26;0;255m━[39m[38;2;10;0;255m━[39m[38;2;0;5;255m━[39m[38;2;0;21;255m━[39m[38;2;0;36;255m━[39m[38;2;0;52;255m━[39m[38;2;0;68;255m━[39m[38;2;0;83;255m━[39m[38;2;0;99;255m━[39m[38;2;0;114;255m━[39m[38;2;0;130;255m━[39m[38;2;0;146;255m━[39m[38;2;0;161;255m━[39m[38;2;0;177;255m━[39m[38;2;0;193;255m━[39m[38;2;0;208;255m━[39m[38;2;0;224;255m━[39m[38;2;0;239;255m━[39m[38;2;0;255;255m━[39m
+[1m[38;2;19;144;240m[39m[22m
+[1m[38;2;19;144;240m──LOADING LISTENER─●[39m[22m
+[38;2;255;0;0m[[39m [38;2;230;26;26mL[39m[38;2;204;51;51mI[39m[38;2;179;77;77mS[39m[38;2;153;102;102mT[39m[38;2;128;128;128mE[39m[38;2;102;153;153mN[39m[38;2;77;179;179mE[39m[38;2;51;204;204mR[39m [38;2;26;230;230m][39m[38;2;0;255;255m:[39m [38;2;255;255;255m61574273961722 - [ ZAO BOT ] [39m 
+[38;2;255;0;0m[[39m [38;2;223;32;32mH[39m[38;2;191;64;64mE[39m[38;2;159;96;96mA[39m[38;2;128;128;128mL[39m[38;2;96;159;159mT[39m[38;2;64;191;191mH[39m [38;2;32;223;223m][39m[38;2;0;255;255m:[39m [38;2;255;255;255mAccount Health Monitor started.[39m 
+[38;2;255;0;0m[[39m [38;2;223;32;32mH[39m[38;2;191;64;64mE[39m[38;2;159;96;96mA[39m[38;2;128;128;128mL[39m[38;2;96;159;159mT[39m[38;2;64;191;191mH[39m [38;2;32;223;223m][39m[38;2;0;255;255m:[39m [38;2;255;255;255m  Cookie scan every 5 min[39m 
+[38;2;255;0;0m[[39m [38;2;223;32;32mH[39m[38;2;191;64;64mE[39m[38;2;159;96;96mA[39m[38;2;128;128;128mL[39m[38;2;96;159;159mT[39m[38;2;64;191;191mH[39m [38;2;32;223;223m][39m[38;2;0;255;255m:[39m [38;2;255;255;255m  Send-fail threshold: 3 errors in 5 min → tier switch[39m 
+[38;2;255;0;0m[[39m [38;2;235;20;20mM[39m[38;2;216;39;39mQ[39m[38;2;196;59;59mT[39m[38;2;177;78;78mT[39m[38;2;157;98;98m-[39m[38;2;137;118;118mH[39m[38;2;118;137;137mE[39m[38;2;98;157;157mA[39m[38;2;78;177;177mL[39m[38;2;59;196;196mT[39m[38;2;39;216;216mH[39m [38;2;20;235;235m][39m[38;2;0;255;255m:[39m [38;2;255;255;255mبدأ — فحص كل 2–5 دقيقة (عشوائي)، إعادة تشغيل إذا صمت 10 دقيقة[39m 
+[38;2;255;0;0m[[39m [38;2;235;20;20mM[39m[38;2;216;39;39mQ[39m[38;2;196;59;59mT[39m[38;2;177;78;78mT[39m[38;2;157;98;98m-[39m[38;2;137;118;118mH[39m[38;2;118;137;137mE[39m[38;2;98;157;157mA[39m[38;2;78;177;177mL[39m[38;2;59;196;196mT[39m[38;2;39;216;216mH[39m [38;2;20;235;235m][39m[38;2;0;255;255m:[39m [38;2;255;255;255mالفحص القادم بعد 3.4 دقيقة[39m 
+[38;2;255;0;0m[[39m [38;2;234;21;21mK[39m[38;2;213;43;43mE[39m[38;2;191;64;64mE[39m[38;2;170;85;85mP[39m[38;2;149;106;106m-[39m[38;2;128;128;128mA[39m[38;2;106;149;149mL[39m[38;2;85;170;170mI[39m[38;2;64;191;191mV[39m[38;2;43;213;213mE[39m [38;2;21;234;234m][39m[38;2;0;255;255m:[39m [38;2;255;255;255mSession keep-alive started — Ping every 5-10 min | cookies every 30 min | dtsg every 24h[39m 
+[38;2;255;0;0m[[39m [38;2;234;21;21mK[39m[38;2;213;43;43mE[39m[38;2;191;64;64mE[39m[38;2;170;85;85mP[39m[38;2;149;106;106m-[39m[38;2;128;128;128mA[39m[38;2;106;149;149mL[39m[38;2;85;170;170mI[39m[38;2;64;191;191mV[39m[38;2;43;213;213mE[39m [38;2;21;234;234m][39m[38;2;0;255;255m:[39m [38;2;255;255;255mNext ping in 5 min[39m 
+[38;2;255;0;0m━[39m[38;2;255;0;16m━[39m[38;2;255;0;31m━[39m[38;2;255;0;47m━[39m[38;2;255;0;62m━[39m[38;2;255;0;78m━[39m[38;2;255;0;94m━[39m[38;2;255;0;109m━[39m[38;2;255;0;125m━[39m[38;2;255;0;141m━[39m[38;2;255;0;156m━[39m[38;2;255;0;172m━[39m[38;2;255;0;187m━[39m[38;2;255;0;203m━[39m[38;2;255;0;219m━[39m[38;2;255;0;234m━[39m[38;2;255;0;250m━[39m[38;2;245;0;255m━[39m[38;2;229;0;255m━[39m[38;2;213;0;255m━[39m[38;2;198;0;255m━[39m[38;2;182;0;255m━[39m[38;2;167;0;255m━[39m[38;2;151;0;255m━[39m[38;2;135;0;255m━[39m[38;2;120;0;255m━[39m[38;2;104;0;255m━[39m[38;2;88;0;255m━[39m[38;2;73;0;255m━[39m[38;2;57;0;255m━[39m[38;2;42;0;255m━[39m[38;2;26;0;255m━[39m[38;2;10;0;255m━[39m[38;2;0;5;255m━[39m[38;2;0;21;255m━[39m[38;2;0;36;255m━[39m[38;2;0;52;255m━[39m[38;2;0;68;255m━[39m[38;2;0;83;255m━[39m[38;2;0;99;255m━[39m[38;2;0;114;255m━[39m[38;2;0;130;255m━[39m[38;2;0;146;255m━[39m[38;2;0;161;255m━[39m[38;2;0;177;255m━[39m[38;2;0;193;255m━[39m[38;2;0;208;255m━[39m[38;2;0;224;255m━[39m[38;2;0;239;255m━[39m[38;2;0;255;255m━[39m
+[1m[38;2;19;144;240m──PROTECTION SYSTEMS─●[39m[22m
+[38;2;255;0;0m[[39m [38;2;227;28;28mP[39m[38;2;198;57;57mR[39m[38;2;170;85;85mO[39m[38;2;142;113;113mT[39m[38;2;113;142;142mE[39m[38;2;85;170;170mC[39m[38;2;57;198;198mT[39m [38;2;28;227;227m][39m[38;2;0;255;255m:[39m [38;2;255;255;255mStealth-Engine   ✓  burst protection + night-mode + UA rotation + thread jitter[39m 
+[38;2;255;0;0m[[39m [38;2;227;28;28mP[39m[38;2;198;57;57mR[39m[38;2;170;85;85mO[39m[38;2;142;113;113mT[39m[38;2;113;142;142mE[39m[38;2;85;170;170mC[39m[38;2;57;198;198mT[39m [38;2;28;227;227m][39m[38;2;0;255;255m:[39m [38;2;255;255;255mFast-Ping        ✓  every 10 seconds (watchdog → /ping)[39m 
+[38;2;255;0;0m[[39m [38;2;227;28;28mP[39m[38;2;198;57;57mR[39m[38;2;170;85;85mO[39m[38;2;142;113;113mT[39m[38;2;113;142;142mE[39m[38;2;85;170;170mC[39m[38;2;57;198;198mT[39m [38;2;28;227;227m][39m[38;2;0;255;255m:[39m [38;2;255;255;255mAuto-Ping        ✓  random 8-18 min[39m 
+[38;2;255;0;0m[[39m [38;2;227;28;28mP[39m[38;2;198;57;57mR[39m[38;2;170;85;85mO[39m[38;2;142;113;113mT[39m[38;2;113;142;142mE[39m[38;2;85;170;170mC[39m[38;2;57;198;198mT[39m [38;2;28;227;227m][39m[38;2;0;255;255m:[39m [38;2;255;255;255mCookie Save      ✓  every 10 min → ZAO-STATE.json & alt.json[39m 
+[38;2;255;0;0m[[39m [38;2;227;28;28mP[39m[38;2;198;57;57mR[39m[38;2;170;85;85mO[39m[38;2;142;113;113mT[39m[38;2;113;142;142mE[39m[38;2;85;170;170mC[39m[38;2;57;198;198mT[39m [38;2;28;227;227m][39m[38;2;0;255;255m:[39m [38;2;255;255;255mAuto-Relogin     ✓  3 attempts / 3-min cooldown (JSON/Token/String/Netscape → Email/Password fallback)[39m 
+[38;2;255;0;0m[[39m [38;2;227;28;28mP[39m[38;2;198;57;57mR[39m[38;2;170;85;85mO[39m[38;2;142;113;113mT[39m[38;2;113;142;142mE[39m[38;2;85;170;170mC[39m[38;2;57;198;198mT[39m [38;2;28;227;227m][39m[38;2;0;255;255m:[39m [38;2;255;255;255mHealth-Monitor   ✓  cookie scan every 5 min + send-fail watchdog → auto tier-switch (Tier 1→2→3)[39m 
+[38;2;255;0;0m[[39m [38;2;227;28;28mP[39m[38;2;198;57;57mR[39m[38;2;170;85;85mO[39m[38;2;142;113;113mT[39m[38;2;113;142;142mE[39m[38;2;85;170;170mC[39m[38;2;57;198;198mT[39m [38;2;28;227;227m][39m[38;2;0;255;255m:[39m [38;2;255;255;255mSession-Check    ✓  proactive live-cookie validation every 35 min[39m 
+[38;2;255;0;0m[[39m [38;2;227;28;28mP[39m[38;2;198;57;57mR[39m[38;2;170;85;85mO[39m[38;2;142;113;113mT[39m[38;2;113;142;142mE[39m[38;2;85;170;170mC[39m[38;2;57;198;198mT[39m [38;2;28;227;227m][39m[38;2;0;255;255m:[39m [38;2;255;255;255mMQTT-Silence     ✓  إعادة تشغيل المستمع إذا صمت > 10 دقائق[39m 
+[38;2;255;0;0m[[39m [38;2;227;28;28mP[39m[38;2;198;57;57mR[39m[38;2;170;85;85mO[39m[38;2;142;113;113mT[39m[38;2;113;142;142mE[39m[38;2;85;170;170mC[39m[38;2;57;198;198mT[39m [38;2;28;227;227m][39m[38;2;0;255;255m:[39m [38;2;255;255;255mMQTT-HealthCheck ✓  فحص ذكي مع backoff تصاعدي (من GoatBot)[39m 
+[38;2;255;0;0m[[39m [38;2;227;28;28mP[39m[38;2;198;57;57mR[39m[38;2;170;85;85mO[39m[38;2;142;113;113mT[39m[38;2;113;142;142mE[39m[38;2;85;170;170mC[39m[38;2;57;198;198mT[39m [38;2;28;227;227m][39m[38;2;0;255;255m:[39m [38;2;255;255;255mHuman-Typing     ✓  محاكاة الطباعة البشرية قبل كل رد[39m 
+[38;2;255;0;0m[[39m [38;2;227;28;28mP[39m[38;2;198;57;57mR[39m[38;2;170;85;85mO[39m[38;2;142;113;113mT[39m[38;2;113;142;142mE[39m[38;2;85;170;170mC[39m[38;2;57;198;198mT[39m [38;2;28;227;227m][39m[38;2;0;255;255m:[39m [38;2;255;255;255mKeep-Alive       ✓  Ping مباشر لفيسبوك كل 8-18 دقيقة + تجديد fb_dtsg كل 48 ساعة[39m 
+[38;2;255;0;0m[[39m [38;2;227;28;28mP[39m[38;2;198;57;57mR[39m[38;2;170;85;85mO[39m[38;2;142;113;113mT[39m[38;2;113;142;142mE[39m[38;2;85;170;170mC[39m[38;2;57;198;198mT[39m [38;2;28;227;227m][39m[38;2;0;255;255m:[39m [38;2;255;255;255mMemory-Guard     ✓  clean restart if heap > 512 MB[39m 
+[38;2;255;0;0m[[39m [38;2;227;28;28mP[39m[38;2;198;57;57mR[39m[38;2;170;85;85mO[39m[38;2;142;113;113mT[39m[38;2;113;142;142mE[39m[38;2;85;170;170mC[39m[38;2;57;198;198mT[39m [38;2;28;227;227m][39m[38;2;0;255;255m:[39m [38;2;255;255;255mGraceful-Exit    ✓  saves cookies on SIGTERM/SIGINT[39m 
+[38;2;255;0;0m[[39m [38;2;227;28;28mP[39m[38;2;198;57;57mR[39m[38;2;170;85;85mO[39m[38;2;142;113;113mT[39m[38;2;113;142;142mE[39m[38;2;85;170;170mC[39m[38;2;57;198;198mT[39m [38;2;28;227;227m][39m[38;2;0;255;255m:[39m [38;2;255;255;255mListen-Error     ✓  instant listener restart + login_blocked/account_inactive/auth_error detection[39m 
+[38;2;255;0;0m[[39m [38;2;227;28;28mP[39m[38;2;198;57;57mR[39m[38;2;170;85;85mO[39m[38;2;142;113;113mT[39m[38;2;113;142;142mE[39m[38;2;85;170;170mC[39m[38;2;57;198;198mT[39m [38;2;28;227;227m][39m[38;2;0;255;255m:[39m [38;2;255;255;255mSettings-Watch   ✓  hot-reload ZAO-SETTINGS.json[39m 
+[38;2;255;0;0m[[39m [38;2;227;28;28mP[39m[38;2;198;57;57mR[39m[38;2;170;85;85mO[39m[38;2;142;113;113mT[39m[38;2;113;142;142mE[39m[38;2;85;170;170mC[39m[38;2;57;198;198mT[39m [38;2;28;227;227m][39m[38;2;0;255;255m:[39m [38;2;255;255;255mCrash-Restore    ✓  alt.json → ZAO-STATE.json on crash[39m 
+[38;2;255;0;0m[[39m [38;2;227;28;28mP[39m[38;2;198;57;57mR[39m[38;2;170;85;85mO[39m[38;2;142;113;113mT[39m[38;2;113;142;142mE[39m[38;2;85;170;170mC[39m[38;2;57;198;198mT[39m [38;2;28;227;227m][39m[38;2;0;255;255m:[39m [38;2;255;255;255mCache-Cleanup    ✓  prune userName/threadInfo/threadData maps every 2 h (max 5 000 entries)[39m 
+[38;2;255;0;0m[[39m [38;2;227;28;28mP[39m[38;2;198;57;57mR[39m[38;2;170;85;85mO[39m[38;2;142;113;113mT[39m[38;2;113;142;142mE[39m[38;2;85;170;170mC[39m[38;2;57;198;198mT[39m [38;2;28;227;227m][39m[38;2;0;255;255m:[39m [38;2;255;255;255mCookie-Refresh   ✓  forced credential re-login every 1440 min[39m 
+[38;2;255;0;0m━[39m[38;2;255;0;16m━[39m[38;2;255;0;31m━[39m[38;2;255;0;47m━[39m[38;2;255;0;62m━[39m[38;2;255;0;78m━[39m[38;2;255;0;94m━[39m[38;2;255;0;109m━[39m[38;2;255;0;125m━[39m[38;2;255;0;141m━[39m[38;2;255;0;156m━[39m[38;2;255;0;172m━[39m[38;2;255;0;187m━[39m[38;2;255;0;203m━[39m[38;2;255;0;219m━[39m[38;2;255;0;234m━[39m[38;2;255;0;250m━[39m[38;2;245;0;255m━[39m[38;2;229;0;255m━[39m[38;2;213;0;255m━[39m[38;2;198;0;255m━[39m[38;2;182;0;255m━[39m[38;2;167;0;255m━[39m[38;2;151;0;255m━[39m[38;2;135;0;255m━[39m[38;2;120;0;255m━[39m[38;2;104;0;255m━[39m[38;2;88;0;255m━[39m[38;2;73;0;255m━[39m[38;2;57;0;255m━[39m[38;2;42;0;255m━[39m[38;2;26;0;255m━[39m[38;2;10;0;255m━[39m[38;2;0;5;255m━[39m[38;2;0;21;255m━[39m[38;2;0;36;255m━[39m[38;2;0;52;255m━[39m[38;2;0;68;255m━[39m[38;2;0;83;255m━[39m[38;2;0;99;255m━[39m[38;2;0;114;255m━[39m[38;2;0;130;255m━[39m[38;2;0;146;255m━[39m[38;2;0;161;255m━[39m[38;2;0;177;255m━[39m[38;2;0;193;255m━[39m[38;2;0;208;255m━[39m[38;2;0;224;255m━[39m[38;2;0;239;255m━[39m[38;2;0;255;255m━[39m
+[38;2;255;0;0m[[39m [38;2;230;26;26mS[39m[38;2;204;51;51mE[39m[38;2;179;77;77mT[39m[38;2;153;102;102mT[39m[38;2;128;128;128mI[39m[38;2;102;153;153mN[39m[38;2;77;179;179mG[39m[38;2;51;204;204mS[39m [38;2;26;230;230m][39m[38;2;0;255;255m:[39m [38;2;255;255;255mWatching ZAO-SETTINGS.json for changes.[39m 
+[38;2;255;0;0m[[39m [38;2;219;36;36mP[39m[38;2;182;73;73mA[39m[38;2;146;109;109mN[39m[38;2;109;146;146mE[39m[38;2;73;182;182mL[39m [38;2;36;219;219m][39m[38;2;0;255;255m:[39m [38;2;255;255;255mInternal API ready on 127.0.0.1:3001[39m 
+[1m[38;2;19;144;240m[39m[22m
+[1m[38;2;19;144;240m●─𝗭𝗔𝗢 𝗙𝗔𝗡─●[39m[22m
+[38;2;255;0;0m[[39m [38;2;230;26;26m𝗦[39m[38;2;204;51;51m𝗔[39m[38;2;179;77;77m𝗜[39m[38;2;153;102;102m𝗠[39m [38;2;128;128;128m][39m[38;2;102;153;153m:[39m [38;2;255;255;255m 𝗬𝗢𝗨𝗡𝗚 𝗠𝗥 [39m 
+[38;2;255;0;0m━[39m[38;2;255;0;16m━[39m[38;2;255;0;31m━[39m[38;2;255;0;47m━[39m[38;2;255;0;62m━[39m[38;2;255;0;78m━[39m[38;2;255;0;94m━[39m[38;2;255;0;109m━[39m[38;2;255;0;125m━[39m[38;2;255;0;141m━[39m[38;2;255;0;156m━[39m[38;2;255;0;172m━[39m[38;2;255;0;187m━[39m[38;2;255;0;203m━[39m[38;2;255;0;219m━[39m[38;2;255;0;234m━[39m[38;2;255;0;250m━[39m[38;2;245;0;255m━[39m[38;2;229;0;255m━[39m[38;2;213;0;255m━[39m[38;2;198;0;255m━[39m[38;2;182;0;255m━[39m[38;2;167;0;255m━[39m[38;2;151;0;255m━[39m[38;2;135;0;255m━[39m[38;2;120;0;255m━[39m[38;2;104;0;255m━[39m[38;2;88;0;255m━[39m[38;2;73;0;255m━[39m[38;2;57;0;255m━[39m[38;2;42;0;255m━[39m[38;2;26;0;255m━[39m[38;2;10;0;255m━[39m[38;2;0;5;255m━[39m[38;2;0;21;255m━[39m[38;2;0;36;255m━[39m[38;2;0;52;255m━[39m[38;2;0;68;255m━[39m[38;2;0;83;255m━[39m[38;2;0;99;255m━[39m[38;2;0;114;255m━[39m[38;2;0;130;255m━[39m[38;2;0;146;255m━[39m[38;2;0;161;255m━[39m[38;2;0;177;255m━[39m[38;2;0;193;255m━[39m[38;2;0;208;255m━[39m[38;2;0;224;255m━[39m[38;2;0;239;255m━[39m[38;2;0;255;255m━[39m
+setTitle {
+  error: [32m'JSON.parse error. Check the `detail` property on this error.'[39m,
+  detail: Error: Binary response received
+      at [90m/home/runner/workspace/[39mnode_modules/[4mshadowx-fca[24m/utils.js:2507:29
+      at tryCatcher [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/util.js:16:23[90m)[39m
+      at Promise.attempt.Promise.try [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/method.js:39:29[90m)[39m
+      at [90m/home/runner/workspace/[39mnode_modules/[4mshadowx-fca[24m/utils.js:2482:28
+      at tryCatcher [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/util.js:16:23[90m)[39m
+      at Promise._settlePromiseFromHandler [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:547:31[90m)[39m
+      at Promise._settlePromise [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:604:18[90m)[39m
+      at Promise._settlePromise0 [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:649:10[90m)[39m
+      at Promise._settlePromises [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:729:18[90m)[39m
+      at Promise._fulfill [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:673:18[90m)[39m
+      at Promise._resolveCallback [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:466:57[90m)[39m
+      at Promise._settlePromiseFromHandler [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:559:17[90m)[39m
+      at Promise._settlePromise [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:604:18[90m)[39m
+      at Promise._settlePromise0 [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:649:10[90m)[39m
+      at Promise._settlePromises [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:729:18[90m)[39m
+      at Promise._fulfill [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:673:18[90m)[39m,
+  res: [32m'�(\x02\x00ħ5�?]��i\x03����ӆ��ZS\b\x18Z\x04\x07�c9q.pX�L���Jw\x13\x19N��-J|�\x03||\x12|\x1DS=<��1��*P��޺7o���=?���\x1DXB�&\t����������|���N&�_[��7�A��\\�=v��_��`\x0FH�OF��5�cI\\V uK\x1Exyq\x02�6���lZ�;yJZRC8��U\fRcw\x1D�˫��g��\x00�p\b\x05\t�����R�w~�mS���ߟ��\x01L�����j��S��b\x06*�\x02\x02i�N+}��Ԩ\x00\x02G\x17o$`+rb�~���6�r����\x0F�/�}�\x0B�{A��a\x04�6�L�r\x13Fe\r��\\��F.��~�����\x8C�`q\x1F��\n'[39m +
+    [32m'�\b<p��׾��S�RMfx�7O�����6��\\r.�u�g5&���9+w3u\x1B\b\x14ޟ��Zm��.t���S>tۭP�v�fm����RcA��.�͒�N��c��\x14�|JB\x14�\x0EB��lԺ\x01�N��Lږ���c`u�?�;+������\x16�y\\%i����XTY.��L˸�R.y��T� p�t��A�i\x17<R���|\x1F6k��&J�8��i�fEZ�U�D �m��\\{ն�N0z��=0z�>e��_x�`\x0F��1+�\x1E�(\x17\x01kz1���\bf6�����0\x1B�\x05&˓<6�\x05��}�\t�N��\x0BklJ�F��\x17���8+\x0FyUU�N�\x13?qV�򷫎��\x0E�p[\x15\x18N\x1E\x04�\t0�!��5Q\x13]1��\bz�Ҿ\x13�P�B\x139�\x04]ǵ��y\x13ݪ&rMt\b�}�\x7F�˗o?ѓǾ\x13�.A�_��T\x1E�A\x18�Z�\x1F��\x03�aZ\x02���W\x1E�8��<�\x0FEz(��8b7\x00\x03'[39m,
+  isBinaryResponse: [33mtrue[39m
+}
+setTitle {
+  error: [32m'JSON.parse error. Check the `detail` property on this error.'[39m,
+  detail: Error: Binary response received
+      at [90m/home/runner/workspace/[39mnode_modules/[4mshadowx-fca[24m/utils.js:2507:29
+      at tryCatcher [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/util.js:16:23[90m)[39m
+      at Promise.attempt.Promise.try [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/method.js:39:29[90m)[39m
+      at [90m/home/runner/workspace/[39mnode_modules/[4mshadowx-fca[24m/utils.js:2482:28
+      at tryCatcher [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/util.js:16:23[90m)[39m
+      at Promise._settlePromiseFromHandler [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:547:31[90m)[39m
+      at Promise._settlePromise [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:604:18[90m)[39m
+      at Promise._settlePromise0 [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:649:10[90m)[39m
+      at Promise._settlePromises [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:729:18[90m)[39m
+      at Promise._fulfill [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:673:18[90m)[39m
+      at Promise._resolveCallback [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:466:57[90m)[39m
+      at Promise._settlePromiseFromHandler [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:559:17[90m)[39m
+      at Promise._settlePromise [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:604:18[90m)[39m
+      at Promise._settlePromise0 [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:649:10[90m)[39m
+      at Promise._settlePromises [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:729:18[90m)[39m
+      at Promise._fulfill [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:673:18[90m)[39m,
+  res: [32m'�(\x02\x00�h;?]�����!�N�?���\x14"�\x11�\x05�XN�\x0B\x1C\x16 �*����D�\x13�z�\x12\x1F�\x00\x1F�\x04_�T\x0F�ka���\n'[39m +
+    [32m'Կa0�����w�O�N܂E\x04v�����_��G�\x17_�\x11�?�*��x�_\x16 ��]\x19ރ=\x0F��[M�����0k\tV�\x10�EaQ��-y�t�\x02�ֻRD�J�\x07y�ZRCX\x16�e\bRcw\x1D�����\x17f�\x1E\x00�\x10\n'[39m +
+    [32m'\x12��\x7F��g)�����]��\x1F\x7F\x7Fa�0�`r�ng\x07V�_\x1D�үz�¬ ���)�o?�j�A`��\x04lEN��-�R�F\\��t�����U��z�� �0�O �ƞI7��$�����T\\�+�����謫0-\x14X܅��\x01;<�\\��s_D�s�&=���#�/fRy��\x0F�s.�mL\x179&���9\x1B�\x0B�;\b\x14ޟ-{�\x19O�Y�z\x03A\'���{�`�2��^=w��ڀ`�_�]z~?���q׳��K\x12��w\x14��z�Ǝh\x0F��EԶ\x04ߧ\x1C\x03�k�!�E�ߥ7�\x1Fl�0L�2��$΋*+���".�,�y�È�r\x00�m�����O���\x1AM����Y��7A��QX�e�dq\x16�q\x13�x�K2p�d۶\x07���\x06�����)�r��{\x0E�D\x1CVI\x06��G�\bXӋ\t&�&0�+u\x1C\x04���E�.0I\x1A��\x01��]\x1E�A0u�\'\\\x18mS\x02��\x0E��\x02\x16�I��eY�\x07�uV��Y}�߶���-�\x13��I0�\x1D\b�\x15`���\x1Ck�&�b��\x11�v�C\'zM��M`�\x15t��&��Mp/��6A�����/��D�\x0E�Ap�\x04I\x7Fm��t`O�8W��\x00�\x1E�\f�\x12��ļ"O¨,Ӵ\b�0����p\x18\x03'[39m,
+  isBinaryResponse: [33mtrue[39m
+}
+setTitle {
+  error: [32m'JSON.parse error. Check the `detail` property on this error.'[39m,
+  detail: Error: Binary response received
+      at [90m/home/runner/workspace/[39mnode_modules/[4mshadowx-fca[24m/utils.js:2507:29
+      at tryCatcher [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/util.js:16:23[90m)[39m
+      at Promise.attempt.Promise.try [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/method.js:39:29[90m)[39m
+      at [90m/home/runner/workspace/[39mnode_modules/[4mshadowx-fca[24m/utils.js:2482:28
+      at tryCatcher [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/util.js:16:23[90m)[39m
+      at Promise._settlePromiseFromHandler [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:547:31[90m)[39m
+      at Promise._settlePromise [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:604:18[90m)[39m
+      at Promise._settlePromise0 [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:649:10[90m)[39m
+      at Promise._settlePromises [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:729:18[90m)[39m
+      at Promise._fulfill [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:673:18[90m)[39m
+      at Promise._resolveCallback [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:466:57[90m)[39m
+      at Promise._settlePromiseFromHandler [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:559:17[90m)[39m
+      at Promise._settlePromise [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:604:18[90m)[39m
+      at Promise._settlePromise0 [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:649:10[90m)[39m
+      at Promise._settlePromises [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:729:18[90m)[39m
+      at Promise._fulfill [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:673:18[90m)[39m,
+  res: [32m"�(\x02\x00ħ5�Nםw��ǖb��-���A�\x12\x11\\��q�\\�\x00�VQ\x05��&2�x�[��\x00\x07��$�:�zx\\\x0Bc\\�U��\r�u\x0F\x1E��?��a��\x0E,!p�\x04��틵��{�{�|�\x0F}�?��\x05��/�r\tv[\b\x0E~�҃� U�\x1B\x05V\x14\x10�%�6\x07)*r�~�\x04Xaf�����\x16r�T��p,��\x18���:�ӫ��\x1DU\x00@8��\x04r�O�\x7FRJ~㧯�r�￞[��-�\\;�ރ\x15���F�ѴT�\x11\x04�εV��3�Q\x01\x04���H�V��@�p)�m��\x06E{�\x03o\x1D\x1F��N':4�\n"[39m +
+    [32m`KC\x07\x02m�t�&t�\x1A�[�N͍\x1C�\x1B|g'O{S�\x19���>��\t�\x11x�B���"jO�K5���_<\x01~����4�rɹH�v5�1��?͙�\x1B��A���l%�d\x03\x15v��\x19\x04��/���C?k{M_��\x1A\x0B��r�n��r�5\x1D�l���]\x12���\x15��f�ֵ�\x16��ۤ�\b�O9\x06V\x14���Q�o�\x1B�\x0F�s\x1C��<I�,�lw�<[�:ۦ�x��\\�8�j@�\x1A��V��\x0B\x1E)PF\x7F�\x0F�5x}\x19%�8�wi�f�t��i\x19�\x047+�p�UUU\x0BA��\x04vC�e��v8����ݐƻl\rv�G�\bXӋ\t:�;03k�,\x04�ه��:0�*Y�\x06��f�,\x0BAW�pa�M\tԈ\x0B��#X\x12g��*��t!pމ��շ�r�����n\b�I���A��\x00C\x17��Y\x19��\x15\x03����3mj!\r5*���NЩ���*�K^F��6a��ח�_�yF\x0F\x1E�Bp�\x04I?��q�<؍0ε~?\x00�\x07&�T\x04�11o���$�W�4_o�m��s,\x03`[39m,
+  isBinaryResponse: [33mtrue[39m
+}
+setTitle {
+  error: [32m'JSON.parse error. Check the `detail` property on this error.'[39m,
+  detail: Error: Binary response received
+      at [90m/home/runner/workspace/[39mnode_modules/[4mshadowx-fca[24m/utils.js:2507:29
+      at tryCatcher [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/util.js:16:23[90m)[39m
+      at Promise.attempt.Promise.try [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/method.js:39:29[90m)[39m
+      at [90m/home/runner/workspace/[39mnode_modules/[4mshadowx-fca[24m/utils.js:2482:28
+      at tryCatcher [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/util.js:16:23[90m)[39m
+      at Promise._settlePromiseFromHandler [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:547:31[90m)[39m
+      at Promise._settlePromise [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:604:18[90m)[39m
+      at Promise._settlePromise0 [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:649:10[90m)[39m
+      at Promise._settlePromises [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:729:18[90m)[39m
+      at Promise._fulfill [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:673:18[90m)[39m
+      at Promise._resolveCallback [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:466:57[90m)[39m
+      at Promise._settlePromiseFromHandler [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:559:17[90m)[39m
+      at Promise._settlePromise [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:604:18[90m)[39m
+      at Promise._settlePromise0 [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:649:10[90m)[39m
+      at Promise._settlePromises [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:729:18[90m)[39m
+      at Promise._fulfill [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:673:18[90m)[39m,
+  res: [32m"�(\x02\x00���,:]��i\x03���i�!D��\x101�\b�\x07;�\x13�\x02�\x05ȴ�*�t7��Ļޢ�\x078��'��1���Z\x18�j�\x02�o�=}����GoO��+��\x18h� �)�p��\x13}:��\x16��c�S�~ׂaUw�U\x07��\x19�a�]�|�3��\fdUA��ң\x00�\x1A���;i��m�2�Y���%kX\x05M2KE\n"[39m +
+    [32m'Vaw\x1D�3�o��~1\x11\x00�\x10\n'[39m +
+    [32m'2��\x7F���1�o���f���_�{�O\x03�\\��\x14 +tK����\r\\�\x05\f��Zk��grg"\x18�/�I�V����|/�m��F�\'\x17�\x1AH-�}�+�{͵�q\x04�6�L�*\x17G�\x1D��\\�U�[\x14�a�k���\x9C�`���\n'[39m +
+    [32m'�**m���"���K5��%�\x03\x01~���۬z�Nq�nC9�1��?�Y\x15͜60(�?�tf��k���\x06�ք�n�B��y���nj\'ϝ\x07�r�z�;u?���qsS4�K\x12��wК\x0Fn�\x064;+�1k\x1A��S�AV\x15~7t1��������e*�<-���� ��k�c~L\x0FE�:�f*7=\x18���\x175�?��G*�ɟ��f\r^_\'�!��S.��\x1Fr��\tX�Ͱ^�`���\x19�@+�\x13c�ҧ\f��\x0B\x15\x15�\x13yz*\x0E�Ox��@6��aTa�t����p�B��o\x03S�Y\x19\x1B #mf�w���=��;�\x12��w��\x17�,-���\x10"�\x19(��Q����H���\b�x_\r$�\x01\f�4$�\x18� �N�\x18�g4��x���qgb�P ��q��KY\'wQ\'T\'�q}l�/\x7F����9`�\x19n� ��u ՙ\x00�$�+k�\x0F���0\r�}L�;�\x16i&Dy\x12e��\'!�\t�\x01\x03'[39m,
+  isBinaryResponse: [33mtrue[39m
+}
+setTitle {
+  error: [32m'JSON.parse error. Check the `detail` property on this error.'[39m,
+  detail: Error: Binary response received
+      at [90m/home/runner/workspace/[39mnode_modules/[4mshadowx-fca[24m/utils.js:2507:29
+      at tryCatcher [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/util.js:16:23[90m)[39m
+      at Promise.attempt.Promise.try [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/method.js:39:29[90m)[39m
+      at [90m/home/runner/workspace/[39mnode_modules/[4mshadowx-fca[24m/utils.js:2482:28
+      at tryCatcher [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/util.js:16:23[90m)[39m
+      at Promise._settlePromiseFromHandler [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:547:31[90m)[39m
+      at Promise._settlePromise [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:604:18[90m)[39m
+      at Promise._settlePromise0 [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:649:10[90m)[39m
+      at Promise._settlePromises [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:729:18[90m)[39m
+      at Promise._fulfill [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:673:18[90m)[39m
+      at Promise._resolveCallback [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:466:57[90m)[39m
+      at Promise._settlePromiseFromHandler [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:559:17[90m)[39m
+      at Promise._settlePromise [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:604:18[90m)[39m
+      at Promise._settlePromise0 [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:649:10[90m)[39m
+      at Promise._settlePromises [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:729:18[90m)[39m
+      at Promise._fulfill [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:673:18[90m)[39m,
+  res: [32m"�(\x02\x00ħ5�?]��i\x03���͜6��Z]\b\x18Z\x04\x07�c9q.pX�L���Jw\x13\x19N��-J|�\x03||\x12|\x1DS=<��1��*P��ƺG����߰�s\x07�\x10�^����'��K~�������7_��Cր`�\x17m�\x04�-\x04\x07?Z��n���\x02+\n"[39m +
+    [32m'\bǒx��\x14\x15�a�w\x02�0����ZW\x0B�K*R@8��y\fR`w\x1D���{�Ҏ*\x00 \x1CBA\x02����(%\x7F���Y���?/�i�\x16L��]��\n'[39m +
+    [32m'��S��hZ*�\b\x02i�Z+}��Ԩ\x00\x02GGo$`+rb�~���6�r���񁷎��}�\x13\x1D\x1AA���\x03�6�L:q\x13:e\r��\\��F��\r������\x8C�`q\x1F��\x04�\b<p������S�RM���\x17O�\x1Fl��6ͯ\\r.ҹ]\rjL>�Os&�\x06�f\x10(�?[I5�@�\x1D�x\x06A�|��K�`����^�׽�Ƃ`���\x1B$�\x1ClM�8�>(y��(�m�����u-��d�6�*��S��\x15\x05~*wT�����\x1Cǫ8O�8K7��:�V�ζ�6^g)�<Nx�\x1A\x10�F�o�U��G\n'[39m +
+    [32m"�џ��f\r^_F�:N�]���:]�yZF �͊4\\{UU�B�y7���y�>�\x1Dίx�`7��.[���Q.\x02��b���\x0E��Z/\x0B�a�a0�\x0EL�JV�\x01,�Y-�B�պ'\\XcS\x025�\x02��\b���v���<]\b�w�3g�-\x7F\\��\x7F8�\x1B�eR`8x\x10x'�Ѕ0yVFet�\x00?#��L�ZHC�\n"[39m +
+    [32m'e�\x13t�2:��蒗�+�M������W�^Ѓǲ\x10�.A��u\\*\x0Fv#�s��\x0F���0\x15�~L��n�8��u���q����\x1A�\x01\x03'[39m,
+  isBinaryResponse: [33mtrue[39m
+}
+[38;2;255;0;0m[[39m [38;2;223;32;32mH[39m[38;2;191;64;64mE[39m[38;2;159;96;96mA[39m[38;2;128;128;128mL[39m[38;2;96;159;159mT[39m[38;2;64;191;191mH[39m [38;2;32;223;223m][39m[38;2;0;255;255m:[39m [38;2;255;255;255mCookie scan: session alive ✓[39m 
+setTitle {
+  error: [32m'JSON.parse error. Check the `detail` property on this error.'[39m,
+  detail: Error: Binary response received
+      at [90m/home/runner/workspace/[39mnode_modules/[4mshadowx-fca[24m/utils.js:2507:29
+      at tryCatcher [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/util.js:16:23[90m)[39m
+      at Promise.attempt.Promise.try [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/method.js:39:29[90m)[39m
+      at [90m/home/runner/workspace/[39mnode_modules/[4mshadowx-fca[24m/utils.js:2482:28
+      at tryCatcher [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/util.js:16:23[90m)[39m
+      at Promise._settlePromiseFromHandler [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:547:31[90m)[39m
+      at Promise._settlePromise [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:604:18[90m)[39m
+      at Promise._settlePromise0 [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:649:10[90m)[39m
+      at Promise._settlePromises [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:729:18[90m)[39m
+      at Promise._fulfill [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:673:18[90m)[39m
+      at Promise._resolveCallback [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:466:57[90m)[39m
+      at Promise._settlePromiseFromHandler [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:559:17[90m)[39m
+      at Promise._settlePromise [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:604:18[90m)[39m
+      at Promise._settlePromise0 [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:649:10[90m)[39m
+      at Promise._settlePromises [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:729:18[90m)[39m
+      at Promise._fulfill [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:673:18[90m)[39m,
+  res: [32m'�(\x02\x00ħ5�Nםw��ǖb��-���A�\x12\x11\\��q�\\�\x00�VQ\x05��&2�x�[��\x00\x07��$�:�zx\\\x0Bc\\�U��\r�u\x0F\x1E��?��a��\x0E,!p�\x04�S==�#��O_�;%����_�/>� ��E[.�n\x0B���Vz�\x1B�jz���\x02±$�� EEn��\x00+̬51���B\x14\x10�%q\x1E�\x14�]G\x7Fz��<��\n'[39m +
+    [32m'\x00\b�P�@����OJ�o��uV����sk��\x05�kg�{�\x02r�Ԩ0��\n'[39m +
+    [32m";�@ڹ�J�~&5*����\x1B\t؊�\x18�\x1F.����ܠho|��x��D�FPai�@��=�N܄NYC{+ש��#w����io�0#4X���4\x01;\x02\x0F\\��\x7F_D��s�&����'�\x0F��y��W.9\x17�ܮ\x065&���9\x13w\x03u3\b\x14ޟ���l�\x8Et<��V>��P�v�gm����RcA0^N�\r�_\x0E��c�M\x1F��KB\x14��B���Ժ\x16�B�|�T\x15��)���\x02ߕ;*�MyC��r��U�'i����n�g+Yg�t\x1B���K\x1E'<U\r\b\\#�\x17ު\x1Fv�#\x05����a�\x06�/�d\x1D'�.��l���<-#��fE\x1A����j!輛�n�L��\x0E�\x17<p�\x1B�x���n�(\x17\x01kz1A�}\x07ff����0�0\x18[\x07&[%��\x00\x16ܬ�e!�j�\x13.��)�\x1Aq\x01_x\x04K�l�Y�y�.\x04�;���_.���\x1C�\r�2)0\x1C<\b�\x13`�B�<+�2�b��\x11�|�M-��F�2r�\t:uS\x19\x1DWet��ȕ�&L�����7���cY\bn� ���:.�\x07�\x11ƹ��\x07���d��@?&�m7Y���z\x1D��]�n�,�b\x00\x03"[39m,
+  isBinaryResponse: [33mtrue[39m
+}
+setTitle {
+  error: [32m'JSON.parse error. Check the `detail` property on this error.'[39m,
+  detail: Error: Binary response received
+      at [90m/home/runner/workspace/[39mnode_modules/[4mshadowx-fca[24m/utils.js:2507:29
+      at tryCatcher [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/util.js:16:23[90m)[39m
+      at Promise.attempt.Promise.try [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/method.js:39:29[90m)[39m
+      at [90m/home/runner/workspace/[39mnode_modules/[4mshadowx-fca[24m/utils.js:2482:28
+      at tryCatcher [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/util.js:16:23[90m)[39m
+      at Promise._settlePromiseFromHandler [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:547:31[90m)[39m
+      at Promise._settlePromise [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:604:18[90m)[39m
+      at Promise._settlePromise0 [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:649:10[90m)[39m
+      at Promise._settlePromises [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:729:18[90m)[39m
+      at Promise._fulfill [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:673:18[90m)[39m
+      at Promise._resolveCallback [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:466:57[90m)[39m
+      at Promise._settlePromiseFromHandler [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:559:17[90m)[39m
+      at Promise._settlePromise [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:604:18[90m)[39m
+      at Promise._settlePromise0 [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:649:10[90m)[39m
+      at Promise._settlePromises [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:729:18[90m)[39m
+      at Promise._fulfill [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:673:18[90m)[39m,
+  res: [32m'�(\x02\x00ħ5�Nםw��ǖb��-���A�\x12\x11\\��q�\\�\x00�VQ\x05��&2�x�[��\x00\x07��$�:�zx\\\x0Bc\\�U��\r�u\x0F\x1E��?��a��\x0E,!p�\x04���F�����ɋW\x07�M��Ǚ�@0�\\��\x16��\x1F��`7H��F�\x15\x05�cI��A��ܰ�;\x01V�Ykbf����%\x15) \x1CK�<\x06)������ynG\x15\x00\x10\x0E� �\\����������������4}\x0B&�ή�`\x05��Qa4-\x15v\x04��s����LjT\x00���7\x12�\x1591P?\\Ja\x1Bq�A����[�G�Ӊ\x0E����Ё@\x1B{&��\t����V�Ss#G�\x06�����TaFh����i\x02v\x04\x1E�������S�RM���\x17O�\x1Fl��6ͯ\\r.ҹ]\rjL>�Os&�\x06�f\x10(�?[I5�@�\x1D�x\x06A�|��K�`����^�׽�Ƃ`���\x1B$�\x1ClM�8�>(y��(�m�����u-��d�6�*��S��\x15\x05�+wT�����\x1Cǫ8O�8K7��:�V�ζ�6^g)�<Nx�\x1A\x10�F�/�U?�G\n'[39m +
+    [32m"�џ��f\r^_F�:N�]���:]�yZF �͊4\\{UU�B�y7���y�>�\x1D�/x�`7��.[���Q.\x02��b���\x0E��Z/\x0B�a�a0�\x0EL�JV�\x01,�Y-�B�պ'\\XcS\x025�\x02��\b���v���<]\b�w�#g�-�\\���9�\x1B�eR`8x\x10x'�Ѕ0yVFet�\x00?#��L�ZHC�\n"[39m +
+    [32m'e�\x13t�2:��蒗�+�M������\x17o�уǲ\x10�.A�ϩu\\*\x0Fv#�s��\x0F���0\x15�~L��n�8���v�g�4���\x18�\x01\x03'[39m,
+  isBinaryResponse: [33mtrue[39m
+}
+setTitle {
+  error: [32m'JSON.parse error. Check the `detail` property on this error.'[39m,
+  detail: Error: Binary response received
+      at [90m/home/runner/workspace/[39mnode_modules/[4mshadowx-fca[24m/utils.js:2507:29
+      at tryCatcher [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/util.js:16:23[90m)[39m
+      at Promise.attempt.Promise.try [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/method.js:39:29[90m)[39m
+      at [90m/home/runner/workspace/[39mnode_modules/[4mshadowx-fca[24m/utils.js:2482:28
+      at tryCatcher [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/util.js:16:23[90m)[39m
+      at Promise._settlePromiseFromHandler [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:547:31[90m)[39m
+      at Promise._settlePromise [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:604:18[90m)[39m
+      at Promise._settlePromise0 [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:649:10[90m)[39m
+      at Promise._settlePromises [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:729:18[90m)[39m
+      at Promise._fulfill [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:673:18[90m)[39m
+      at Promise._resolveCallback [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:466:57[90m)[39m
+      at Promise._settlePromiseFromHandler [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:559:17[90m)[39m
+      at Promise._settlePromise [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:604:18[90m)[39m
+      at Promise._settlePromise0 [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:649:10[90m)[39m
+      at Promise._settlePromises [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:729:18[90m)[39m
+      at Promise._fulfill [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:673:18[90m)[39m,
+  res: [32m'�(\x02\x00ħ5�?]��i\x03��\x03͜6�\x1F�ZS\b\x18Z\x04?`�r�\\�\x00�VQ\x05��&2�x�[��\x00\x07��$�:�zx\\\x0Bc\\�U��\r��Ϟ?>�x���Ix���\x0F\n'[39m +
+    [32m'\x1C�\x7F�w\x1B�\x7F����������۷7:MA0��qB��W�c��\n'[39m +
+    [32m'�w(�\x0EV��%��Y�g eM�xz�\x12���1�.��+y�jRBz��,\x05)����\x19�g��M:\x02 \x1CBA\x02��O?��Z�&ο.�_\x7F�뭳�Ёɵ�\x1F\x02x\t5\x05ju�lG��@���\x18�o?�Z\x1DA��\x14�\x04lEN�4��R�F\\n�t�!�΋I��|�c+�t4� �ƞIgac������4ªI�1�n\x0Et�U��\x06,\x1ERz��\x1DQD!��\x7F_D\x13�s�&�=�k ���7y�\x117�\x04\x17��mF=&���9��#�\x0B\b\x14ޟ���]��Mt����!6˵Ppn\x1Cfm�\x1D��Q�@0]�ΏJ\\���c\\�\x10�zHB\x14�vR��.��\x0E�J\n'[39m +
+    [32m'������c�e�ߵ?i������Ւ���eyZ��aˊ�j�}�O�E.�H3��\x16\x04���\x17��?܂GJTɟ��f\r^_%�6��C��b�os�W\tH�&�0A�u�\x12����w�A�O���;\x11\x05�\x1Dyz(��wx���7���\x17�\x07��1�Jp\\B\x1C�k\x02Sl�Ml\x00�~��\x12��\t��ڔ@���/<�gi��m\x18c�J����\x05�o�˳C�\x07�#^g\r�c\x00A�\x12\x1C}�s�UR%W\f�3�^.�m����X%>xI�~��ӦJ��J|���|[n�\x7F���\x1E\x03֕�v\t���;/�\x0E�w¸0��\x00�\x1E�\fS\x13��ļ��H3�vi^l�n{`\x19�j\x00\x03'[39m,
+  isBinaryResponse: [33mtrue[39m
+}
+setTitle {
+  error: [32m'JSON.parse error. Check the `detail` property on this error.'[39m,
+  detail: Error: Binary response received
+      at [90m/home/runner/workspace/[39mnode_modules/[4mshadowx-fca[24m/utils.js:2507:29
+      at tryCatcher [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/util.js:16:23[90m)[39m
+      at Promise.attempt.Promise.try [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/method.js:39:29[90m)[39m
+      at [90m/home/runner/workspace/[39mnode_modules/[4mshadowx-fca[24m/utils.js:2482:28
+      at tryCatcher [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/util.js:16:23[90m)[39m
+      at Promise._settlePromiseFromHandler [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:547:31[90m)[39m
+      at Promise._settlePromise [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:604:18[90m)[39m
+      at Promise._settlePromise0 [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:649:10[90m)[39m
+      at Promise._settlePromises [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:729:18[90m)[39m
+      at Promise._fulfill [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:673:18[90m)[39m
+      at Promise._resolveCallback [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:466:57[90m)[39m
+      at Promise._settlePromiseFromHandler [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:559:17[90m)[39m
+      at Promise._settlePromise [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:604:18[90m)[39m
+      at Promise._settlePromise0 [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:649:10[90m)[39m
+      at Promise._settlePromises [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:729:18[90m)[39m
+      at Promise._fulfill [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:673:18[90m)[39m,
+  res: [32m'�(\x02\x00ħ5�Nםw��ǖb��-���A�\x12\x11\\��q�\\�\x00�VQ\x05��&2�x�[��\x00\x07��$�:�zx\\\x0Bc\\�U��\r�u\x0F\x1E��?��a��\x0E,!p�\x04���\x17z�\x106?\x7F��\x1C�Sz���q ��E[.�n\x0B���Vz�\x1B�jz���\x02±$�� EEn��\x00+̬51���B\x14\x10�%q\x1E�\x14�]G\x7Fz��<��\n'[39m +
+    [32m'\x00\b�P�@����OJ�o��uV����sk��\x05�kg�{�\x02r�Ԩ0��\n'[39m +
+    [32m";�@ڹ�J�~&5*����\x1B\t؊�\x18�\x1F.����ܠho|��x��D�FPai�@��=�N܄NYC{+ש��#w����io�0#4X���4\x01;\x02\x0F\\��\x7F_D��s�&����'�\x0F��y��W.9\x17�ܮ\x065&���9\x13w\x03u3\b\x14ޟ���l�\x8Et<��V>��P�v�gm����RcA0^N�\r�_\x0E��c�M\x1F��KB\x14��B���Ժ\x16�B�|�T\x15��)���\x02ߕ;*�MyC��r��U�'i����n�g+Yg�t\x1B���K\x1E'<U\r\b\\#�\x17ު\x1Fv�#\x05����a�\x06�/�d\x1D'�.��l���<-#��fE\x1A����j!輛�n�L��\x0E�\x17<p�\x1B�x���n�(\x17\x01kz1A�}\x07ff����0�0\x18[\x07&[%��\x00\x16ܬ�e!�j�\x13.��)�\x1Aq\x01_x\x04K�l�Y�y�.\x04�;���_.���\x1C�\r�2)0\x1C<\b�\x13`�B�<+�2�b��\x11�|�M-��F�2r�\t:uS\x19\x1DWet��ȕ�&L�����7���cY\bn� ���:.�\x07�\x11ƹ��\x07���d��@?&�m7Y���&ݤ�x����\x14�\x01\x03"[39m,
+  isBinaryResponse: [33mtrue[39m
+}
+setTitle {
+  error: [32m'JSON.parse error. Check the `detail` property on this error.'[39m,
+  detail: Error: Binary response received
+      at [90m/home/runner/workspace/[39mnode_modules/[4mshadowx-fca[24m/utils.js:2507:29
+      at tryCatcher [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/util.js:16:23[90m)[39m
+      at Promise.attempt.Promise.try [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/method.js:39:29[90m)[39m
+      at [90m/home/runner/workspace/[39mnode_modules/[4mshadowx-fca[24m/utils.js:2482:28
+      at tryCatcher [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/util.js:16:23[90m)[39m
+      at Promise._settlePromiseFromHandler [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:547:31[90m)[39m
+      at Promise._settlePromise [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:604:18[90m)[39m
+      at Promise._settlePromise0 [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:649:10[90m)[39m
+      at Promise._settlePromises [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:729:18[90m)[39m
+      at Promise._fulfill [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:673:18[90m)[39m
+      at Promise._resolveCallback [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:466:57[90m)[39m
+      at Promise._settlePromiseFromHandler [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:559:17[90m)[39m
+      at Promise._settlePromise [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:604:18[90m)[39m
+      at Promise._settlePromise0 [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:649:10[90m)[39m
+      at Promise._settlePromises [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:729:18[90m)[39m
+      at Promise._fulfill [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:673:18[90m)[39m,
+  res: [32m'�(\x02\x00ħ5�?]��i\x03��\x03͜6䟲Z]\b\x18Z\x04?`�r�\\�\x00�VQ\x05��&2�x�[��\x00\x07��$�:�zx\\\x0Bc\\�U��\r��/^>?�z~�x\x14\x1E<#��\x02�[֛���Y��?}��ӿ\x7Fv^�\x06�,n�\t\x05�X\tNar*�?�t;X\r^���g鞁�5y�x�\x12���1�.��+y�jRBz��,\x05)����\x19�W��M:\x02 \x1CBA\x02��O?����M\\~]�����{gۡ\x03�k\x17?\x04�\x12j\n'[39m +
+    [32m"��8َJ7�@��1Z�~&�:���)X\t؊�\x18i\x18o����ܨ�`C\x14�\x17�x��B�VR�h�A��=����^;K\x07'�i�U��c��\x1C�`�0+\rX<��2\x03;��B�����&P�RM�{\n"[39m +
+    [32m'�@�\x1F]o�6#�B\t.ҵیzL>�Osf�G�\x17\x10(�?[+=�H���t\x05A�Cl�[���8��^;4��ց`�]�\x1F���\\CǸ�!j���(�����]��\x1D�\x14l��5��)���\x12�k\x7F��7�\r�\x07�%M7)���w�Ö\x15\x1B�\x14�|�n�\\(�f"�-\b|#�/��\x7F�\x05����?߇�\x1A��J�m������6��,�\x12��\x17MZa���z%胟�\x1F�J�ҍ�\x0F"\n'[39m +
+    [32m'�\x07��Pl�\x1F�(\x17\x01oz1A/B\x0Fn\x17c֕ഄ8Z�\x04��d��\x00\x1E���u%�\x1B�\x13.��)�Zy\x03_x\x06��b��0���\x07/\x7F\x14���/�\x0E�o\x1E��x�58N\x01\x04�Kp�1΁WI�\\1��Hz�Ҷ��R�c���%���JΛ*��*�U���}�\x7F��×w�\x14��\x04�K����y�t\x00\x7F\x10ƅ1�\x07���d���<&��wE�1������\x15l�\x1E�\x1A\x03'[39m,
+  isBinaryResponse: [33mtrue[39m
+}
+setTitle {
+  error: [32m'JSON.parse error. Check the `detail` property on this error.'[39m,
+  detail: Error: Binary response received
+      at [90m/home/runner/workspace/[39mnode_modules/[4mshadowx-fca[24m/utils.js:2507:29
+      at tryCatcher [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/util.js:16:23[90m)[39m
+      at Promise.attempt.Promise.try [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/method.js:39:29[90m)[39m
+      at [90m/home/runner/workspace/[39mnode_modules/[4mshadowx-fca[24m/utils.js:2482:28
+      at tryCatcher [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/util.js:16:23[90m)[39m
+      at Promise._settlePromiseFromHandler [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:547:31[90m)[39m
+      at Promise._settlePromise [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:604:18[90m)[39m
+      at Promise._settlePromise0 [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:649:10[90m)[39m
+      at Promise._settlePromises [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:729:18[90m)[39m
+      at Promise._fulfill [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:673:18[90m)[39m
+      at Promise._resolveCallback [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:466:57[90m)[39m
+      at Promise._settlePromiseFromHandler [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:559:17[90m)[39m
+      at Promise._settlePromise [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:604:18[90m)[39m
+      at Promise._settlePromise0 [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:649:10[90m)[39m
+      at Promise._settlePromises [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:729:18[90m)[39m
+      at Promise._fulfill [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:673:18[90m)[39m,
+  res: [32m"�(\x02\x00ħ5�Nםw��ǚ��O[JU'��vp\x01Sǉs��\x02dZE\x15T���p�]oQ�\x03\x1C������q-�q�W��7��>xx\x7F����Á[���v\x12\fO�~�_�뗡�^ߞ������\x0F/\x12\x10��2\x1A.�n+A�&#\x1D�\rR՝V`y\x0EaY\x14�2��$7\x1C\x0EV��z\x19G��q,Wr\x17�$��,\n"[39m +
+    [32m'�\x10$��:�ө�����\x07@8��\x04r�O�}RJ~㧯���￞\x1B]w\r�\\��΁吓�Z�I7T�\t\x04�,ը��gR�<\b,�����ȉ���R\n'[39m +
+    [32m'ۈ���v�y�X>���Nt�\x05\x15��\x16\x04��3�̵o�Ѵ3r�#�r�vp��\x1D�t\x15��\b\x16w!=��\x0E�=\x17c��/�rԹT�n���\x11�\x07ӎy�ȯ\\r.ҹI\x075&���93�\x03�\x0B\b\x14ޟ������Lt:��R�W˥P0f�fm���Pm@0]N�\x0E�_zS�1.��J�%!�{\x1B!h�\x17jl�r%I��ʒ���c`y���\x1E������`��a\x1AfQ\x1C&�v��dI*�d\x17��M\x12s�ÈǪ\x06�m���\x1B��,x$G\x11��>l���E\x10m�(��Y�l�M��E\x00���H�G�ʲ\\\tZgg�\x1BZ\'ӧ4��\x05�\x1C�8�\'\x1B�\x1B<�E��^L�rׂ�e\x1Cו�_�\x1F��\x02��Q\x1A\x1B��]Ժ�\x04m5��\x0B�mJ�Z\\�\x17\x1E��0�m�,���:+>rV���f��\x05��_f\x05�ށ�Y\x01���ٱ"(�+\x06�\x19A�gZWBj��/\x02묠s;\x17�1-�KV\x04�\b�~�.ח�_�yF{�u%�]���sc�T\x0E�F\x18���~\x00N\x0FL�)\t��ļ�6\t�,����h\x17�7Y�a5\x00\x03'[39m,
+  isBinaryResponse: [33mtrue[39m
+}
+setTitle {
+  error: [32m'JSON.parse error. Check the `detail` property on this error.'[39m,
+  detail: Error: Binary response received
+      at [90m/home/runner/workspace/[39mnode_modules/[4mshadowx-fca[24m/utils.js:2507:29
+      at tryCatcher [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/util.js:16:23[90m)[39m
+      at Promise.attempt.Promise.try [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/method.js:39:29[90m)[39m
+      at [90m/home/runner/workspace/[39mnode_modules/[4mshadowx-fca[24m/utils.js:2482:28
+      at tryCatcher [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/util.js:16:23[90m)[39m
+      at Promise._settlePromiseFromHandler [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:547:31[90m)[39m
+      at Promise._settlePromise [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:604:18[90m)[39m
+      at Promise._settlePromise0 [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:649:10[90m)[39m
+      at Promise._settlePromises [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:729:18[90m)[39m
+      at Promise._fulfill [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:673:18[90m)[39m
+      at Promise._resolveCallback [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:466:57[90m)[39m
+      at Promise._settlePromiseFromHandler [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:559:17[90m)[39m
+      at Promise._settlePromise [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:604:18[90m)[39m
+      at Promise._settlePromise0 [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:649:10[90m)[39m
+      at Promise._settlePromises [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:729:18[90m)[39m
+      at Promise._fulfill [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:673:18[90m)[39m,
+  res: [32m'�(\x02\x00ħ5�?]��i\x03�y��ӆ�cPk\n'[39m +
+    [32m'\x01C��\x02v,\'�\x05\x0E\x0B�i\x15UP�n"Éw�E�\x0Fp��O��c��ǵ0��^\x05���[����ӫ�;���\x03K\b�$��6�9�O꯿�(\x12���n\x7F��U\x1FA��\\��w��_��`wH�OF��5�cI\\V uK�x~v\x02�6���lZ�;yHZRC8��U\fRcw\x1D�˫��]T\x00@8��\x04r�_n�Y)�;?��)w�������\x00&�nn�`5��Qa1\x03\x15v\x01��[����LjT\x00���7\x12�\x1591P?_Ka\x1Bq�A����\x07�\x17��ν���0�@\x1B{&]�\t���NV�Ss#\x17�f?����TaFh����y\x05v\x04\x1E�������S�RMfx�WO�����6�o\\r.�e�g5&���9+w3u\x1B\b\x14ޟ��Zm��.t���S>t۵P�v�fm����RcA�\\��͒_���c��\x14�|HB\x14�\x0EB��lԺ\x01�N��Lږ���c`u�?�;)������\x16�y\\%i���塨�\\vY��q��\\�8��A�\x1A�~���.x�F\x13��>l���M�\x14q\x12\x1F�*͊�H���@��\x14���m۝`�n\x05�c�2}�0_>����H�CV���Q.\x02��b���\x11�lZ�;�q�a6�\x0BL�\'yl\x00\x0BnS��\x13���\t\x17�ؔ@���/<�%qV>�UU�;��N��Y}�߮:t�;�;�uU`8z\x10x\'�0��z�DMt�\x00?#��B�NHC�\n'[39m +
+    [32m"M�\x13t\x1D�&:�Mt���5�cXo���/\x1F���G�}'�]�����q�<؝0ε~?\x00�\x07&ô\x04�11�|�⤪ʸ��*�\x0E���n\x00\x03"[39m,
+  isBinaryResponse: [33mtrue[39m
+}
+setTitle {
+  error: [32m'JSON.parse error. Check the `detail` property on this error.'[39m,
+  detail: Error: Binary response received
+      at [90m/home/runner/workspace/[39mnode_modules/[4mshadowx-fca[24m/utils.js:2507:29
+      at tryCatcher [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/util.js:16:23[90m)[39m
+      at Promise.attempt.Promise.try [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/method.js:39:29[90m)[39m
+      at [90m/home/runner/workspace/[39mnode_modules/[4mshadowx-fca[24m/utils.js:2482:28
+      at tryCatcher [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/util.js:16:23[90m)[39m
+      at Promise._settlePromiseFromHandler [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:547:31[90m)[39m
+      at Promise._settlePromise [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:604:18[90m)[39m
+      at Promise._settlePromise0 [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:649:10[90m)[39m
+      at Promise._settlePromises [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:729:18[90m)[39m
+      at Promise._fulfill [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:673:18[90m)[39m
+      at Promise._resolveCallback [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:466:57[90m)[39m
+      at Promise._settlePromiseFromHandler [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:559:17[90m)[39m
+      at Promise._settlePromise [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:604:18[90m)[39m
+      at Promise._settlePromise0 [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:649:10[90m)[39m
+      at Promise._settlePromises [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:729:18[90m)[39m
+      at Promise._fulfill [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:673:18[90m)[39m,
+  res: [32m'�(\x02\x00�h;?]�����i\x02�;m�?\x06��\x100�\b.��r�\\�\x00�VQ\x05��&2�x�[��\x00\x07��$�:�zx\\\x0Bc\\�U��\r��/^>?�z~�x\x14\x1E<#��\x02��c~��8}1?�0�\x1D��-\x16߿��� ���8��\x1F+�)LN\x05�\x07�n\x07���\x12��,�3��&\x0F\x1C�^��v1��Řz%OYMJHϳ�� %v�ѿ��j߻IG\x00�C(H W�凟�V���o���?�~�l;t`r��\x00^BM�Z\x1D\'�Q�&\x10(�4F��ϤVG\x10x:\x05+\x01[�\x13#\r�\x14�\x11�\x1B5\x1Dl���b\x12�\\��J*\x1D�=\b��g�Y��kg���:��j\x12~\f��\x03\x1Dl\x15f�\x01���^f`G\x14QH3|�h\x02u.�d��p\x0B\x04���&o3�.��"]�ͨ����4g\x16~�~\x01�����ҳ�T��NW\x104:�f�\x15\n'[39m +
+    [32m'΍ì��C38j\x1D\b����Q���5t��\x1D�VOI���NJ�م:ߡ^I��Y]\x13|�r\f�,��g�\x7F���~�Z�t��,O�|�?lY�QM����ȅ\x12i&r݂�7��*:��[�H�*��}ج��$ۦYz�Y^l�m��*\x01�~Ѥ\x15&躮W�>�\x19��>��)�x� �\x00\x7F O\x0F�\x16�\x01�r\x11�\x17\x13�"��v1f]\tNK��uM`�M��\r��/z]W��1=��Y�\x12��7��g�,-��\rc,_\t|��\'��[�������\x1F��Y��\x14@\x10�\x04G\x1F�\x1Cx�T�\x15\x03����+m\x1B�,�:V�\x0F^ҹ��伩�\x1B�\x12_%�8ߗ��_>|yGO\x01�Jp�\x04I\x7F͝\x17J\x07�\x07a\\\x18�~\x00N\x0FL��\t�cb�~W�\x19c���\x1DX����X\r\x03'[39m,
+  isBinaryResponse: [33mtrue[39m
+}
+setTitle {
+  error: [32m'JSON.parse error. Check the `detail` property on this error.'[39m,
+  detail: Error: Binary response received
+      at [90m/home/runner/workspace/[39mnode_modules/[4mshadowx-fca[24m/utils.js:2507:29
+      at tryCatcher [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/util.js:16:23[90m)[39m
+      at Promise.attempt.Promise.try [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/method.js:39:29[90m)[39m
+      at [90m/home/runner/workspace/[39mnode_modules/[4mshadowx-fca[24m/utils.js:2482:28
+      at tryCatcher [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/util.js:16:23[90m)[39m
+      at Promise._settlePromiseFromHandler [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:547:31[90m)[39m
+      at Promise._settlePromise [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:604:18[90m)[39m
+      at Promise._settlePromise0 [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:649:10[90m)[39m
+      at Promise._settlePromises [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:729:18[90m)[39m
+      at Promise._fulfill [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:673:18[90m)[39m
+      at Promise._resolveCallback [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:466:57[90m)[39m
+      at Promise._settlePromiseFromHandler [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:559:17[90m)[39m
+      at Promise._settlePromise [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:604:18[90m)[39m
+      at Promise._settlePromise0 [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:649:10[90m)[39m
+      at Promise._settlePromises [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:729:18[90m)[39m
+      at Promise._fulfill [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:673:18[90m)[39m,
+  res: [32m'�(\x02\x00ħ5�Nםw�B��\x18�iK���A�\x12\x11\\��q�\\�\x00�VQ\x05��&2�x�[��\x00\x07��$�:�zx\\\x0Bc\\�U��\r�u\x0F\x1E��=�����;����\x12\fO�u�N�����\x7Fe�˸Y����\t\x04\x13�h�%�m!8��J\x0Fv�TMo\x14XQ@8�Ļ\x1C���\r��N�\x15f֚�Y�j!��"\x05�cI�� \x05v�џ^�5���\x02\x00�!\x14$��\x7F���R�\x1B?}���|��ܚ�o�����\x1E��\x1C=5*���\x8E �v��ҷ�I�\n'[39m +
+    [32m` pt�F\x02�"'\x06�K)l#.7(�\x1B\x1Fx��(�w:ѡ\x11TX\x1A:\x10hcϤ\x137�S����ujn����;;yڛ*�\b\r\x16�1=M���\x03\x17���\x17Q{�\\�ɴ+\x7F�\x04��v:o���%�"��������4g�n�n\x06�����T�\rTؑ�g\x10�ʇz�\x14\n`[39m +
+    [32m'�\x0E���5}�[j,\b��ɺA����t��郒�$Dqo+\x04m�L�kQ-$�wIU\x11|�r\f�(�]��rߔ7�\x1F,�8^�y��Y���7y��u�Kw�&K��q�SՀ�5�}��a\x17<R���|\x1F6k��2J6q\x12��<�6�&��2\x02\tnV��ګ��\x16�λ\t����)�p~�\x03\x07�!���\x06�\x06�r\x11��\x17\x13t�w`f�zY\b\x0E�\x0F��u`�u��\r`��jY\x16���=��\x1A�\x12�\x11\x17��G�$�v�u���B�\x13\x1F9�o���}�́�\x10.�\x02����;\x01�.�ɳ2*�+\x06�\x19A�g��B\x1AjT(#睠S7��q]F���\\\x19m�t��/?�x�\x1E<���v\t�~N��Ry�\x1Ba�k�~\x00N\x0FL��\b�cb�n��I��6�4�n�4�$X\f\x03'[39m,
+  isBinaryResponse: [33mtrue[39m
+}
+setTitle {
+  error: [32m'JSON.parse error. Check the `detail` property on this error.'[39m,
+  detail: Error: Binary response received
+      at [90m/home/runner/workspace/[39mnode_modules/[4mshadowx-fca[24m/utils.js:2507:29
+      at tryCatcher [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/util.js:16:23[90m)[39m
+      at Promise.attempt.Promise.try [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/method.js:39:29[90m)[39m
+      at [90m/home/runner/workspace/[39mnode_modules/[4mshadowx-fca[24m/utils.js:2482:28
+      at tryCatcher [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/util.js:16:23[90m)[39m
+      at Promise._settlePromiseFromHandler [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:547:31[90m)[39m
+      at Promise._settlePromise [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:604:18[90m)[39m
+      at Promise._settlePromise0 [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:649:10[90m)[39m
+      at Promise._settlePromises [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:729:18[90m)[39m
+      at Promise._fulfill [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:673:18[90m)[39m
+      at Promise._resolveCallback [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:466:57[90m)[39m
+      at Promise._settlePromiseFromHandler [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:559:17[90m)[39m
+      at Promise._settlePromise [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:604:18[90m)[39m
+      at Promise._settlePromise0 [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:649:10[90m)[39m
+      at Promise._settlePromises [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:729:18[90m)[39m
+      at Promise._fulfill [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:673:18[90m)[39m,
+  res: [32m'�(\x02\x00ħ��;]\x7F��_h\\�1����̨�B�%"8�Yˉs��\x02dZE\x15T���p�]oQ�\x03\x1C������q-�q�W��7��=z�������;���\r\x12\f��/���ӻ\x0F��Ӟ���7=�\x7F�m\x0F��_��\x12�\x12\x1C�d�\x07�A�v0\n'[39m +
+    [32m"�,!\x1CK�m\x01R����\t��,Z\x13�h]��.�I\t�X\x12\x171H��u��W��K;�\x00�p\b\x05\t���n�����O�\x17�.?����\x1D:0�vq�\x07+!'O�\n"[39m +
+    [32m'�騰\x13\b�]\x1A���gR�\x02\b\x1C�����ȉ���R\n'[39m +
+    [32m'ۈ�\r�\x0E�\x07�9>���Ntl\x05\x15��\x1E\x04��3��M�5t�r��\x1B9q7��Ξ\x0E�\n'[39m +
+    [32m'3B��}LO3�#���\x1E��h<u.�d�;\x7F�\x04���:o���%�"��|Tc�y\x7F�3s7R��@���J��\x06*�D�3\b\x1A�C�\\\n'[39m +
+    [32m'\x05k�a����\x19,5\x16\x04��d�(��`\x1B:��\fAɻ$Dqo\'\x04��B��P�$+�I]\x13|�r\f�,�S��r?�7�\x1F��8��"I�,���6E��&ۦ�x��\\�8�jA�\x1A��N��\x0B\x1E)QE\x7F�\x0F�5x}\x15%�8�wi�f�t�\x16i\x15�\x04�(�r�U]�+A��\fvC�e��n<�⁃ݐƻl\x03v�G�\bXӋ\tz�{0�h��\x04�Ň��&0Y��\x01,�E��J�7�\'\\XcS\x025�\x02��\b����>/�"]\t�w�3g�-\x7F\\�k~8�\x1B�eV`8x\x10x\'�Ї0{VEUt�\x00?#��L�FHC�\n'[39m +
+    [32m'U�\x13t��*:�Ut)��U�}������W�^ЃǺ\x12�.A��s\\*\x0Fv#�s��\x0F���05�~L���gqR\x14�"I�]��]��\x00\x03'[39m,
+  isBinaryResponse: [33mtrue[39m
+}
+setTitle {
+  error: [32m'JSON.parse error. Check the `detail` property on this error.'[39m,
+  detail: Error: Binary response received
+      at [90m/home/runner/workspace/[39mnode_modules/[4mshadowx-fca[24m/utils.js:2507:29
+      at tryCatcher [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/util.js:16:23[90m)[39m
+      at Promise.attempt.Promise.try [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/method.js:39:29[90m)[39m
+      at [90m/home/runner/workspace/[39mnode_modules/[4mshadowx-fca[24m/utils.js:2482:28
+      at tryCatcher [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/util.js:16:23[90m)[39m
+      at Promise._settlePromiseFromHandler [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:547:31[90m)[39m
+      at Promise._settlePromise [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:604:18[90m)[39m
+      at Promise._settlePromise0 [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:649:10[90m)[39m
+      at Promise._settlePromises [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:729:18[90m)[39m
+      at Promise._fulfill [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:673:18[90m)[39m
+      at Promise._resolveCallback [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:466:57[90m)[39m
+      at Promise._settlePromiseFromHandler [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:559:17[90m)[39m
+      at Promise._settlePromise [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:604:18[90m)[39m
+      at Promise._settlePromise0 [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:649:10[90m)[39m
+      at Promise._settlePromises [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:729:18[90m)[39m
+      at Promise._fulfill [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:673:18[90m)[39m,
+  res: [32m'�(\x02\x00ħ5�?]��i\x03�!6s��sPk\n'[39m +
+    [32m'\x11C��\x02N�c9q.pX�L���Jw\x13\x19N��-J|�\x03||\x12|\x1DS=<��1��*P����W�\x1F\x1F�<\x1Exz�\x16,"�S\x07�����_�?���~�)��t�\x7F�1�\x0B\x04+ߕ�\x1D�q\x12\\�b:\x07v����%XUAX\x16�E\tR5��ӓ\x15`�ޔ"zS�9�CԐ\n'[39m +
+    [32m'²(,C�\n'[39m +
+    [32m'���_N~�?�Ez\x00�C(H W�e����~��6i�?��ht?\r`r�f\'\x07V�[\x1C��/z��, ���*�o?�j�A`��\x04lEN���{)l#.�K:i��`�"�w�ѹ\x17T\x18�G\x10hcϤ+�~�F���u*����ٍfut�U�\x16\n'[39m +
+    [32m',�Bz[�\x1D�{.���/�uԹT�\x1E\x1E��\b�\x19Uަ�\x0B�8\x17�>��\x1C���Ӝ�ۙ�\r\x04\n'[39m +
+    [32m'�ϖ�\\���,t����η�^(\x183O��WO�d�6 X���s���i�\x187=y�=$!�{\x07!�7j��$IYDMC�}�1���\x1F�>K������\x16�iXFq��yq��$�ڤ��0Kb��0��A`\x1B�~���,x�B\x1D��>l���u\x10ea\x14^�2N�8�˸\x0E@��$�r�i��`tv\x05;0�.}�0�?q��\x0E��%��\x0Ex���5��`�n\x04ӛR�Ipݜ��i\x03��Q\x1A\x1B����y�\x04c�z\x85�6%P-v���`Q�\x14yZ�e|\x12Xg�O�շ�m�K��\x05;��U���@�\x00����X\x1D��\x15\x03����;�[�i���\x03묠���sZ\x07{Y\x07�\x0Er��l/�\x7F���\x07zu8O��%H�k\x1D,�\x03;\b�\\��\x03pz`2LC�\x1E\x13�<\t��,����i���\x05�\x01\x03'[39m,
+  isBinaryResponse: [33mtrue[39m
+}
+setTitle {
+  error: [32m'JSON.parse error. Check the `detail` property on this error.'[39m,
+  detail: Error: Binary response received
+      at [90m/home/runner/workspace/[39mnode_modules/[4mshadowx-fca[24m/utils.js:2507:29
+      at tryCatcher [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/util.js:16:23[90m)[39m
+      at Promise.attempt.Promise.try [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/method.js:39:29[90m)[39m
+      at [90m/home/runner/workspace/[39mnode_modules/[4mshadowx-fca[24m/utils.js:2482:28
+      at tryCatcher [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/util.js:16:23[90m)[39m
+      at Promise._settlePromiseFromHandler [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:547:31[90m)[39m
+      at Promise._settlePromise [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:604:18[90m)[39m
+      at Promise._settlePromise0 [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:649:10[90m)[39m
+      at Promise._settlePromises [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:729:18[90m)[39m
+      at Promise._fulfill [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:673:18[90m)[39m
+      at Promise._resolveCallback [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:466:57[90m)[39m
+      at Promise._settlePromiseFromHandler [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:559:17[90m)[39m
+      at Promise._settlePromise [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:604:18[90m)[39m
+      at Promise._settlePromise0 [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:649:10[90m)[39m
+      at Promise._settlePromises [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:729:18[90m)[39m
+      at Promise._fulfill [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:673:18[90m)[39m,
+  res: [32m'�(\x02\x00ħ�̾~o��\x15�m�!_WJU\'��eE�\x00�k\x1C\'�\x05\x0E\x0B�i\x15UP�n"Éw�E�\x0Fp��O��c��ǵ0��^\x05���X����ͣ�\x15��܁%\x04��`x�w�̇��8�Z����ǯ���s\x0B��/�r\t�n\x04\'?Z��VH��F�\x15\x05�cI|�A�����u\x02�0����ZW\x1B�J*R@8��y\fR`w\x1D���[�܎*\x00 \x1CBA\x02����?)%����Y������4}\x0B&�ή�`\x05��Qa4-\x15v\x04��s����LjT\x00���7\x12�\x1591P?,����ܠho|��x��L�FPai�@��=�N܄NYC{+ש��#w����io�0#4X���<\x01;\x02\x0F\\��\x7F_D��s�&�^��\x13�\x07��M�{.9\x17���\x065&���9\x13w\x03u3\b\x14ޟ���l�\x8Et���V>��R(X;�����uo�� \x18��u�����t��郒WI���V\bښ�Zע�H�\x1F��"�>�\x18XQ�rw�}S��~���x\x17�I\x1Ag��x�ϳ���cz��Y�%�\x13��\x06\x04���\x0Bo�\x0F���\x02e����Y�חQ����:��l���<-#��fE\x1A����j#輛�Vt^�Oi��\x0B\x1E8؊4���`+<�E��^L�q߁�Y�m#8�>\f�ց�v�.6�\x057�m�\b�Z��\x0BklJ�F,�\x0B���8;\x1Evy��\x1B��N|䬾�˯�o\x0ElEX&\x05��\x07�w\x02\f]\b�geTFW\f�3�^.���4ԨPF�;A�n*��]\x19-y\x19�2:��~�\x7F��śg��m\x04�K��sj\x1D�ʃ��q���\x018=0\x19�"Џ�y�C\x16\'y�gY�K�I~8$�\f\x03'[39m,
+  isBinaryResponse: [33mtrue[39m
+}
+setTitle {
+  error: [32m'JSON.parse error. Check the `detail` property on this error.'[39m,
+  detail: Error: Binary response received
+      at [90m/home/runner/workspace/[39mnode_modules/[4mshadowx-fca[24m/utils.js:2507:29
+      at tryCatcher [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/util.js:16:23[90m)[39m
+      at Promise.attempt.Promise.try [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/method.js:39:29[90m)[39m
+      at [90m/home/runner/workspace/[39mnode_modules/[4mshadowx-fca[24m/utils.js:2482:28
+      at tryCatcher [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/util.js:16:23[90m)[39m
+      at Promise._settlePromiseFromHandler [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:547:31[90m)[39m
+      at Promise._settlePromise [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:604:18[90m)[39m
+      at Promise._settlePromise0 [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:649:10[90m)[39m
+      at Promise._settlePromises [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:729:18[90m)[39m
+      at Promise._fulfill [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:673:18[90m)[39m
+      at Promise._resolveCallback [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:466:57[90m)[39m
+      at Promise._settlePromiseFromHandler [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:559:17[90m)[39m
+      at Promise._settlePromise [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:604:18[90m)[39m
+      at Promise._settlePromise0 [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:649:10[90m)[39m
+      at Promise._settlePromises [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:729:18[90m)[39m
+      at Promise._fulfill [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:673:18[90m)[39m,
+  res: [32m'�(\x02\x00ħ5�?]��iw?���i��C�jM!`D�\x03v,\'�\x05\x0E\x0B�i\x15UP�n"Éw�E�\x0Fp��O��c��ǵ0��^\x05���9������\'�ބ\x07�\b�������>;\x7F�R^~�^�6�L�ȩ�\x15\x04��\x1B\'\x14�s\'���T\x00\x7FB�n�\x1A�� =��\x13\x03�\x1A��ۛ���݌!v3���K֐\n'[39m +
+    [32m'��,e)H��u�Ϡ����EG\x00�C(H W��ǟ�V��믛�������n����͏\x01��Z\x02�:.���- Pnk�ַ�I�� �t\tV\x02�"\'F\x1A�{)l#.7j:�\x10E��"�w�ҹ�T:\x1A\x07\x10hcϤ��q�����u\x1Aa�"�\x1C\x06�\x06:�*�J\x03\x16\x0F)����(��f��/�\rԹT��_�=\x10�g7��͈�P��t��Y����i�*�L�\x06\x02��gk�W\x17�t\x0B]n hu��v/\x14���Y�k�vt�:\x10,���\x12�ɵt��\x1D�V/I���^J�ۍ:ߣ�I�NY�\x10|�r\f����\x17�\x7F���~��ҴLY��E~<�\x0F�(U[��Sz(r�D��\\w ��t��^��\x16<R�N�|\x1F6k��:�\x0Ei��s�\x17�����N@��4�\t�i��`\b~\x05\x7Fb\b*}J?߾\x10Q�?����\x00��G�\bxӋ\t\x06\x11\x06p�\x19��\x04�\x16�l]\x1B�����\x00\x1E���}\'\x18Z�\x13.��)�Zy\x07_x\x01���t,\x19c�N���?\n'[39m +
+    [32m"V��g��7\x0F�D��\x1A\x1CS\x00A�\x12\x1CC�k�uR'W\f�3��n�k����X'>xI�a��KY'wV'�N�q}l�/\x7F����\x14��\x04�K����{�t\x00\x7F\x12ƅ1�\x07���d���<&李E�1�\x0E씥�`e�c7\x00\x03"[39m,
+  isBinaryResponse: [33mtrue[39m
+}
+setTitle {
+  error: [32m'JSON.parse error. Check the `detail` property on this error.'[39m,
+  detail: Error: Binary response received
+      at [90m/home/runner/workspace/[39mnode_modules/[4mshadowx-fca[24m/utils.js:2507:29
+      at tryCatcher [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/util.js:16:23[90m)[39m
+      at Promise.attempt.Promise.try [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/method.js:39:29[90m)[39m
+      at [90m/home/runner/workspace/[39mnode_modules/[4mshadowx-fca[24m/utils.js:2482:28
+      at tryCatcher [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/util.js:16:23[90m)[39m
+      at Promise._settlePromiseFromHandler [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:547:31[90m)[39m
+      at Promise._settlePromise [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:604:18[90m)[39m
+      at Promise._settlePromise0 [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:649:10[90m)[39m
+      at Promise._settlePromises [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:729:18[90m)[39m
+      at Promise._fulfill [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:673:18[90m)[39m
+      at Promise._resolveCallback [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:466:57[90m)[39m
+      at Promise._settlePromiseFromHandler [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:559:17[90m)[39m
+      at Promise._settlePromise [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:604:18[90m)[39m
+      at Promise._settlePromise0 [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:649:10[90m)[39m
+      at Promise._settlePromises [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:729:18[90m)[39m
+      at Promise._fulfill [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:673:18[90m)[39m,
+  res: [32m'�(\x02\x00ħ5�?]��i\x03��\x03͜6�\x1F�ZS\b\x18Z\x04?`�r�\\�\x00�VQ\x05��&2�x�[��\x00\x07��$�:�zx\\\x0Bc\\�U��\r��Ϟ?>�x���Ix���\x0F\n'[39m +
+    [32m'\x1C�����]�i��ч\x0F_����S��\x0B\bfq5N(��Jp\f�S\x01�\x0E���j��<K�\f���\x1DOO^��v1��Řz%\x0FYMJHϳ�� %v��?��lߺIG\x00�C(H W��\x1FZ�����E���\x7F�u�\x1D:0�v�C\x00/��@�����t\x13\b�[\x1A���gR�#\b<�����ȉ���Z\n'[39m +
+    [32m'ۈˍ�\x0E6D�y1����tl%���\x1E\x04��3�,l쵳tpr�FX5\t?��́\x0E�\n'[39m +
+    [32m'�Ҁ�CJ�3�#�(�\x19��h\x02u.�d��p\r\x04���&o3�&��"]�ͨ����4g\x16~�~\x01�����ҳ�T��N\x17\x104:�f�\x16\n'[39m +
+    [32m'΍ì��C38j\x1D\b����Q���5t��\x1D�V\x0FI���NJ�م:ߡ^I��Y]\x13|�r\f�,��\'�\x7F���~�Z�t��,O�|�?lY�QM����ȅ\x12i&r݂�7��":��[�H�*��}ج��$ۦYz�Y^l�m��*\x01�~Ѥ\x15&躮W�>�\x19��>��)�xy\'�\x00�#O\x0F�\x16�\x0E�r\x11�\x17\x13�"��v1f]\t�K��uM`�M��\r��/z]W��1=��Y�\x12��W��\'�,-��\rc,_\t|��`�-\x7Fyvh~��w���q\f \b^���q\x0E�J��\x01~F�˅��T�Z\x1D��\x07/���Ur�TɕU���]�o����w���c��\x12�.Aҟs��\x01�N\x18\x17Ƽ\x1F��\x03�aj\x02󘘷�\x15i�\x18c�,߳\x1Dc�\x1DV\x03\x03'[39m,
+  isBinaryResponse: [33mtrue[39m
+}
+setTitle {
+  error: [32m'JSON.parse error. Check the `detail` property on this error.'[39m,
+  detail: Error: Binary response received
+      at [90m/home/runner/workspace/[39mnode_modules/[4mshadowx-fca[24m/utils.js:2507:29
+      at tryCatcher [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/util.js:16:23[90m)[39m
+      at Promise.attempt.Promise.try [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/method.js:39:29[90m)[39m
+      at [90m/home/runner/workspace/[39mnode_modules/[4mshadowx-fca[24m/utils.js:2482:28
+      at tryCatcher [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/util.js:16:23[90m)[39m
+      at Promise._settlePromiseFromHandler [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:547:31[90m)[39m
+      at Promise._settlePromise [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:604:18[90m)[39m
+      at Promise._settlePromise0 [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:649:10[90m)[39m
+      at Promise._settlePromises [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:729:18[90m)[39m
+      at Promise._fulfill [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:673:18[90m)[39m
+      at Promise._resolveCallback [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:466:57[90m)[39m
+      at Promise._settlePromiseFromHandler [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:559:17[90m)[39m
+      at Promise._settlePromise [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:604:18[90m)[39m
+      at Promise._settlePromise0 [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:649:10[90m)[39m
+      at Promise._settlePromises [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:729:18[90m)[39m
+      at Promise._fulfill [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:673:18[90m)[39m,
+  res: [32m'�(\x02\x00ħ5�Nםw�B��ONɖR�� b�*����\x13�\x02�\x05ȴ�*�t7��Ļޢ�\x078��\'��1���Z\x18�j�\x02�oh�y������\x15\x0F\x0F܀\x05\x04fh�p��]\x1A}�|�`����/\x1F�����K�\x0F\x04\x0B?O�7`׍`og�X�+\x1A�\x0EJ�\x15\x05�a��� EE�xx0\x02�P�4\x11�NS����"\x05�a��� \x05v�џV�U��,\x1D\x00�!\x14$��\x7F�ᓔ�7~��Js���V�Ёɵ�\x19,X�f�TI7��\n'[39m +
+    [32m'=���k=I}��TI\x07\x02Cg�$`+r��v<��6�r�����w���}�#\x1D[A���\x07�6�L�p�z�\x15\x1D�\\��U3s3�^/�\x0E�\n'[39m +
+    [32m'Sb\x02�[�\x1E\x17`�㎋i��\x17Q[�\\�Iu7�l\t�m�\x17�p.ҩ�G9&���9\x0B7#5+\b\x14ޟ-\x1B�hG���|\x02A-���s���8��^5ԃ�J�`>\x1F�\x19\x1B~�뚎qU���M\x12���\x13�vj��t�6\x12�YPU\x04ߧ\x1C\x03+\n'[39m +
+    [32m'|�� �7�\r�\x07���c?\x0FB?\n'[39m +
+    [32m'�l��Q��Q\x16f~\x12���~�Cق�4�}���\x17<R���|\x1F6k���\x0B\x12?�wa\x1EFI��yXz ά��|�������f\x01���M��n<����]\x11��(\x01�£\\\x04���\x04=�=�Z�i�\b��u��u`�8�c\x03�3�ܶ�����p��M\tT�3��\x03X�GY\x1A�y\x1En\x04�\x1A���_&���\f�\x15�H0�-\b�\x11`�[,+�һb��\x11�t�m-\x1AE�t�g�\x11t��;ĥw�Kϔ^��zy��ś{���6��%H��t�7҂]\t�|��\x0F���0\x15�������\x1F����%y\x12�i��\f\x03'[39m,
+  isBinaryResponse: [33mtrue[39m
+}
+setTitle {
+  error: [32m'JSON.parse error. Check the `detail` property on this error.'[39m,
+  detail: Error: Binary response received
+      at [90m/home/runner/workspace/[39mnode_modules/[4mshadowx-fca[24m/utils.js:2507:29
+      at tryCatcher [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/util.js:16:23[90m)[39m
+      at Promise.attempt.Promise.try [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/method.js:39:29[90m)[39m
+      at [90m/home/runner/workspace/[39mnode_modules/[4mshadowx-fca[24m/utils.js:2482:28
+      at tryCatcher [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/util.js:16:23[90m)[39m
+      at Promise._settlePromiseFromHandler [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:547:31[90m)[39m
+      at Promise._settlePromise [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:604:18[90m)[39m
+      at Promise._settlePromise0 [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:649:10[90m)[39m
+      at Promise._settlePromises [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:729:18[90m)[39m
+      at Promise._fulfill [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:673:18[90m)[39m
+      at Promise._resolveCallback [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:466:57[90m)[39m
+      at Promise._settlePromiseFromHandler [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:559:17[90m)[39m
+      at Promise._settlePromise [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:604:18[90m)[39m
+      at Promise._settlePromise0 [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:649:10[90m)[39m
+      at Promise._settlePromises [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:729:18[90m)[39m
+      at Promise._fulfill [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:673:18[90m)[39m,
+  res: [32m'�(\x02\x00ħ5�;]\x7F��\x0F\f�\x0E6s�9�ZS\b\x18Z\x04\x17p�\x1Dˉs��\x02dZE\x15T���p�]oQ�\x03\x1C������q-�q�W��74�=z|{��v��\x1Dw`\t��%\x18��Ӈ�ٻ�n\\|��ui�7ߍ�\b��/�r\t�n\x04g?Z��VH��F�\x15\x05�cI|�A�����s\x02�0����ZW\x1B�I*R@8��y\fR`w\x1D���{�Ҏ*\x00 \x1CBA\x02����(%\x7F���Y��矗�4}\x0B&�ή�`\x05��Qa4-\x15v\x04��s����LjT\x00���7\x12�\x1591P?,����ܠho|��x��B�FPai�@��=�N܄NYC{+ש��#w����io�0#4X���2\x01;\x02\x0F\\������S�RM���\'�\x0F��y��\x0F\\r.ҵ�\rjL>�Os&�\x06�f\x10(�?[I5�@�\x1D�x\x05A�|��P�v�gm����RcA0.\x17�\x06ɗ���\x18g�\x07%o�\x10Ž�\x10�53��E��,?&UE�}�1���O�������`9��.Γ4����ϳ���cz��Y�%�\x13��\x06\x04���\x1Bo�/���\x02e����Y�חQ������i�O�i��\x11Hp�"\r�^UU�\x11t�M`+:/ӧ���\x15\x0F\x1ClE\x1A��=�\n'[39m +
+    [32m"�r\x11��\x17\x13t�w`f�z�\bγ\x0F��u`�]��\r`��j�6���=��\x1A�\x12�\x11\x0B��{�$Ύ�]���F�\x13�9�o���S�Á�\bˤ�p� �N��\x0Ba���\x01~F��6���\x1A\x15��y'��Met�+�%/#WF�0=�\x0F���z���=���v\t�~O��Ry��0ε~?\x00�\x07&�T\x04�11�x��$�O�>;�\x0E�!9��\f\x03"[39m,
+  isBinaryResponse: [33mtrue[39m
+}
+setTitle {
+  error: [32m'JSON.parse error. Check the `detail` property on this error.'[39m,
+  detail: Error: Binary response received
+      at [90m/home/runner/workspace/[39mnode_modules/[4mshadowx-fca[24m/utils.js:2507:29
+      at tryCatcher [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/util.js:16:23[90m)[39m
+      at Promise.attempt.Promise.try [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/method.js:39:29[90m)[39m
+      at [90m/home/runner/workspace/[39mnode_modules/[4mshadowx-fca[24m/utils.js:2482:28
+      at tryCatcher [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/util.js:16:23[90m)[39m
+      at Promise._settlePromiseFromHandler [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:547:31[90m)[39m
+      at Promise._settlePromise [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:604:18[90m)[39m
+      at Promise._settlePromise0 [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:649:10[90m)[39m
+      at Promise._settlePromises [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:729:18[90m)[39m
+      at Promise._fulfill [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:673:18[90m)[39m
+      at Promise._resolveCallback [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:466:57[90m)[39m
+      at Promise._settlePromiseFromHandler [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:559:17[90m)[39m
+      at Promise._settlePromise [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:604:18[90m)[39m
+      at Promise._settlePromise0 [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:649:10[90m)[39m
+      at Promise._settlePromises [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:729:18[90m)[39m
+      at Promise._fulfill [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:673:18[90m)[39m,
+  res: [32m'�(\x02\x00ħ5�?]��i\x03��\x03͜6�\x1F�ZS\b\x18Z\x04?`�r�\\�\x00�VQ\x05��&2�x�[��\x00\x07��$�:�zx\\\x0Bc\\�U��\r��Ϟ?>�x���Ix���\x0F\n'[39m +
+    [32m'\x1C��̿��\x7F7��\x7F\x7F�����_�{�{\x10��j�P����\x18&�\x02�\x1DJ����e\t�y��\x19HY�;���\x04/�b\f��1�J\x1E�����g)KAJ쮣\x7F\x06�پu��\x00\b�P�@���\x0F?�V�������z�l;t`r��\x00^BM�Z\x1D\'�Q�&\x10(�4F��ϤVG\x10x:\x05+\x01[�\x13#\r�\x14�\x11�\x1B5\x1Dl���b\x12�;���J*\x1D�=\b��g�Y��kg���:��j\x12~\f��\x03\x1Dl\x15f�\x01����g`G\x14QH3��\x17�\x04�\\��v\x0F�\x1A\b��M�f�M(�E�t�Q����i�,�H�\x02\x02��gk�g\x17�t\x13�. ht��r-\x14�\x1B�Y�k�fp�:\x10L׳�\x12ףk�\x18\x17;D�\x1E�\x10Ž����\x0Bu�C������&�>�\x18xY�w�O������`���&eY�\x16�n\x7Fزb��b���m�\x0B%�L�\x05�o��Et�\x0F���\x12U����Y��WI�M�������ۜ�U\x02\x12��I+L�u]�\x04}�3�\x1D}P�S���ND\x01~G�\x1E�-�\x1D\x1E�"�M/&�E���b̺\x12\x1C�\x10G��\x14�l\x13\x1B��_���\x04}cz¥�6%P+��\x0BO�YZ�w\x1B�X�\x12���w��[���������Y��\x18@\x10�\x04G\x1F�\x1Cx�T�\x15\x03����\x0Bm\x1B�,�:V�\x0F^ҹ��䴩�+�\x12_%�8ߖ����>��ǀu%�]��?��\x0B�\x03��0.�y?\x00�\x07&��\x04�11o�+Ҍ��.cl�m��Ȱ\x1A\x03'[39m,
+  isBinaryResponse: [33mtrue[39m
+}
+setTitle {
+  error: [32m'JSON.parse error. Check the `detail` property on this error.'[39m,
+  detail: Error: Binary response received
+      at [90m/home/runner/workspace/[39mnode_modules/[4mshadowx-fca[24m/utils.js:2507:29
+      at tryCatcher [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/util.js:16:23[90m)[39m
+      at Promise.attempt.Promise.try [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/method.js:39:29[90m)[39m
+      at [90m/home/runner/workspace/[39mnode_modules/[4mshadowx-fca[24m/utils.js:2482:28
+      at tryCatcher [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/util.js:16:23[90m)[39m
+      at Promise._settlePromiseFromHandler [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:547:31[90m)[39m
+      at Promise._settlePromise [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:604:18[90m)[39m
+      at Promise._settlePromise0 [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:649:10[90m)[39m
+      at Promise._settlePromises [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:729:18[90m)[39m
+      at Promise._fulfill [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:673:18[90m)[39m
+      at Promise._resolveCallback [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:466:57[90m)[39m
+      at Promise._settlePromiseFromHandler [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:559:17[90m)[39m
+      at Promise._settlePromise [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:604:18[90m)[39m
+      at Promise._settlePromise0 [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:649:10[90m)[39m
+      at Promise._settlePromises [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:729:18[90m)[39m
+      at Promise._fulfill [90m(/home/runner/workspace/[39mnode_modules/[4mbluebird[24m/js/release/promise.js:673:18[90m)[39m,
+  res: [32m`�(\x02\x00ħ5}:]w�i\x0B\x1Fk"៶��N\x06\x01KDp\x01Sǉs��\x02dZE\x15T���p�]oQ�\x03\x1C������q-�q�W��7��\x7F����G�/��\x83g\x04~R������٧a��9��B���0dG\x10��a�P௝�\x12\x16�\x02�\x0BJ����u\r�y�V\f�n�\x0B糗�݌!v3���[֒\x1A��,e)H��u�Ϡ����EG\x00�C(H W�駟�V��ۯ��������~\x1A����O\x01��Z\x02�:.v��- Pn�ַ�I�� �t\tV\x02�"'F\x1A�G)l#.7j:�\x10���"�w�ѹ�T:\x1AG\x10hcϤ��q�����u\x1Aa�"�\x1CF�\x06:�*�J\x03\x16\x0F)����(��f��/�\x0BԹT�\x1D��#\x10�g7��͈�P��t\x1F�Y����i�*�L�\x06\x02��gk�W\x17�t\x0B]� �t���(\x14���Y�k�nr�:\x10,���\x12����\x187;E�ޒ\x10Ž��t�\x1Bu~@���UY�\x12|�r\f����W�\x7F���~��ҴLY��E~�N\x07V��+��J\x0FE.�H3��\x1E\x04���\x171�?܂Gj4ɟ��f\r^�$�!��S���\x1Fr�7\tH��&�0A�m�\x13����/�A�O\x19��\x17"\n`[39m +
+    [32m'�\x17��T\x1C�_�(\x17\x01oz1�(�\bn7c��ಅ8[�\x05�(�26�G��}�\t���KgmJ�V>�\x17^�����%c,�\t|��G��[�������_��U��\x12@\x10�\x04�\x18�\x1Ax�4�\x15\x03����;�;�,�:6�\x0F^�u\\��Z6Ƀ5�o�c\\���˟���3z\t�w��%H�s\x1D�P:��\b�\x98�\x03pz`2LK`\x1E\x13�c�f��XU�%ˏ9˱\x1B\x03'[39m,
+  isBinaryResponse: [33mtrue[39m
+}
+[2026-04-18 19:50:16] [LAUNCHER] استُقبل SIGTERM — إيقاف تشغيل ZAO...
+[38;2;255;0;0m[[39m [38;2;230;26;26mS[39m[38;2;204;51;51mH[39m[38;2;179;77;77mU[39m[38;2;153;102;102mT[39m[38;2;128;128;128mD[39m[38;2;102;153;153mO[39m[38;2;77;179;179mW[39m[38;2;51;204;204mN[39m [38;2;26;230;230m][39m[38;2;0;255;255m:[39m [38;2;255;255;255mSIGTERM received — saving state before exit.[39m 
+[38;2;255;0;0m[[39m [38;2;230;26;26mS[39m[38;2;204;51;51mH[39m[38;2;179;77;77mU[39m[38;2;153;102;102mT[39m[38;2;128;128;128mD[39m[38;2;102;153;153mO[39m[38;2;77;179;179mW[39m[38;2;51;204;204mN[39m [38;2;26;230;230m][39m[38;2;0;255;255m:[39m [38;2;255;255;255mCookies saved to ZAO-STATE.json & alt.json.[39m 
+[38;2;255;0;0m[[39m [38;2;230;26;26mS[39m[38;2;204;51;51mH[39m[38;2;179;77;77mU[39m[38;2;153;102;102mT[39m[38;2;128;128;128mD[39m[38;2;102;153;153mO[39m[38;2;77;179;179mW[39m[38;2;51;204;204mN[39m [38;2;26;230;230m][39m[38;2;0;255;255m:[39m [38;2;255;255;255mAll state saved. Goodbye.[39m 
