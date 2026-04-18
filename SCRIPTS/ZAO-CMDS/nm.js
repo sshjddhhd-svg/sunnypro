@@ -3,6 +3,11 @@ const path = require("path");
 
 const LOCKS_FILE = path.join(__dirname, "../../data/nm-locks.json");
 
+// Consecutive-failure tracking — a transient error won't remove a lock.
+// Only after FAIL_THRESHOLD consecutive failures is the lock considered dead.
+const FAIL_THRESHOLD = 3;
+const _failCounts = {};
+
 function loadLocks() {
   try {
     fs.ensureDirSync(path.dirname(LOCKS_FILE));
@@ -22,7 +27,9 @@ function saveLocks(locksMap) {
     fs.ensureDirSync(path.dirname(LOCKS_FILE));
     const obj = {};
     for (const [k, v] of locksMap.entries()) obj[k] = v;
-    fs.writeFileSync(LOCKS_FILE, JSON.stringify(obj, null, 2), "utf8");
+    const tmp = LOCKS_FILE + ".tmp";
+    fs.writeFileSync(tmp, JSON.stringify(obj, null, 2), "utf8");
+    fs.renameSync(tmp, LOCKS_FILE);
   } catch (_) {}
 }
 
@@ -40,9 +47,22 @@ function setTitle(api, name, threadID) {
   });
 }
 
+// Returns true only for errors that definitively mean the thread is gone/inaccessible.
+// Transient errors (rate-limit, MQTT, generic FB errors) return false so we don't
+// auto-remove the lock.
+function isDeadThreadError(msg) {
+  const s = msg.toLowerCase();
+  return (
+    s.includes("no message_thread") ||
+    s.includes("thread may not exist") ||
+    s.includes("not a participant") ||
+    s.includes("you are not a member")
+  );
+}
+
 module.exports.config = {
   name: "nm",
-  version: "2.0.0",
+  version: "2.1.0",
   hasPermssion: 2,
   credits: "l7wak",
   description: "قفل اسم المجموعة ومنع تغييره",
@@ -77,26 +97,32 @@ module.exports.onLoad = function ({ api }) {
     for (const [threadID, lockedName] of global.nameLocks.entries()) {
       try {
         await setTitle(botApi, lockedName, threadID);
+        // Success — reset fail counter for this thread
+        _failCounts[threadID] = 0;
       } catch (err) {
-        const msg = String(err && (err.message || err)).toLowerCase();
+        const msg = String(err && (err.message || err));
+
+        // Skip MQTT/connectivity errors silently — don't count against the thread
+        const s = msg.toLowerCase();
         if (
-          msg.includes("not connected to mqtt") ||
-          msg.includes("mqtt client is not initialized") ||
-          msg.includes("mqtt")
+          s.includes("not connected to mqtt") ||
+          s.includes("mqtt client is not initialized") ||
+          s.includes("mqtt")
         ) {
           continue;
         }
-        if (
-          msg.includes("no message_thread") ||
-          msg.includes("thread may not exist") ||
-          msg.includes("access may be restricted") ||
-          msg.includes("not a participant") ||
-          msg.includes("not found") ||
-          msg.includes("cannot set title")
-        ) {
-          global.nameLocks.delete(threadID);
-          saveLocks(global.nameLocks);
+
+        // For definitively dead threads, increment fail counter
+        if (isDeadThreadError(msg)) {
+          _failCounts[threadID] = (_failCounts[threadID] || 0) + 1;
+          if (_failCounts[threadID] >= FAIL_THRESHOLD) {
+            global.nameLocks.delete(threadID);
+            saveLocks(global.nameLocks);
+            delete _failCounts[threadID];
+          }
         }
+        // All other errors (rate-limit, access-restricted, etc.) are ignored —
+        // the lock stays active and will be retried next cycle
       }
     }
   }, 6000);
@@ -124,6 +150,7 @@ module.exports.run = async function ({ api, event, args }) {
       return api.sendMessage(`❌ فشل تغيير الاسم: ${e.message || e}`, threadID, messageID);
     }
     global.nameLocks.set(threadID, name);
+    _failCounts[threadID] = 0;
     saveLocks(global.nameLocks);
     return api.sendMessage(`🔒 تم قفل اسم المجموعة:\n"${name}"`, threadID, messageID);
   }
@@ -132,6 +159,7 @@ module.exports.run = async function ({ api, event, args }) {
     if (!global.nameLocks.has(threadID))
       return api.sendMessage("⚠️ لا يوجد قفل مفعل في هذه المجموعة.", threadID, messageID);
     global.nameLocks.delete(threadID);
+    delete _failCounts[threadID];
     saveLocks(global.nameLocks);
     return api.sendMessage("🔓 تم إيقاف قفل اسم المجموعة.", threadID, messageID);
   }

@@ -47,41 +47,39 @@ module.exports = function({ api, models, globalData, usersData, threadsData }) {
         
   
 
-(async function () {
- try {
-    
+  // ── DB-ready guard: prevents commands/bans from running before
+  // thread & user data is loaded from the database ────────────────
+  let _dbReady = false;
+  let _pendingEvents = [];
+
+  (async function () {
+   try {
         let threads = await Threads.getAll(),
             users = await Users.getAll(['userID', 'name', 'data']),
             currencies = await Currencies.getAll(['userID']);
         for (const data of threads) {
             const idThread = String(data.threadID);
-            global.data.allThreadID.push(idThread), 
-            global.data.threadData.set(idThread, data['data'] || {}), 
+            global.data.allThreadID.push(idThread);
+            global.data.threadData.set(idThread, data['data'] || {});
             global.data.threadInfo.set(idThread, data.threadInfo || {});
-            if (data['data'] && data['data']['banned'] == !![]) 
-                global.data.threadBanned.set(idThread, 
-                {
-                'reason': data['data']['reason'] || '',
-                'dateAdded': data['data']['dateAdded'] || ''
-            });
-            if (data['data'] && data['data']['commandBanned'] && data['data']['commandBanned']['length'] != 0) 
-            global['data']['commandBanned']['set'](idThread, data['data']['commandBanned']);
+            if (data['data'] && data['data']['banned'] == !![])
+                global.data.threadBanned.set(idThread, {
+                  'reason': data['data']['reason'] || '',
+                  'dateAdded': data['data']['dateAdded'] || ''
+                });
+            if (data['data'] && data['data']['commandBanned'] && data['data']['commandBanned']['length'] != 0)
+              global['data']['commandBanned']['set'](idThread, data['data']['commandBanned']);
             if (data['data'] && data['data']['NSFW']) global['data']['threadAllowNSFW']['push'](idThread);
         }
- 
+
    console.log(cv(`\n` + `●─𝗭𝗔𝗢 𝗙𝗔𝗡─●`));
 
    logger.log([
-     {
-       message: "[ 𝗦𝗔𝗜𝗠 ]: ",
-        color: ["red", "cyan"],
-     },
-     {
-       message: ` 𝗬𝗢𝗨𝗡𝗚 𝗠𝗥 `,
-       color: "white",
-     },
+     { message: "[ 𝗦𝗔𝗜𝗠 ]: ", color: ["red", "cyan"] },
+     { message: ` 𝗬𝗢𝗨𝗡𝗚 𝗠𝗥 `, color: "white" }
    ]);
-    console.log(redToGreen("━".repeat(50), { interpolation: "hsv" }));
+   console.log(redToGreen("━".repeat(50), { interpolation: "hsv" }));
+
         for (const dataU of users) {
             const idUsers = String(dataU['userID']);
             global.data['allUserID']['push'](idUsers);
@@ -90,24 +88,26 @@ module.exports = function({ api, models, globalData, usersData, threadsData }) {
                 'reason': dataU['data']['reason'] || '',
                 'dateAdded': dataU['data']['dateAdded'] || ''
             });
-            if (dataU['data'] && dataU.data['commandBanned'] && dataU['data']['commandBanned']['length'] != 0) 
-            global['data']['commandBanned']['set'](idUsers, dataU['data']['commandBanned']);
+            if (dataU['data'] && dataU.data['commandBanned'] && dataU['data']['commandBanned']['length'] != 0)
+              global['data']['commandBanned']['set'](idUsers, dataU['data']['commandBanned']);
         }
         for (const dataC of currencies) global.data.allCurrenciesID.push(String(dataC['userID']));
-       
+
     } catch (error) {
-        return  logger.log([
-     {
-       message: "[ DATABASE ]: ",
-       color: ["red", "cyan"],
-     },
-     {
-       message: `Error in LIsen Enviroment : ${error} `,
-       color: "white",
-     },
-   ]);
+        logger.log([
+          { message: "[ DATABASE ]: ", color: ["red", "cyan"] },
+          { message: `Error loading DB data: ${error}`, color: "white" }
+        ]);
+    } finally {
+      // Mark DB as ready and flush any events that arrived during loading
+      _dbReady = true;
+      const queued = _pendingEvents.splice(0);
+      for (const ev of queued) {
+        try { _dispatchEvent(ev); } catch (_) {}
+      }
     }
-}());
+  }());
+
   console.log(redToGreen("━".repeat(50), { interpolation: "hsv" }));
   console.log(cv(`\n` + `──LOADING LISTENER─●`));
 
@@ -180,12 +180,13 @@ module.exports = function({ api, models, globalData, usersData, threadsData }) {
     } catch (_) {}
   }, 30 * 60 * 1000);
 
-        return (event) => {
+  // ── Core event dispatcher — called once DB is ready ─────────────
+  function _dispatchEvent(event) {
   // Raw entry-point trace — catches everything before any processing
   try {
     const _sid = String(event.senderID || "?");
     const _tid = String(event.threadID || "?");
-    const _isDM = !event.isGroup && _sid === _tid;
+    const _isDM = event.isGroup !== true && _sid === _tid;
     if (_isDM || event.type === "message" || event.type === "message_reply") {
       console.log(
         chalk.bold.hex("#ff9900")("[RAW] ") +
@@ -246,8 +247,20 @@ module.exports = function({ api, models, globalData, usersData, threadsData }) {
             }
           } catch (_) {}
           try {
-            storedDatabase({ event });
-            storedCommand({ event, message });
+            const _dbResult = storedDatabase({ event });
+            if (_dbResult && typeof _dbResult.catch === 'function') {
+              _dbResult.catch(err => {
+                const errMsg = (err && err.message) ? err.message : String(err);
+                logger.log([{ message: "[ DB-HANDLER ERROR ]: ", color: ["red", "cyan"] }, { message: errMsg, color: "white" }]);
+              });
+            }
+            const _cmdResult = storedCommand({ event, message });
+            if (_cmdResult && typeof _cmdResult.catch === 'function') {
+              _cmdResult.catch(err => {
+                const errMsg = (err && err.message) ? err.message : String(err);
+                logger.log([{ message: "[ CMD-HANDLER ERROR ]: ", color: ["red", "cyan"] }, { message: errMsg, color: "white" }]);
+              });
+            }
             storedReply({ event, message });
             storedCommandEvent({ event, message });
           } catch (err) {
@@ -268,13 +281,21 @@ module.exports = function({ api, models, globalData, usersData, threadsData }) {
       case "message_reaction":
         try {
           storedReaction({ event, message });
-          if (event.reaction === "🖤") {
-            api.setMessageReaction("🖤", event.messageID, () => {}, true);
+
+          // ── Auto-react mirror: only react to OTHER users, not the bot itself ──
+          const _botID = api.getCurrentUserID ? api.getCurrentUserID() : null;
+          const _reactorID = String(event.senderID || event.userID || "");
+          if (_botID && _reactorID !== String(_botID)) {
+            if (event.reaction === "🖤") {
+              api.setMessageReaction("🖤", event.messageID, () => {}, true);
+            }
+            if (event.reaction === "😂") {
+              api.setMessageReaction("😂", event.messageID, () => {}, true);
+            }
           }
-          if (event.reaction === "😂") {
-            api.setMessageReaction("😂", event.messageID, () => {}, true);
-          }
-          if (event.reaction === "😠" && event.senderID === api.getCurrentUserID()) {
+
+          // ── Bot unsends a message when it reacts with 😠 to it ──
+          if (event.reaction === "😠" && _botID && String(event.senderID) === String(_botID)) {
             api.unsendMessage(event.messageID);
           }
 
@@ -312,7 +333,17 @@ module.exports = function({ api, models, globalData, usersData, threadsData }) {
     const errMsg = (err && err.message) ? err.message : String(err);
     logger.log([{ message: "[ EVENT LOOP ERROR ]: ", color: ["red", "cyan"] }, { message: errMsg, color: "white" }]);
   }
-        };
+  }
+
+  // ── Public entry point: gate events until DB is loaded ────────────
+  return (event) => {
+    if (!_dbReady) {
+      // Queue the event; it will be replayed once DB loading finishes
+      _pendingEvents.push(event);
+      return;
+    }
+    _dispatchEvent(event);
+  };
 };
 
 

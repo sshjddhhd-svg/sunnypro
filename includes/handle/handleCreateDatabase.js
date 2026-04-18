@@ -47,7 +47,8 @@ module.exports = function ({ Users, Threads, Currencies }) {
           }
           logger(global.getText('handleCreateDatabase', 'newThread', threadID), '[ DATABASE ]');
         } catch (err) {
-          allThreadID.splice(allThreadID.indexOf(threadID), 1);
+          const _tIdx = allThreadID.indexOf(threadID);
+          if (_tIdx >= 0) allThreadID.splice(_tIdx, 1);
           threadRequestCooldown.delete(threadID);
           console.log('[DB] خطأ في جلب معلومات المجموعة:', err.message || err);
         } finally {

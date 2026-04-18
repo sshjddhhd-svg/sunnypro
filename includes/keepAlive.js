@@ -206,8 +206,13 @@ async function doSaveCookies(source) {
     const appState = api.getAppState();
     if (!appState || !appState.length) return;
 
-    const statePath = path.join(process.cwd(), global.config?.APPSTATEPATH || 'ZAO-STATE.json');
-    const altPath   = path.join(process.cwd(), 'alt.json');
+    // Use the active tier's file paths so a Tier-2/3 session never overwrites
+    // the wrong cookie file.  global.activeStateFile / global.activeAltFile are
+    // set by autoRelogin on every successful login or tier switch.
+    const statePath = global.activeStateFile
+      || path.join(process.cwd(), global.config?.APPSTATEPATH || 'ZAO-STATE.json');
+    const altPath   = global.activeAltFile
+      || path.join(process.cwd(), 'alt.json');
     const newData   = JSON.stringify(appState, null, 2);
 
     const current = await fs.readFile(statePath, 'utf-8').catch(() => '');
@@ -218,7 +223,9 @@ async function doSaveCookies(source) {
     await fs.move(tmpPath, statePath, { overwrite: true });
     await fs.writeFile(altPath, newData, 'utf-8');
 
-    log('info', `Cookies saved to ZAO-STATE.json & alt.json${source ? ` (${source})` : ''} ✓`);
+    const stateLabel = path.basename(statePath);
+    const altLabel   = path.basename(altPath);
+    log('info', `Cookies saved to ${stateLabel} & ${altLabel}${source ? ` (${source})` : ''} ✓`);
   } catch (e) {
     log('warn', `Failed to save cookies: ${e.message || e}`);
   } finally {

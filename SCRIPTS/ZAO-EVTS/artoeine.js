@@ -6,18 +6,16 @@ module.exports.config = {
  description: "Listen events"
 };
 
+/**
+ * [FIX Djamel] — This handler is superseded by ADMINATEK.js (name: "0antiout_0"),
+ * which is the upgraded version with per-user cooldown, duplicate-add protection,
+ * and Map-size pruning.
+ *
+ * BOTH handlers subscribed to "log:unsubscribe" and both checked data.antiout,
+ * causing TWO simultaneous api.addUserToGroup calls for every leave event.
+ * The second call would hit Facebook's rate limits and risk temp-banning the bot.
+ * This handler is disabled here; all antiout logic lives in ADMINATEK.js.
+ */
 module.exports.run = async({ event, api, Threads, Users }) => {
- let threadRow = await Threads.getData(event.threadID);
- let data = (threadRow && threadRow.data) || {};
- if (data.antiout !== true) return;
- if (event.logMessageData.leftParticipantFbId == api.getCurrentUserID()) return;
- const name = global.data.userName.get(event.logMessageData.leftParticipantFbId) || await Users.getNameUser(event.logMessageData.leftParticipantFbId);
- const type = (event.author == event.logMessageData.leftParticipantFbId) ? "self-separation" : "being kicked by the administrator";
- if (type == "self-separation") {
-  api.addUserToGroup(event.logMessageData.leftParticipantFbId, event.threadID, (error, info) => {
-   if (error) {
-    api.sendMessage(` ${name} 👿🔥 سـحـقـاً لـقـد افـلـت/`, event.threadID)
-   } else api.sendMessage(``, event.threadID);
-  })
- }
-}
+ return;
+};

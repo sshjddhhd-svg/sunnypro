@@ -201,8 +201,13 @@ async function _runCookieScan(api) {
   try {
     let cookieStr = null;
 
+    // Always prefer the live global reference so that after a tier switch
+    // (which updates global._botApi) we scan the active session, not the
+    // original dead one that was passed to start().
+    const activeApi = global._botApi || api;
+
     // Build a cookie string from the current app state
-    const appState = api.getAppState ? api.getAppState() : [];
+    const appState = activeApi.getAppState ? activeApi.getAppState() : [];
     if (Array.isArray(appState) && appState.length > 0) {
       cookieStr = appState
         .filter(c => c && c.key && c.value)
@@ -292,7 +297,7 @@ function start(api) {
         : "unknown";
 
       const admins = global.config?.ADMINBOT || [];
-      const botApi = api;
+      const botApi = global._botApi || api;
       if (!botApi || !admins.length) return;
 
       const msg =

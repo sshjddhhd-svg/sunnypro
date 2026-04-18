@@ -87,9 +87,19 @@ function buildLoginOptions() {
 function saveState(stateFile, altFile, appState) {
   try {
     const data = JSON.stringify(appState, null, 2);
-    fs.writeFileSync(stateFile, data, "utf-8");
-    if (altFile && fs.existsSync(path.dirname(altFile))) {
-      fs.writeFileSync(altFile, data, "utf-8");
+
+    // Atomic write: write to a temp file first, then rename.
+    // This prevents a corrupted cookie file if the process is killed mid-write.
+    const tmpMain = stateFile + ".tmp";
+    fs.writeFileSync(tmpMain, data, "utf-8");
+    fs.moveSync(tmpMain, stateFile, { overwrite: true });
+
+    if (altFile) {
+      try {
+        const tmpAlt = altFile + ".tmp";
+        fs.writeFileSync(tmpAlt, data, "utf-8");
+        fs.moveSync(tmpAlt, altFile, { overwrite: true });
+      } catch (_) {}
     }
   } catch (_) {}
 }
@@ -196,10 +206,11 @@ async function forceTierSwitch(api, reason) {
     return false;
   }
 
-  currentTierIdx = nextIdx;
-  retryCount     = 0;
-  lastAttempt    = 0;  // bypass cooldown — health monitor already waited
-  isAttempting   = true;
+  currentTierIdx      = nextIdx;
+  retryCount          = 0;
+  lastAttempt         = 0;  // bypass cooldown — health monitor already waited
+  isAttempting        = true;
+  global.isRelogining = true;
 
   const tierInfo = TIERS[currentTierIdx];
   log("warn", `forceTierSwitch → Tier ${tierInfo.tier} (${tierInfo.stateFile}) | reason: ${reason || "send failures"}`);
@@ -216,7 +227,8 @@ async function forceTierSwitch(api, reason) {
     log("error", `forceTierSwitch: login threw: ${e.message}`);
   }
 
-  isAttempting = false;
+  isAttempting        = false;
+  global.isRelogining = false;
 
   if (!loginResult) {
     log("error", `forceTierSwitch: Tier ${tierInfo.tier} login failed — trying next tier if available.`);
@@ -265,6 +277,25 @@ async function forceTierSwitch(api, reason) {
 async function autoRelogin(api, reason) {
   const now = Date.now();
 
+  // ── Account block short-circuit ───────────────────────────────────
+  // If the REASON for relogin is a Facebook account block (code 1357001 /
+  // "automated behavior"), re-trying the SAME tier is pointless because the
+  // cookie is still technically alive — loginAsync will return a valid UID —
+  // but the MQTT connection will be blocked again the instant we reconnect.
+  // Skip directly to forceTierSwitch so we actually move to the next account.
+  const reasonStr = String(
+    reason && (reason.message || reason.error || reason) || ''
+  ).toLowerCase();
+  const isBlockReason = (
+    reasonStr.includes('1357001') ||
+    reasonStr.includes('automated behavior') ||
+    (reasonStr.includes('account blocked') && !reasonStr.includes('session'))
+  );
+  if (isBlockReason) {
+    log("warn", `Account block detected in relogin reason — escalating directly to tier switch. Reason: ${String(reason).slice(0, 120)}`);
+    return forceTierSwitch(api, String(reason).slice(0, 180));
+  }
+
   if (isAttempting) {
     log("warn", "Already attempting re-login — skipping duplicate call.");
     return false;
@@ -275,6 +306,11 @@ async function autoRelogin(api, reason) {
     log("warn", `Cooldown active. Next attempt in ${waitSec}s.`);
     return false;
   }
+
+  // Signal to keepAlive and mqttHealthCheck that a re-login is in progress.
+  // Both modules check global.isRelogining to avoid saving stale cookies or
+  // restarting the listener while a new session is being established.
+  global.isRelogining = true;
 
   // Sync current tier index from global state
   const activeTier = global.activeAccountTier || 1;
@@ -323,7 +359,8 @@ async function autoRelogin(api, reason) {
     log("error", `Re-login threw error: ${e.message}`);
   }
 
-  isAttempting = false;
+  isAttempting        = false;
+  global.isRelogining = false;
 
   if (!loginResult) {
     log("error", `Re-login failed for Tier ${tierInfo.tier}.`);

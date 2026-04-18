@@ -238,7 +238,7 @@ with `#`. Then include these sections:
 - **Done looks like** — Observable outcomes when complete (what the user
   sees, not code-level details).
 - **Out of scope** — What is explicitly NOT included.
-- **Tasks** — Numbered list of implementation steps within this plan. These
+- **Steps** — Numbered list of implementation steps within this plan. These
   are internal steps for the executor agent, not separate project tasks.
 - **Relevant files** — Existing files discovered during investigation that
   the executor should start from. Use backtick-wrapped paths only, with no
@@ -253,14 +253,14 @@ declare that dependency via `dependsOn` rather than in the plan body. You
 may depend on existing tasks that are PENDING or later — never on existing
 PROPOSED tasks. Tasks within the same batch may depend on each other freely.
 
-Rules for the `## Tasks` section:
+Rules for the `## Steps` section:
 
-- Each task should be describable in 1-2 sentences.
+- Each step should be describable in 1-2 sentences.
 - Focus on what to build, not how to build it.
 - Do not include file paths, code snippets, CSS classes, or line-level edits
-  in task bullets. Put file references in `## Relevant files` instead.
+  in step bullets. Put file references in `## Relevant files` instead.
 - Draw clean boundaries so parallel executors will not create conflicting
-  changes. If two tasks would touch the same area, combine them into one
+  changes. If two steps would touch the same area, combine them into one
   project task.
 - If there is a critical architectural constraint the executor must follow,
   add a short note.
@@ -282,7 +282,7 @@ Add Stripe payment processing so users can upgrade to paid plans.
 - Invoicing and receipts (future work)
 - Multiple payment methods (Stripe only for now)
 
-## Tasks
+## Steps
 1. **Stripe backend integration** — Set up Stripe SDK, create endpoints for creating checkout sessions and handling webhooks.
 
 2. **Payment UI** — Build the checkout page with plan selection and Stripe Elements for card input.

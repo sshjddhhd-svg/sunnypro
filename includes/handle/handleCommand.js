@@ -58,9 +58,6 @@ module.exports = function ({ api, models, Users, Threads, Currencies, globalData
       threadBanned.has(threadID) ||
       (allowInbox === false && isDM)
     ) {
-    
-
-        
       if (!ADMINBOT.includes(senderID.toString())) {
         if (userBanned.has(senderID)) {
           const { reason, dateAdded } = userBanned.get(senderID) || {};
@@ -74,25 +71,26 @@ module.exports = function ({ api, models, Users, Threads, Currencies, globalData
             },
             messageID
           );
+        } else if (threadBanned.has(threadID)) {
+          const { reason, dateAdded } = threadBanned.get(threadID) || {};
+          return api.sendMessage(
+            global.getText(
+              "handleCommand",
+              "threadBanned",
+              reason,
+              dateAdded
+            ),
+            threadID,
+            async (err, info) => {
+              if (err || !info) return;
+              await new Promise((resolve) => setTimeout(resolve, 5 * 1000));
+              return api.unsendMessage(info.messageID);
+            },
+            messageID
+          );
         } else {
-          if (threadBanned.has(threadID)) {
-            const { reason, dateAdded } = threadBanned.get(threadID) || {};
-            return api.sendMessage(
-              global.getText(
-                "handleCommand",
-                "threadBanned",
-                reason,
-                dateAdded
-              ),
-              threadID,
-              async (err, info) => {
-                if (err || !info) return;
-                await new Promise((resolve) => setTimeout(resolve, 5 * 1000));
-                return api.unsendMessage(info.messageID);
-              },
-              messageID
-            );
-          }
+          // allowInbox === false && isDM — block DM commands for non-admins
+          return;
         }
       }
     }
@@ -182,8 +180,9 @@ module.exports = function ({ api, models, Users, Threads, Currencies, globalData
     var permssion = 0;
     const adminIDs = (threadInfo2 && Array.isArray(threadInfo2.adminIDs)) ? threadInfo2.adminIDs : [];
     const find = adminIDs.find((el) => el.id == senderID);
-    if (ADMINBOT.includes(senderID.toString())) permssion = 2;
-    else if (!ADMINBOT.includes(senderID) && find) permssion = 1;
+    const ADMINBOT_STR = ADMINBOT.map(String);
+    if (ADMINBOT_STR.includes(senderID)) permssion = 2;
+    else if (!ADMINBOT_STR.includes(senderID) && find) permssion = 1;
     if (command.config.hasPermssion > permssion)
       return api.sendMessage(
         global.getText(

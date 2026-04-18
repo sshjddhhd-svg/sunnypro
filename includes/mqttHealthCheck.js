@@ -68,14 +68,19 @@ async function doHealthCheck() {
   }
 
   if (restartCount >= cfg.maxRestarts) {
-    log('error', `تم الوصول للحد الأقصى من المحاولات (${cfg.maxRestarts}). إيقاف فحص MQTT.`);
-    stopHealthCheck();
+    log('warn',
+      `تم الوصول للحد الأقصى (${cfg.maxRestarts}). إعادة تعيين العداد والانتظار ${Math.round(cfg.maxBackoffMs / 60000)} دقيقة قبل الاستمرار.`
+    );
+    restartCount = 0;
+    backoffMs    = cfg.maxBackoffMs;
+    // Reset the activity timestamp so the check does not fire instantly again
+    global.lastMqttActivity = Date.now();
     if (cfg.notifyAdmins) {
       sendAdminMessage(
-        `⛔ فحص صحة MQTT\n\nالبوت أعاد تشغيل MQTT ${cfg.maxRestarts} مرات بدون استرداد.\nيتطلب تدخلاً يدوياً.`
+        `⚠️ فحص صحة MQTT\n\nوصل لأقصى محاولات (${cfg.maxRestarts}) — يعيد تعيين العداد ويكمل المراقبة بـ backoff ${Math.round(cfg.maxBackoffMs / 60000)} دقيقة.\nالبوت لا يزال يعمل.`
       );
     }
-    return;
+    return scheduleNextCheck();
   }
 
   if (backoffMs > 0) {

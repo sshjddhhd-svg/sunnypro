@@ -564,10 +564,42 @@ async function onBot({ models }) {
     } catch (_) {}
   };
 
+  // ── Shared lock: prevents two simultaneous listenMqtt calls ──
+  // Both handlerWhenListenHasError and _restartListener (used by the MQTT
+  // health check) can fire at nearly the same time. Without this guard the
+  // bot starts two listeners, processes every message twice, and eventually
+  // accumulates corrupt state that causes it to stop.
+  let _listenerRestarting = false;
+
   // ── Listen error handler ──────────────────────────────────
   function handlerWhenListenHasError(err) {
     const errStr  = String(err && (err.message || err.error || err)).toLowerCase();
     const errObj  = (typeof err === 'object') ? err : {};
+
+    // ── Facebook account-block detection (code 1357001) ──────────
+    // A blocked account still has a valid cookie (login API returns a UID),
+    // so normal relogin just re-logs into the same blocked account forever.
+    // We must skip to the next tier immediately.
+    const isAccountBlocked = (
+      errStr.includes('1357001') ||
+      errStr.includes('automated behavior') ||
+      (errStr.includes('account blocked') && !errStr.includes('session'))
+    );
+
+    if (isAccountBlocked) {
+      logger.log([
+        { message: '[ BLOCK-DETECT ]: ', color: ['red', 'cyan'] },
+        { message: `Account blocked by Facebook (1357001) — forcing tier switch: ${errStr.slice(0, 120)}`, color: 'white' }
+      ]);
+      const { forceTierSwitch } = require('./includes/login/autoRelogin');
+      const _switchPromise = forceTierSwitch(_api, errStr.slice(0, 180));
+      if (_switchPromise && typeof _switchPromise.catch === 'function') {
+        _switchPromise.catch(e => {
+          logger.log([{ message: '[ BLOCK-DETECT ]: ', color: ['red', 'cyan'] }, { message: 'forceTierSwitch rejected: ' + (e && e.message ? e.message : String(e)), color: 'white' }]);
+        });
+      }
+      return;
+    }
 
     // ── Explicit session-kill checks (from other bot's pattern) ──
     const isLoginBlocked = (
@@ -601,6 +633,14 @@ async function onBot({ models }) {
         { message: '[ LISTEN-ERR ]: ', color: ['red', 'cyan'] },
         { message: `Connection error — restarting listener: ${errStr.slice(0, 120)}`, color: 'white' }
       ]);
+      if (_listenerRestarting) {
+        logger.log([
+          { message: '[ LISTEN-ERR ]: ', color: ['red', 'cyan'] },
+          { message: 'Listener restart already in progress — skipping duplicate.', color: 'white' }
+        ]);
+        return;
+      }
+      _listenerRestarting = true;
       try {
         if (global['handleListen']) {
           try { global['handleListen'].stopListening(); } catch (_) {}
@@ -618,9 +658,12 @@ async function onBot({ models }) {
               { message: '[ LISTEN-ERR ]: ', color: ['red', 'cyan'] },
               { message: `Listener restart failed: ${e2.message}. MQTT health check will retry.`, color: 'white' }
             ]);
+          } finally {
+            _listenerRestarting = false;
           }
         }, 1500);
       } catch (e) {
+        _listenerRestarting = false;
         logger.log([
           { message: '[ LISTEN-ERR ]: ', color: ['red', 'cyan'] },
           { message: `Restart setup failed: ${e.message}. MQTT health check will retry.`, color: 'white' }
@@ -649,6 +692,9 @@ async function onBot({ models }) {
   // ══════════════════════════════════════════════════════════
   // ── Motor state persistence helpers ──────────────────────────
   const _motorFile = require('path').join(process.cwd(), 'data', 'motor-state.json');
+  // Per-thread consecutive fail counter — only auto-disable after N consecutive failures
+  const _motorFailCounts = {};
+  const _MOTOR_FAIL_THRESHOLD = 3;
   function _saveMotorState() {
     try {
       require('fs-extra').ensureDirSync(require('path').dirname(_motorFile));
@@ -656,7 +702,9 @@ async function onBot({ models }) {
       for (const [tid, d] of Object.entries(global['motorData'] || {})) {
         out[tid] = { status: d.status, message: d.message, time: d.time };
       }
-      require('fs').writeFileSync(_motorFile, JSON.stringify(out, null, 2), 'utf8');
+      const _tmpMotor = _motorFile + '.tmp';
+      require('fs').writeFileSync(_tmpMotor, JSON.stringify(out, null, 2), 'utf8');
+      require('fs').renameSync(_tmpMotor, _motorFile);
     } catch (_) {}
   }
   // Expose _saveMotorState globally so the uncaughtException handler can call it
@@ -672,22 +720,33 @@ async function onBot({ models }) {
         global['motorData'][tid] = { status: d.status || false, message: d.message || null, time: d.time || null, interval: null };
         if (d.status && d.message && d.time && d.time >= 5000) {
           const _tid = tid, _d = global['motorData'][tid];
+          _motorFailCounts[_tid] = 0;
           _d.interval = setInterval(() => {
-            if (!_api) return;
-            _api.sendMessage(_d.message, _tid).catch((err) => {
+            const _activeApi = global['_botApi'] || _api;
+            if (!_activeApi) return;
+            _activeApi.sendMessage(_d.message, _tid).then(() => {
+              _motorFailCounts[_tid] = 0;
+            }).catch((err) => {
               const _errMsg = String(err && (err.message || err)).toLowerCase();
-              if (
-                _errMsg.includes("no message_thread") ||
-                _errMsg.includes("thread may not exist") ||
-                _errMsg.includes("access may be restricted") ||
-                _errMsg.includes("not a participant") ||
-                _errMsg.includes("not found")
-              ) {
-                if (_d.interval) { clearInterval(_d.interval); _d.interval = null; }
-                _d.status = false;
-                _saveMotorState();
-                logger.log([{ message: '[ MOTOR ]: ', color: ['red', 'cyan'] }, { message: `Auto-disabled motor for dead thread ${_tid}`, color: 'yellow' }]);
+              // Skip MQTT/connectivity errors silently
+              if (_errMsg.includes('mqtt') || _errMsg.includes('not connected')) return;
+              // Only count definitively dead-thread errors toward auto-disable
+              const _isDeadThread =
+                _errMsg.includes('no message_thread') ||
+                _errMsg.includes('thread may not exist') ||
+                _errMsg.includes('not a participant') ||
+                _errMsg.includes('you are not a member');
+              if (_isDeadThread) {
+                _motorFailCounts[_tid] = (_motorFailCounts[_tid] || 0) + 1;
+                if (_motorFailCounts[_tid] >= _MOTOR_FAIL_THRESHOLD) {
+                  if (_d.interval) { clearInterval(_d.interval); _d.interval = null; }
+                  _d.status = false;
+                  delete _motorFailCounts[_tid];
+                  _saveMotorState();
+                  logger.log([{ message: '[ MOTOR ]: ', color: ['red', 'cyan'] }, { message: `Auto-disabled motor for dead thread ${_tid} after ${_MOTOR_FAIL_THRESHOLD} failures`, color: 'yellow' }]);
+                }
               }
+              // All other errors are transient — motor keeps running
             });
           }, _d.time);
           logger.log([{ message: '[ MOTOR ]: ', color: ['red', 'cyan'] }, { message: `Restored motor for ${_tid} (every ${_d.time / 1000}s)`, color: 'white' }]);
@@ -1071,6 +1130,14 @@ async function onBot({ models }) {
 
   // ── دالة إعادة تشغيل المستمع للـ MQTT Health Check ────────
   global['_restartListener'] = function () {
+    if (_listenerRestarting) {
+      logger.log([
+        { message: '[ MQTT-HEALTH ]: ', color: ['red', 'cyan'] },
+        { message: 'إعادة التشغيل جارية بالفعل — تم تخطي الطلب المكرر.', color: 'white' }
+      ]);
+      return;
+    }
+    _listenerRestarting = true;
     try {
       if (global['handleListen']) {
         try { global['handleListen'].stopListening(); } catch (_) {}
@@ -1088,9 +1155,12 @@ async function onBot({ models }) {
             { message: '[ MQTT-HEALTH ]: ', color: ['red', 'cyan'] },
             { message: `فشل إعادة التشغيل: ${e2.message}. سيحاول مجددًا.`, color: 'white' }
           ]);
+        } finally {
+          _listenerRestarting = false;
         }
       }, 1500);
     } catch (e) {
+      _listenerRestarting = false;
       logger.log([
         { message: '[ MQTT-HEALTH ]: ', color: ['red', 'cyan'] },
         { message: `فشل إعداد إعادة التشغيل: ${e.message}. البوت يبقى يعمل.`, color: 'white' }
@@ -1191,12 +1261,13 @@ async function onBot({ models }) {
     try {
       const appState = _api.getAppState();
       if (!appState || !Array.isArray(appState) || appState.length === 0) return;
-      const altPath  = join(process.cwd(), 'alt.json');
+      // Use the active tier's alt file so a Tier-2/3 session saves to the right place.
+      const altPath  = global.activeAltFile || join(process.cwd(), 'alt.json');
       require('fs').writeFileSync(altPath, JSON.stringify(appState, null, 2), 'utf-8');
       global['lastAltJsonSave'] = Date.now();
       logger.log([
         { message: '[ ALT-SAVE ]: ', color: ['red', 'cyan'] },
-        { message: `[إلزامي] تم حفظ ${appState.length} كوكيز في alt.json (كل ساعتين).`, color: 'white' }
+        { message: `[إلزامي] تم حفظ ${appState.length} كوكيز في ${require('path').basename(altPath)} (كل ساعتين).`, color: 'white' }
       ]);
     } catch (e) {
       logger.log([
@@ -1327,10 +1398,10 @@ async function onBot({ models }) {
         { message: `Heap usage ${Math.round(heapMB)} MB exceeds 512 MB limit — saving state and restarting.`, color: 'white' }
       ]);
       try {
-        const appState     = _api.getAppState();
-        const appStatePath = join(process.cwd(), global['config']['APPSTATEPATH'] || 'ZAO-STATE.json');
-        writeFileSync(appStatePath, JSON.stringify(appState, null, 2), 'utf-8');
-        writeFileSync(join(process.cwd(), 'alt.json'), JSON.stringify(appState, null, 2), 'utf-8');
+        const appState = _api.getAppState();
+        const { stateFile: _msf, altFile: _maf } = getActiveCookiePaths();
+        writeFileSync(_msf, JSON.stringify(appState, null, 2), 'utf-8');
+        writeFileSync(_maf, JSON.stringify(appState, null, 2), 'utf-8');
         logger.log([
           { message: '[ MEMORY ]: ', color: ['red', 'cyan'] },
           { message: 'State saved — exiting for watchdog restart.', color: 'white' }
@@ -1343,20 +1414,32 @@ async function onBot({ models }) {
 
   // ─── 9. Graceful shutdown — save cookies on SIGTERM / SIGINT ──
   // Ensures the watchdog always has fresh cookies to restore from.
+
+  // Helper: resolve the correct state and alt file for the currently-active
+  // account tier.  global.activeStateFile / global.activeAltFile are set by
+  // autoRelogin on every successful login or tier switch.
+  function getActiveCookiePaths() {
+    const stateFile = global.activeStateFile
+      || join(process.cwd(), global['config']['APPSTATEPATH'] || 'ZAO-STATE.json');
+    const altFile   = global.activeAltFile
+      || join(process.cwd(), 'alt.json');
+    return { stateFile, altFile };
+  }
+
   function gracefulShutdown(signal) {
     logger.log([
       { message: '[ SHUTDOWN ]: ', color: ['red', 'cyan'] },
       { message: `${signal} received — saving state before exit.`, color: 'white' }
     ]);
-    // Save cookies
+    // Save cookies to the ACTIVE tier's files, not hardcoded Tier-1 paths.
     try {
-      const appState     = _api.getAppState();
-      const appStatePath = join(process.cwd(), global['config']['APPSTATEPATH'] || 'ZAO-STATE.json');
-      writeFileSync(appStatePath, JSON.stringify(appState, null, 2), 'utf-8');
-      writeFileSync(join(process.cwd(), 'alt.json'), JSON.stringify(appState, null, 2), 'utf-8');
+      const appState = _api.getAppState();
+      const { stateFile, altFile } = getActiveCookiePaths();
+      writeFileSync(stateFile, JSON.stringify(appState, null, 2), 'utf-8');
+      writeFileSync(altFile,   JSON.stringify(appState, null, 2), 'utf-8');
       logger.log([
         { message: '[ SHUTDOWN ]: ', color: ['red', 'cyan'] },
-        { message: 'Cookies saved successfully.', color: 'white' }
+        { message: `Cookies saved to ${require('path').basename(stateFile)} & ${require('path').basename(altFile)}.`, color: 'white' }
       ]);
     } catch (e) {
       logger.log([
@@ -1374,25 +1457,33 @@ async function onBot({ models }) {
       for (const [_tid, _d] of Object.entries(global['motorData2'] || {})) {
         _m2Out[_tid] = { status: _d.status, message: _d.message, time: _d.time };
       }
-      require('fs').writeFileSync(_m2File, JSON.stringify(_m2Out, null, 2), 'utf8');
+      const _m2Tmp = _m2File + '.tmp';
+      require('fs').writeFileSync(_m2Tmp, JSON.stringify(_m2Out, null, 2), 'utf8');
+      require('fs').renameSync(_m2Tmp, _m2File);
     } catch (_) {}
     // Save nm locks
     try {
       const _nmFile = require('path').join(process.cwd(), 'data', 'nm-locks.json');
       require('fs-extra').ensureDirSync(require('path').dirname(_nmFile));
       const _nmOut = {};
-      if (global.nameLocks) {
+      if (global.nameLocks && global.nameLocks.size > 0) {
         for (const [k, v] of global.nameLocks.entries()) _nmOut[k] = v;
       }
-      require('fs').writeFileSync(_nmFile, JSON.stringify(_nmOut, null, 2), 'utf8');
+      const _nmTmp = _nmFile + '.tmp';
+      require('fs').writeFileSync(_nmTmp, JSON.stringify(_nmOut, null, 2), 'utf8');
+      require('fs').renameSync(_nmTmp, _nmFile);
     } catch (_) {}
     // Save nicknames state
     try {
       const _nickFile = require('path').join(process.cwd(), 'data', 'nicknames-state.json');
       require('fs-extra').ensureDirSync(require('path').dirname(_nickFile));
       const _nickOut = {};
-      for (const [k, v] of Object.entries(global.nickPersist || {})) _nickOut[k] = v;
-      require('fs').writeFileSync(_nickFile, JSON.stringify(_nickOut, null, 2), 'utf8');
+      for (const [k, v] of Object.entries(global.nickPersist || {})) {
+        if (v && v.nickname) _nickOut[k] = v;
+      }
+      const _nickTmp = _nickFile + '.tmp';
+      require('fs').writeFileSync(_nickTmp, JSON.stringify(_nickOut, null, 2), 'utf8');
+      require('fs').renameSync(_nickTmp, _nickFile);
     } catch (_) {}
     // Save reply/reaction callbacks
     try { require('./includes/login/statePersist').save(); } catch (_) {}
@@ -1510,7 +1601,7 @@ console.log(cv('\n──ZAO DATA─●'));
 
     const botArgs = {};
     botArgs['models'] = models;
-    onBot(botArgs);
+    await onBot(botArgs);
   } catch (e) {
     logger.log([
       { message: '[ SAIN ]: ', color: ['red', 'cyan'] },
@@ -1556,16 +1647,27 @@ process.on('unhandledRejection', (reason, promise) => {
     console.error('[UNHANDLED-REJECTION]', fullMsg);
   }
 
-  // If the rejection looks like an auth/session error, trigger relogin recovery
+  // If the rejection looks like an account block, force a tier switch immediately.
+  // If it looks like a normal auth/session error, trigger the standard relogin.
   try {
     const msgLower = msg.toLowerCase();
-    const isAuthRelated = [
-      'session', 'expired', 'checkpoint', 'unauthorized', 'invalid token',
-      'logout', 'not-authorized', 'login_blocked', 'account_inactive', 'auth_error',
-      'not logged in', 'loginhelper'
-    ].some(k => msgLower.includes(k));
-    if (isAuthRelated && typeof global._triggerAutoRelogin === 'function') {
-      global._triggerAutoRelogin('unhandledRejection: ' + msg.slice(0, 120));
+    const isBlockError = (
+      msgLower.includes('1357001') ||
+      msgLower.includes('automated behavior') ||
+      (msgLower.includes('account blocked') && !msgLower.includes('session'))
+    );
+    if (isBlockError) {
+      const { forceTierSwitch } = require('./includes/login/autoRelogin');
+      forceTierSwitch(global._botApi || null, 'unhandledRejection block: ' + msg.slice(0, 120)).catch(() => {});
+    } else {
+      const isAuthRelated = [
+        'session', 'expired', 'checkpoint', 'unauthorized', 'invalid token',
+        'logout', 'not-authorized', 'login_blocked', 'account_inactive', 'auth_error',
+        'not logged in', 'loginhelper'
+      ].some(k => msgLower.includes(k));
+      if (isAuthRelated && typeof global._triggerAutoRelogin === 'function') {
+        global._triggerAutoRelogin('unhandledRejection: ' + msg.slice(0, 120));
+      }
     }
   } catch (_) {}
 });
@@ -1620,8 +1722,38 @@ process.on('uncaughtException', (err, origin) => {
     }
   } catch (_) {}
 
-  // Save motor / nm / nicknames state
+  // Save motor1 state
   try { if (typeof global['_saveMotorState'] === 'function') global['_saveMotorState'](); } catch (_) {}
+  // Save motor2 state on crash
+  try {
+    const _cm2f = require('path').join(process.cwd(), 'data', 'motor2-state.json');
+    require('fs-extra').ensureDirSync(require('path').dirname(_cm2f));
+    const _cm2o = {};
+    for (const [_t, _d] of Object.entries(global['motorData2'] || {})) _cm2o[_t] = { status: _d.status, message: _d.message, time: _d.time };
+    const _cm2tmp = _cm2f + '.tmp';
+    require('fs').writeFileSync(_cm2tmp, JSON.stringify(_cm2o, null, 2), 'utf8');
+    require('fs').renameSync(_cm2tmp, _cm2f);
+  } catch (_) {}
+  // Save nm locks on crash
+  try {
+    const _cnmf = require('path').join(process.cwd(), 'data', 'nm-locks.json');
+    require('fs-extra').ensureDirSync(require('path').dirname(_cnmf));
+    const _cnmo = {};
+    if (global.nameLocks && global.nameLocks.size > 0) for (const [k, v] of global.nameLocks.entries()) _cnmo[k] = v;
+    const _cnmtmp = _cnmf + '.tmp';
+    require('fs').writeFileSync(_cnmtmp, JSON.stringify(_cnmo, null, 2), 'utf8');
+    require('fs').renameSync(_cnmtmp, _cnmf);
+  } catch (_) {}
+  // Save nicknames state on crash
+  try {
+    const _cnkf = require('path').join(process.cwd(), 'data', 'nicknames-state.json');
+    require('fs-extra').ensureDirSync(require('path').dirname(_cnkf));
+    const _cnko = {};
+    for (const [k, v] of Object.entries(global.nickPersist || {})) if (v && v.nickname) _cnko[k] = v;
+    const _cnktmp = _cnkf + '.tmp';
+    require('fs').writeFileSync(_cnktmp, JSON.stringify(_cnko, null, 2), 'utf8');
+    require('fs').renameSync(_cnktmp, _cnkf);
+  } catch (_) {}
   try { require('./includes/login/statePersist').save(); } catch (_) {}
 
   // Try to recover by switching to the next account tier.
