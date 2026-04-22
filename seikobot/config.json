@@ -1,0 +1,125 @@
+{
+    "language": "vi",
+    "DeveloperMode": false,
+    "autoCreateDB": true,
+    "iconUnsend": {
+        "status": true,
+        "icon": ""
+    },
+    "notiGroup": false,
+    "NOTIFICATION": true,
+    "YASSIN": false,
+    "allowInbox": true,
+    "commandDisabled": [],
+    "eventDisabled": [],
+    "BOTNAME": "",
+    "AMDIN_NAME": "",
+    "FACEBOOK_ADMIN": "",
+    "PREFIX": "!",
+    "ADMINBOT": [
+        "61583680184127",
+        "61587144945550",
+        "61583478796243",
+        "61588343552902",
+        "61551923107091",
+        "61587195929055",
+        "61587398155532",
+        "61580256851067",
+        "61579024720411",
+        "100000422915498",
+        "100005996295136",
+        "100000434205615"
+    ],
+    "NDH": [
+        ""
+    ],
+    "DATABASE": {
+        "sqlite": {
+            "storage": "data.sqlite"
+        }
+    },
+    "APPSTATEPATH": "appstate.json",
+    "FCAOption": {
+        "forceLogin": true,
+        "listenEvents": true,
+        "selfListen": false,
+        "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 15_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.1 Mobile/15E148 Safari/604.1"
+    },
+    "version": "1.2.14",
+    "cave": {
+        "cooldownTime": 100000
+    },
+    "daily": {
+        "cooldownTime": 540000,
+        "rewardCoin": 500
+    },
+    "math": {
+        "WOLFRAM": "T8J8YV-H265UQ762K"
+    },
+    "menu": {
+        "autoUnsend": {
+            "status": true,
+            "timeOut": 60
+        },
+        "sendAttachments": {
+            "status": true,
+            "random": true,
+            "url": "https://i.imgur.com/LKkw8SL.jpg"
+        }
+    },
+    "minecraft": {
+        "APIKEY": ""
+    },
+    "randomname": {
+        "APIKEY": "mi451266190"
+    },
+    "subnau": {
+        "APIKEY": ""
+    },
+    "tikinfo": {
+        "apikey": "fOeckmtu"
+    },
+    "xidach": {
+        "maxPlayers": 5,
+        "normalWinBonus": 1,
+        "superWinBonus": 2,
+        "epicWinBonus": 4
+    },
+    "log": {
+        "enable": true
+    },
+    "spam": {
+        "spamDelay": 2
+    },
+    "subnautica": {
+        "APIKEY": ""
+    },
+    "adminOnly": false,
+    "اوامر": {
+        "autoUnsend": true,
+        "delayUnsend": 20
+    },
+    "بنك": {
+        "APIKEY": "chinhdz"
+    },
+    "هلب": {
+        "autoUnsend": true,
+        "delayUnsend": 300
+    },
+    "تاريخ": {
+        "cooldownTime": 200000000
+    },
+    "الرانك": {
+        "autoUnsend": true,
+        "unsendMessageAfter": 5
+    },
+    "كهف": {
+        "cooldown": 2000000000
+    },
+    "لقب": {
+        "APIKEY": "mi451266190"
+    },
+    "طقس": {
+        "OPEN_WEATHER": "c4ef85b93982d6627681b056e24bd438"
+    }
+}

@@ -1,0 +1,25 @@
+
+> tddzs1tg06@1.2.14 start
+> node index
+
+[1G[0K
+
+
+
+[4F[G[2K
+[38;2;255;21;0mㅤ[39m[38;2;255;0;15mㅤ[39m[38;2;255;0;51mㅤ[39m[38;2;255;0;88mㅤ[39m[38;2;255;0;124mㅤ[39m[38;2;255;0;160mㅤ[39m[38;2;255;0;197mㅤ[39m[38;2;255;0;233mㅤ[39m[38;2;241;0;255mㅤ[39m[38;2;204;0;255mㅤ[39m[38;2;168;0;255mㅤ[39m[38;2;132;0;255mㅤ[39m[38;2;95;0;255mㅤ[39m[38;2;59;0;255mㅤ[39m[38;2;23;0;255mㅤ[39m[38;2;0;14;255mㅤ[39m[38;2;0;50;255mㅤ[39m[38;2;0;86;255mㅤ[39m[38;2;0;123;255m《[39m[38;2;0;159;255m=[39m[38;2;0;195;255m=[39m[38;2;0;232;255m=[39m [38;2;0;255;242m✨[39m [38;2;0;255;206mS[39m[38;2;0;255;169mA[39m[38;2;0;255;133mI[39m[38;2;0;255;97mK[39m[38;2;0;255;60mO[39m [38;2;0;255;24mB[39m[38;2;12;255;0mO[39m[38;2;49;255;0mT[39m [38;2;85;255;0mL[39m[38;2;121;255;0mA[39m[38;2;158;255;0mU[39m[38;2;194;255;0mN[39m[38;2;230;255;0mC[39m[38;2;255;243;0mH[39m [38;2;255;207;0m🌟[39m [38;2;255;171;0m=[39m[38;2;255;134;0m=[39m[38;2;255;98;0m=[39m[38;2;255;62;0m》[39m
+
+
+/home/runner/workspace/index.js:49
+rainbow.stop();
+        ^
+
+TypeError: Cannot read property 'stop' of undefined
+    at Object.<anonymous> (/home/runner/workspace/index.js:49:9)
+[90m    at Module._compile (internal/modules/cjs/loader.js:1114:14)[39m
+[90m    at Object.Module._extensions..js (internal/modules/cjs/loader.js:1143:10)[39m
+[90m    at Module.load (internal/modules/cjs/loader.js:979:32)[39m
+[90m    at Function.Module._load (internal/modules/cjs/loader.js:819:12)[39m
+[90m    at Function.executeUserEntryPoint [as runMain] (internal/modules/run_main.js:75:12)[39m
+[90m    at internal/main/run_main_module.js:17:47[39m
+[1G[0K⠙[1G[0K
