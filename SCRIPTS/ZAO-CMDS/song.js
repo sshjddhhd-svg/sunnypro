@@ -1,80 +1,25 @@
-const axios = require("axios");
 const fs    = require("fs-extra");
 const path  = require("path");
+const yts   = require("yt-search");
+const ytdl  = require("ytdl-core");
 
 const CACHE_DIR = path.join(__dirname, "cache");
 
-const YT_SEARCH_API = "https://www.googleapis.com/youtube/v3/search";
-const YTDL_APIS = [
-  "https://yt-download.org/api/button/mp3/",
-  "https://api.vevioz.com/api/button/mp3/"
-];
-
 async function searchYouTube(query) {
-  const ytKey = process.env.YOUTUBE_API_KEY || global.config?.["youtube-video"]?.YOUTUBE_API || "";
-
-  if (ytKey) {
-    const res = await axios.get(YT_SEARCH_API, {
-      params: { part: "snippet", q: query, type: "video", maxResults: 1, key: ytKey },
-      timeout: 10000
-    });
-    const item = res.data.items?.[0];
-    if (item) {
-      return {
-        url: `https://www.youtube.com/watch?v=${item.id.videoId}`,
-        title: item.snippet.title
-      };
-    }
-  }
-
-  const searchRes = await axios.get(
-    `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`,
-    { headers: { "User-Agent": "Mozilla/5.0" }, timeout: 10000 }
-  );
-  const match = searchRes.data.match(/"videoId":"([^"]+)","title":\{"runs":\[\{"text":"([^"]+)"/);
-  if (match) {
-    return {
-      url: `https://www.youtube.com/watch?v=${match[1]}`,
-      title: match[2]
-    };
-  }
-  throw new Error("لم يتم إيجاد النتيجة");
+  const r = await yts(query);
+  const v = r?.videos?.[0];
+  if (!v || !v.url) throw new Error("لم يتم إيجاد النتيجة");
+  return { url: v.url, title: v.title || query, seconds: v.seconds || 0 };
 }
 
-async function downloadMp3(videoUrl) {
-  const COBALT_API = "https://api.cobalt.tools/";
-  try {
-    const res = await axios.post(
-      COBALT_API,
-      { url: videoUrl, downloadMode: "audio", audioFormat: "mp3", filenameStyle: "basic" },
-      {
-        headers: {
-          "Accept": "application/json",
-          "Content-Type": "application/json"
-        },
-        timeout: 30000
-      }
-    );
-
-    if (res.data?.url) return res.data.url;
-    if (res.data?.tunnel) return res.data.tunnel;
-    if (res.data?.status === "redirect" || res.data?.status === "tunnel") return res.data.url || res.data.tunnel;
-  } catch (e) {
-    // Cobalt failed, try fallback
-  }
-
-  const encodedUrl = encodeURIComponent(videoUrl);
-  for (const apiBase of YTDL_APIS) {
-    try {
-      const r = await axios.get(apiBase + encodedUrl, { timeout: 20000, maxRedirects: 5 });
-      if (r.data && typeof r.data === "string") {
-        const mp3Match = r.data.match(/href="(https?:\/\/[^"]+\.mp3[^"]*)"/);
-        if (mp3Match) return mp3Match[1];
-      }
-    } catch (_) {}
-  }
-
-  throw new Error("فشل تحميل الملف الصوتي من جميع المصادر");
+function pickAudioFormat(formats) {
+  const audioOnly = formats.filter(f => f.hasAudio && !f.hasVideo);
+  const mp4a = audioOnly
+    .filter(f => String(f.mimeType || "").includes("audio/mp4"))
+    .sort((a, b) => (b.audioBitrate || 0) - (a.audioBitrate || 0));
+  if (mp4a[0]) return mp4a[0];
+  const any = audioOnly.sort((a, b) => (b.audioBitrate || 0) - (a.audioBitrate || 0));
+  return any[0] || null;
 }
 
 module.exports.config = {
@@ -104,30 +49,68 @@ module.exports.run = async function ({ api, event, args }) {
   api.setMessageReaction("⏳", messageID, () => {}, true);
   await fs.ensureDir(CACHE_DIR);
 
-  const outPath = path.join(CACHE_DIR, `song_${Date.now()}.mp3`);
+  const outPath = path.join(CACHE_DIR, `song_${Date.now()}.m4a`);
 
   try {
     let videoUrl = query;
     let title    = query;
+    let seconds  = 0;
 
     const isYtLink = /youtu(be\.com|\.be)\//i.test(query);
     if (!isYtLink) {
       const result = await searchYouTube(query);
       videoUrl = result.url;
       title    = result.title;
+      seconds  = result.seconds || 0;
+    }
+
+    if (seconds && seconds > 20 * 60) {
+      throw new Error("الأغنية طويلة جداً (أكثر من 20 دقيقة)");
     }
 
     api.sendMessage(`🔍 جاري تحميل: ${title}`, threadID, messageID);
 
-    const dlUrl = await downloadMp3(videoUrl);
+    const info = await ytdl.getInfo(videoUrl);
+    const format = pickAudioFormat(info.formats);
+    if (!format) throw new Error("لم يتم العثور على صيغة صوت مناسبة");
 
-    const audioRes = await axios.get(dlUrl, {
-      responseType: "arraybuffer",
-      timeout: 120000,
-      headers: { "User-Agent": "Mozilla/5.0" }
+    await new Promise((resolve, reject) => {
+      let bytes = 0;
+      const MAX_BYTES = 25 * 1024 * 1024;
+      const stream = ytdl.downloadFromInfo(info, {
+        quality: format.itag,
+        filter: "audioonly",
+        highWaterMark: 1 << 25,
+        requestOptions: { headers: { "User-Agent": "Mozilla/5.0" } }
+      });
+      const file = fs.createWriteStream(outPath);
+      const timeout = setTimeout(() => {
+        try { stream.destroy(new Error("download timeout")); } catch (_) {}
+      }, 180000);
+
+      stream.on("data", (chunk) => {
+        bytes += chunk.length;
+        if (bytes > MAX_BYTES) {
+          try { stream.destroy(new Error("file too large")); } catch (_) {}
+        }
+      });
+      stream.on("error", (e) => {
+        clearTimeout(timeout);
+        try { file.close(); } catch (_) {}
+        reject(e);
+      });
+      file.on("error", (e) => {
+        clearTimeout(timeout);
+        try { stream.destroy(e); } catch (_) {}
+        reject(e);
+      });
+      file.on("finish", () => {
+        clearTimeout(timeout);
+        resolve();
+      });
+
+      stream.pipe(file);
     });
-
-    await fs.outputFile(outPath, Buffer.from(audioRes.data));
 
     if (!fs.existsSync(outPath) || fs.statSync(outPath).size < 10000) {
       throw new Error("الملف الصوتي فارغ أو تالف");
@@ -150,6 +133,12 @@ module.exports.run = async function ({ api, event, args }) {
   } catch (e) {
     api.setMessageReaction("❌", messageID, () => {}, true);
     try { if (fs.existsSync(outPath)) fs.unlinkSync(outPath); } catch (_) {}
-    return api.sendMessage(`❌ خطأ: ${e.message}`, threadID, messageID);
+    const msg = String(e && (e.message || e));
+    const friendly = msg.includes("file too large")
+      ? "❌ الملف كبير جداً. جرب أغنية أقصر."
+      : msg.includes("download timeout")
+        ? "❌ التحميل أخذ وقت طويل. جرب مرة أخرى."
+        : `❌ خطأ: ${msg}`;
+    return api.sendMessage(friendly, threadID, messageID);
   }
 };

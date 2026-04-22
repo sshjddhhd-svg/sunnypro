@@ -152,9 +152,11 @@ function listPeers(api) {
 // ── Internals ──────────────────────────────────────────────────────────────
 
 function _getCoreModule() {
-  // shadowx-fca does not expose an internal e2ee security module.
-  // E2EE key persistence is disabled when the core module is absent.
-  return null;
+  try {
+    return require("@neoaz07/nkxfca/src/security/e2ee");
+  } catch (_) {
+    return null;
+  }
 }
 
 function _getCtx(api) {

@@ -57,31 +57,19 @@ const TIERS = [
 ];
 
 function buildLoginOptions(extra = {}) {
-  // shadowx-fca supported options (Boolean_Option list + logLevel/userAgent/proxy)
-  const defaults = {
-    autoReconnect:     true,
-    listenEvents:      true,
-    autoMarkRead:      false,
-    selfListen:        false,
-    updatePresence:    false,
-    listenTyping:      false,
-    online:            true,
-    forceLogin:        false,
-    autoMarkDelivery:  false,
-    logLevel:          "silent",
+  const nkxDefaults = {
+    autoReconnect: true,
+    listenEvents: true,
+    autoMarkRead: true,
+    simulateTyping: true,
+    randomUserAgent: false,
+    persona: "desktop",
+    maxConcurrentRequests: 5,
+    maxRequestsPerMinute: 50,
+    requestCooldownMs: 60000,
+    errorCacheTtlMs: 300000,
   };
-  // Strip out nkxfca-only options that shadowx-fca would warn about
-  const fcaOptionRaw = global.config?.FCAOption || {};
-  const nkxOnlyKeys  = new Set([
-    "simulateTyping", "randomUserAgent", "persona",
-    "maxConcurrentRequests", "maxRequestsPerMinute",
-    "requestCooldownMs", "errorCacheTtlMs",
-  ]);
-  const fcaOption = {};
-  for (const k in fcaOptionRaw) {
-    if (!nkxOnlyKeys.has(k)) fcaOption[k] = fcaOptionRaw[k];
-  }
-  return Object.assign({}, defaults, fcaOption, extra);
+  return Object.assign({}, nkxDefaults, global.config?.FCAOption || {}, extra);
 }
 
 function saveState(stateFile, altFile, appState) {

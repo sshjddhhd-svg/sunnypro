@@ -3,11 +3,6 @@ const path = require("path");
 
 const LOCKS_FILE = path.join(__dirname, "../../data/nm-locks.json");
 
-// Consecutive-failure tracking — a transient error won't remove a lock.
-// Only after FAIL_THRESHOLD consecutive failures is the lock considered dead.
-const FAIL_THRESHOLD = 3;
-const _failCounts = {};
-
 function loadLocks() {
   try {
     fs.ensureDirSync(path.dirname(LOCKS_FILE));
@@ -27,16 +22,14 @@ function saveLocks(locksMap) {
     fs.ensureDirSync(path.dirname(LOCKS_FILE));
     const obj = {};
     for (const [k, v] of locksMap.entries()) obj[k] = v;
-    const tmp = LOCKS_FILE + ".tmp";
-    fs.writeFileSync(tmp, JSON.stringify(obj, null, 2), "utf8");
-    fs.renameSync(tmp, LOCKS_FILE);
+    fs.writeFileSync(LOCKS_FILE, JSON.stringify(obj, null, 2), "utf8");
   } catch (_) {}
 }
 
 function setTitle(api, name, threadID) {
   return new Promise((resolve, reject) => {
     try {
-      const result = api.setTitle(name, threadID, (err) => {
+      const result = api.gcname(name, threadID, (err) => {
         if (err) reject(err);
         else resolve();
       });
@@ -47,26 +40,9 @@ function setTitle(api, name, threadID) {
   });
 }
 
-// Returns true only for errors that definitively mean the thread is gone/inaccessible.
-// Transient errors (rate-limit, MQTT, generic FB errors) return false so we don't
-// auto-remove the lock.
-function isDeadThreadError(msg) {
-  const s = msg.toLowerCase();
-  return (
-    s.includes("no message_thread") ||
-    s.includes("thread may not exist") ||
-    s.includes("not a participant") ||
-    s.includes("you are not a member") ||
-    // shadowx-fca returns this when Facebook sends a binary/gzip response,
-    // which typically means the thread is gone or the bot lost access.
-    s.includes("binary response received") ||
-    s.includes("json.parse error")
-  );
-}
-
 module.exports.config = {
   name: "nm",
-  version: "2.1.0",
+  version: "2.0.0",
   hasPermssion: 2,
   credits: "l7wak",
   description: "قفل اسم المجموعة ومنع تغييره",
@@ -92,42 +68,35 @@ module.exports.onLoad = function ({ api }) {
     const botApi = global._botApi || api;
     if (!botApi || global.nameLocks.size === 0) return;
 
+    const health = global.nkx?.health;
+    if (health) {
+      const mqttOk = health?.mqtt?.isConnected ?? health?.mqttConnected ?? true;
+      if (!mqttOk) return;
+    }
+
     for (const [threadID, lockedName] of global.nameLocks.entries()) {
       try {
         await setTitle(botApi, lockedName, threadID);
-        // Success — reset fail counter for this thread
-        _failCounts[threadID] = 0;
       } catch (err) {
-        // shadowx-fca errors may be plain objects: { error: '...', detail: Error, isBinaryResponse: true }
-        // so we pull from multiple fields before falling back to String(err)
-        const msg = String(
-          err && (err.message || err.error || (err.detail && err.detail.message) || err)
-        );
-
-        // Skip MQTT/connectivity errors silently — don't count against the thread
-        const s = msg.toLowerCase();
+        const msg = String(err && (err.message || err)).toLowerCase();
         if (
-          s.includes("not connected to mqtt") ||
-          s.includes("mqtt client is not initialized") ||
-          s.includes("mqtt")
+          msg.includes("not connected to mqtt") ||
+          msg.includes("mqtt client is not initialized") ||
+          msg.includes("mqtt")
         ) {
           continue;
         }
-
-        // Also treat the isBinaryResponse flag as a dead-thread signal
-        const isBinary = !!(err && err.isBinaryResponse);
-
-        // For definitively dead threads, increment fail counter
-        if (isBinary || isDeadThreadError(msg)) {
-          _failCounts[threadID] = (_failCounts[threadID] || 0) + 1;
-          if (_failCounts[threadID] >= FAIL_THRESHOLD) {
-            global.nameLocks.delete(threadID);
-            saveLocks(global.nameLocks);
-            delete _failCounts[threadID];
-          }
+        if (
+          msg.includes("no message_thread") ||
+          msg.includes("thread may not exist") ||
+          msg.includes("access may be restricted") ||
+          msg.includes("not a participant") ||
+          msg.includes("not found") ||
+          msg.includes("cannot set title")
+        ) {
+          global.nameLocks.delete(threadID);
+          saveLocks(global.nameLocks);
         }
-        // All other errors (rate-limit, access-restricted, etc.) are ignored —
-        // the lock stays active and will be retried next cycle
       }
     }
   }, 6000);
@@ -155,7 +124,6 @@ module.exports.run = async function ({ api, event, args }) {
       return api.sendMessage(`❌ فشل تغيير الاسم: ${e.message || e}`, threadID, messageID);
     }
     global.nameLocks.set(threadID, name);
-    _failCounts[threadID] = 0;
     saveLocks(global.nameLocks);
     return api.sendMessage(`🔒 تم قفل اسم المجموعة:\n"${name}"`, threadID, messageID);
   }
@@ -164,7 +132,6 @@ module.exports.run = async function ({ api, event, args }) {
     if (!global.nameLocks.has(threadID))
       return api.sendMessage("⚠️ لا يوجد قفل مفعل في هذه المجموعة.", threadID, messageID);
     global.nameLocks.delete(threadID);
-    delete _failCounts[threadID];
     saveLocks(global.nameLocks);
     return api.sendMessage("🔓 تم إيقاف قفل اسم المجموعة.", threadID, messageID);
   }

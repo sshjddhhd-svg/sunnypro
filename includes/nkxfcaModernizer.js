@@ -8,13 +8,13 @@ function createLogger() {
     try {
       if (global.loggeryuki) {
         global.loggeryuki.log([
-          { message: "[ FCA ]: ", color: ["red", "cyan"] },
+          { message: "[ NKX ]: ", color: ["red", "cyan"] },
           { message, color }
         ]);
         return;
       }
     } catch (_) {}
-    console.log("[FCA]", message);
+    console.log("[NKX]", message);
   };
 }
 
@@ -421,6 +421,6 @@ module.exports = function modernizeNkxApi(api) {
     await flushCache();
   };
 
-  log("FCA modernizer enabled (shadowx-fca).", "green");
+  log("NKX modernizer enabled.", "green");
   return api;
 };

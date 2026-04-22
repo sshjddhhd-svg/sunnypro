@@ -26,45 +26,106 @@ module.exports.onLoad = () => {
   global.lastActivity = global.lastActivity || {};
 };
 
+function buildGroupMenu(selected, tid, statusMsg) {
+  const m1 = global.motorData[tid];
+  const m2 = global.motorData2[tid];
+  return (
+    (statusMsg ? statusMsg + "\n\n" : "")
+    + `👥 ${selected.name}\n🆔 ${tid}\n`
+    + `━━━━━━━━━━━━━━━\n`
+    + `📍 المحرك العادي: ${m1?.status ? "🟢 شغّال" : "⚫ متوقف"}\n`
+    + `   📝 "${m1?.message || "لم تُضبط"}" · ⏱ ${m1?.time ? m1.time / 1000 + "s" : "—"}\n\n`
+    + `📍 المحرك الذكي: ${m2?.status ? "🟢 شغّال" : "⚫ متوقف"}\n`
+    + `   📝 "${m2?.message || "لم تُضبط"}" · ⏱ ${m2?.time ? m2.time / 1000 + "s" : "—"}\n`
+    + `━━━━━━━━━━━━━━━\n`
+    + "1 - تفعيل المحرك العادي\n"
+    + "2 - إيقاف المحرك العادي\n"
+    + "3 - ضبط رسالة المحرك العادي\n"
+    + "4 - ضبط وقت المحرك العادي\n"
+    + "5 - تفعيل المحرك الذكي\n"
+    + "6 - إيقاف المحرك الذكي\n"
+    + "7 - ضبط رسالة المحرك الذكي\n"
+    + "8 - ضبط وقت المحرك الذكي\n"
+    + "9 - إرسال رسالة للغروب\n"
+    + "10 - إخراج البوت من الغروب\n"
+    + "11 - تغيير اسم الغروب\n"
+    + "12 - تغيير لقب البوت (nickname)\n"
+    + "13 - تغيير لقب عضو (بالرد/منشن)\n"
+    + "━━━━━━━━━━━━━━━\n↩️ رد بالرقم (أو اكتب اغلاق للخروج)"
+  );
+}
+
+function sendGroupMenu(api, threadID, senderID, selected, tid, statusMsg) {
+  const msg = buildGroupMenu(selected, tid, statusMsg);
+  api.sendMessage(msg, threadID, (err, info) => {
+    if (!err) global.chatsSession[senderID] = { step: "group_action", selected, botMessageID: info.messageID };
+  });
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function startMotor(api, threadID) {
   const data = global.motorData[threadID];
   if (!data || !data.message || !data.time) return;
-  if (data.interval) { clearInterval(data.interval); data.interval = null; }
+  try { clearInterval(data.interval); } catch (_) {}
+  try { clearTimeout(data.interval); } catch (_) {}
+  data.interval = null;
   data.status = true;
-  data.interval = setInterval(() => {
-    const botApi = global._botApi || api;
-    const r = botApi.sendMessage(data.message, threadID);
-    if (r && typeof r.catch === 'function') r.catch(() => {});
-  }, data.time);
+  try {
+    const { scheduleMotorLoop } = require("../../includes/motorSafeSend");
+    scheduleMotorLoop({
+      api,
+      threadID,
+      getData: () => global.motorData[threadID],
+      onDisable: () => {
+        if (typeof global._saveMotorState === "function") {
+          try { global._saveMotorState(); } catch (_) {}
+        }
+      }
+    });
+  } catch (_) {}
 }
 
 function startMotor2(api, threadID) {
   const data = global.motorData2[threadID];
   if (!data || !data.message || !data.time) return;
-  if (data.interval) { clearInterval(data.interval); data.interval = null; }
+  try { clearInterval(data.interval); } catch (_) {}
+  try { clearTimeout(data.interval); } catch (_) {}
+  data.interval = null;
   data.status = true;
-  data.interval = setInterval(() => {
-    const botApi = global._botApi || api;
+  data.shouldSend = function () {
     const lastActive = global.lastActivity[threadID];
-    if (!lastActive) return;
-    if (Date.now() - lastActive < data.time * 2) {
-      const r = botApi.sendMessage(data.message, threadID);
-      if (r && typeof r.catch === 'function') r.catch(() => {});
-    }
-  }, data.time);
+    if (!lastActive) return false;
+    return (Date.now() - lastActive) < (Number(data.time) || 0) * 2;
+  };
+  try {
+    const { scheduleMotorLoop } = require("../../includes/motorSafeSend");
+    scheduleMotorLoop({
+      api,
+      threadID,
+      getData: () => global.motorData2[threadID],
+      onDisable: () => {}
+    });
+  } catch (_) {}
 }
 
 function stopMotor(threadID) {
   const data = global.motorData[threadID];
-  if (data?.interval) { clearInterval(data.interval); data.interval = null; }
+  if (data?.interval) {
+    try { clearInterval(data.interval); } catch (_) {}
+    try { clearTimeout(data.interval); } catch (_) {}
+    data.interval = null;
+  }
   if (data) data.status = false;
 }
 
 function stopMotor2(threadID) {
   const data = global.motorData2[threadID];
-  if (data?.interval) { clearInterval(data.interval); data.interval = null; }
+  if (data?.interval) {
+    try { clearInterval(data.interval); } catch (_) {}
+    try { clearTimeout(data.interval); } catch (_) {}
+    data.interval = null;
+  }
   if (data) data.status = false;
 }
 
@@ -119,6 +180,11 @@ module.exports.handleEvent = async function ({ api, event }) {
 
   const input = body.trim();
   const { step } = session;
+
+  if (input === "اغلاق") {
+    delete global.chatsSession[senderID];
+    return api.sendMessage("✅ تم إغلاق التحكم.", threadID);
+  }
 
   // ─── القائمة الرئيسية ──────────────────────────────────────────────────────
   if (step === "main") {
@@ -229,7 +295,6 @@ module.exports.handleEvent = async function ({ api, event }) {
       } catch (e) {
         api.sendMessage(`❌ فشل: ${e.message?.slice(0, 100)}`, threadID);
       }
-      delete global.chatsSession[senderID];
 
     } else if (input === "2") {
       try {
@@ -238,7 +303,6 @@ module.exports.handleEvent = async function ({ api, event }) {
       } catch (e) {
         api.sendMessage(`❌ فشل: ${e.message?.slice(0, 100)}`, threadID);
       }
-      delete global.chatsSession[senderID];
 
     } else if (input === "3") {
       api.sendMessage(`✏️ أرسل الرسالة التي تريد إرسالها لـ "${selected.name}":`, threadID, (err, info) => {
@@ -275,26 +339,7 @@ module.exports.handleEvent = async function ({ api, event }) {
     const m1 = global.motorData[tid];
     const m2 = global.motorData2[tid];
 
-    const msg =
-      `👥 ${selected.name}\n🆔 ${tid}\n`
-      + `━━━━━━━━━━━━━━━\n`
-      + `📍 المحرك العادي: ${m1?.status ? "🟢 شغّال" : "⚫ متوقف"}\n`
-      + `   📝 "${m1?.message || "لم تُضبط"}" · ⏱ ${m1?.time ? m1.time / 1000 + "s" : "—"}\n\n`
-      + `📍 المحرك الذكي: ${m2?.status ? "🟢 شغّال" : "⚫ متوقف"}\n`
-      + `   📝 "${m2?.message || "لم تُضبط"}" · ⏱ ${m2?.time ? m2.time / 1000 + "s" : "—"}\n`
-      + `━━━━━━━━━━━━━━━\n`
-      + "1 - تفعيل المحرك العادي\n"
-      + "2 - إيقاف المحرك العادي\n"
-      + "3 - ضبط رسالة المحرك العادي\n"
-      + "4 - ضبط وقت المحرك العادي\n"
-      + "5 - تفعيل المحرك الذكي\n"
-      + "6 - إيقاف المحرك الذكي\n"
-      + "7 - ضبط رسالة المحرك الذكي\n"
-      + "8 - ضبط وقت المحرك الذكي\n"
-      + "9 - إرسال رسالة للغروب\n"
-      + "10 - إخراج البوت من الغروب\n"
-      + "━━━━━━━━━━━━━━━\n↩️ رد بالرقم";
-
+    const msg = buildGroupMenu(selected, tid);
     api.sendMessage(msg, threadID, (err, info) => {
       if (!err) global.chatsSession[senderID] = { step: "group_action", selected, botMessageID: info.messageID };
     });
@@ -305,49 +350,23 @@ module.exports.handleEvent = async function ({ api, event }) {
     const { selected } = session;
     const tid = selected.threadID;
 
-    // دالة مساعدة: إعادة إرسال قائمة الغروب مع رسالة حالة اختيارية
-    function sendGroupMenu(statusMsg) {
-      const m1 = global.motorData[tid];
-      const m2 = global.motorData2[tid];
-      const msg =
-        (statusMsg ? statusMsg + "\n\n" : "")
-        + `👥 ${selected.name}\n🆔 ${tid}\n`
-        + `━━━━━━━━━━━━━━━\n`
-        + `📍 المحرك العادي: ${m1?.status ? "🟢 شغّال" : "⚫ متوقف"}\n`
-        + `   📝 "${m1?.message || "لم تُضبط"}" · ⏱ ${m1?.time ? m1.time / 1000 + "s" : "—"}\n\n`
-        + `📍 المحرك الذكي: ${m2?.status ? "🟢 شغّال" : "⚫ متوقف"}\n`
-        + `   📝 "${m2?.message || "لم تُضبط"}" · ⏱ ${m2?.time ? m2.time / 1000 + "s" : "—"}\n`
-        + `━━━━━━━━━━━━━━━\n`
-        + "1 - تفعيل المحرك العادي\n"
-        + "2 - إيقاف المحرك العادي\n"
-        + "3 - ضبط رسالة المحرك العادي\n"
-        + "4 - ضبط وقت المحرك العادي\n"
-        + "5 - تفعيل المحرك الذكي\n"
-        + "6 - إيقاف المحرك الذكي\n"
-        + "7 - ضبط رسالة المحرك الذكي\n"
-        + "8 - ضبط وقت المحرك الذكي\n"
-        + "9 - إرسال رسالة للغروب\n"
-        + "10 - إخراج البوت من الغروب\n"
-        + "━━━━━━━━━━━━━━━\n↩️ رد بالرقم";
-
-      api.sendMessage(msg, threadID, (err, info) => {
-        if (!err) global.chatsSession[senderID] = { step: "group_action", selected, botMessageID: info.messageID };
-      });
+    function _send(statusMsg) {
+      return sendGroupMenu(api, threadID, senderID, selected, tid, statusMsg);
     }
 
     if (input === "1") {
       if (!global.motorData[tid]?.message)
-        return sendGroupMenu("❌ لم تُضبط رسالة المحرك. اختار 3 أولاً.");
+        return _send("❌ لم تُضبط رسالة المحرك. اختار 3 أولاً.");
       if (!global.motorData[tid]?.time)
-        return sendGroupMenu("❌ لم يُضبط الوقت. اختار 4 أولاً.");
+        return _send("❌ لم يُضبط الوقت. اختار 4 أولاً.");
       startMotor(api, tid);
-      sendGroupMenu(`✅ تم تفعيل المحرك في "${selected.name}"`);
+      _send(`✅ تم تفعيل المحرك في "${selected.name}"`);
 
     } else if (input === "2") {
       if (!global.motorData[tid]?.status)
-        return sendGroupMenu("⚠️ المحرك متوقف أصلاً.");
+        return _send("⚠️ المحرك متوقف أصلاً.");
       stopMotor(tid);
-      sendGroupMenu(`✅ تم إيقاف المحرك في "${selected.name}"`);
+      _send(`✅ تم إيقاف المحرك في "${selected.name}"`);
 
     } else if (input === "3") {
       api.sendMessage(`✏️ أرسل رسالة المحرك العادي في "${selected.name}":`, threadID, (err, info) => {
@@ -361,17 +380,17 @@ module.exports.handleEvent = async function ({ api, event }) {
 
     } else if (input === "5") {
       if (!global.motorData2[tid]?.message)
-        return sendGroupMenu("❌ لم تُضبط رسالة المحرك الذكي. اختار 7 أولاً.");
+        return _send("❌ لم تُضبط رسالة المحرك الذكي. اختار 7 أولاً.");
       if (!global.motorData2[tid]?.time)
-        return sendGroupMenu("❌ لم يُضبط الوقت. اختار 8 أولاً.");
+        return _send("❌ لم يُضبط الوقت. اختار 8 أولاً.");
       startMotor2(api, tid);
-      sendGroupMenu(`✅ تم تفعيل المحرك الذكي في "${selected.name}"\n🔔 يرسل فقط عند وجود نشاط`);
+      _send(`✅ تم تفعيل المحرك الذكي في "${selected.name}"\n🔔 يرسل فقط عند وجود نشاط`);
 
     } else if (input === "6") {
       if (!global.motorData2[tid]?.status)
-        return sendGroupMenu("⚠️ المحرك الذكي متوقف أصلاً.");
+        return _send("⚠️ المحرك الذكي متوقف أصلاً.");
       stopMotor2(tid);
-      sendGroupMenu(`✅ تم إيقاف المحرك الذكي في "${selected.name}"`);
+      _send(`✅ تم إيقاف المحرك الذكي في "${selected.name}"`);
 
     } else if (input === "7") {
       api.sendMessage(`✏️ أرسل رسالة المحرك الذكي في "${selected.name}":`, threadID, (err, info) => {
@@ -393,8 +412,23 @@ module.exports.handleEvent = async function ({ api, event }) {
         if (!err) global.chatsSession[senderID] = { step: "group_leave_confirm", selected, botMessageID: info.messageID };
       });
 
+    } else if (input === "11") {
+      api.sendMessage(`✏️ أرسل الاسم الجديد للغروب "${selected.name}":`, threadID, (err, info) => {
+        if (!err) global.chatsSession[senderID] = { step: "group_set_name", selected, botMessageID: info.messageID };
+      });
+
+    } else if (input === "12") {
+      api.sendMessage(`✏️ أرسل اللقب الجديد للبوت في "${selected.name}":`, threadID, (err, info) => {
+        if (!err) global.chatsSession[senderID] = { step: "group_set_bot_nick", selected, botMessageID: info.messageID };
+      });
+
+    } else if (input === "13") {
+      api.sendMessage(`✏️ اعمل منشن للعضو أو رد على رسالته مع اللقب الجديد:`, threadID, (err, info) => {
+        if (!err) global.chatsSession[senderID] = { step: "group_set_user_nick", selected, botMessageID: info.messageID };
+      });
+
     } else {
-      sendGroupMenu("⚠️ اختار رقماً من 1 إلى 10.");
+      _send("⚠️ اختار رقماً من 1 إلى 13.");
     }
   }
 
@@ -405,8 +439,9 @@ module.exports.handleEvent = async function ({ api, event }) {
     const store = motorType === 1 ? global.motorData : global.motorData2;
     if (!store[selected.threadID]) store[selected.threadID] = { status: false, message: null, time: null, interval: null };
     store[selected.threadID].message = input;
+    if (motorType === 1 && typeof global._saveMotorState === "function") { try { global._saveMotorState(); } catch (_) {} }
     api.sendMessage(`✅ تم ضبط رسالة المحرك في "${selected.name}":\n"${input}"`, threadID);
-    delete global.chatsSession[senderID];
+    return sendGroupMenu(api, threadID, senderID, selected, selected.threadID);
   }
 
   // ─── ضبط وقت المحرك ──────────────────────────────────────────────────────
@@ -417,8 +452,9 @@ module.exports.handleEvent = async function ({ api, event }) {
     const store = motorType === 1 ? global.motorData : global.motorData2;
     if (!store[selected.threadID]) store[selected.threadID] = { status: false, message: null, time: null, interval: null };
     store[selected.threadID].time = ms;
+    if (motorType === 1 && typeof global._saveMotorState === "function") { try { global._saveMotorState(); } catch (_) {} }
     api.sendMessage(`✅ تم ضبط الوقت في "${selected.name}": ${input}`, threadID);
-    delete global.chatsSession[senderID];
+    return sendGroupMenu(api, threadID, senderID, selected, selected.threadID);
   }
 
   // ─── إرسال رسالة للغروب ──────────────────────────────────────────────────
@@ -431,7 +467,7 @@ module.exports.handleEvent = async function ({ api, event }) {
     } catch (e) {
       api.sendMessage(`❌ فشل الإرسال: ${e.message?.slice(0, 100)}`, threadID);
     }
-    delete global.chatsSession[senderID];
+    return sendGroupMenu(api, threadID, senderID, selected, selected.threadID);
   }
 
   // ─── تأكيد الخروج ────────────────────────────────────────────────────────
@@ -439,7 +475,8 @@ module.exports.handleEvent = async function ({ api, event }) {
     const { selected } = session;
     if (input === "نعم") {
       try {
-        await api.removeUserFromGroup(api.getCurrentUserID(), selected.threadID);
+        const botId = String(global.botUserID || (api.getCurrentUserID ? api.getCurrentUserID() : ""));
+        await api.removeUserFromGroup(botId, selected.threadID);
         api.sendMessage(`✅ خرج البوت من "${selected.name}"`, threadID);
       } catch (e) {
         api.sendMessage(`❌ فشل الخروج: ${e.message?.slice(0, 100)}`, threadID);
@@ -447,7 +484,45 @@ module.exports.handleEvent = async function ({ api, event }) {
     } else {
       api.sendMessage("❎ تم الإلغاء.", threadID);
     }
-    delete global.chatsSession[senderID];
+    return sendGroupMenu(api, threadID, senderID, selected, selected.threadID);
+  }
+
+  else if (step === "group_set_name") {
+    const { selected } = session;
+    if (!input) return api.sendMessage("❌ الاسم فارغ.", threadID);
+    try {
+      await api.setTitle(input, selected.threadID);
+      selected.name = input;
+      return sendGroupMenu(api, threadID, senderID, selected, selected.threadID, `✅ تم تغيير اسم الغروب إلى: ${input}`);
+    } catch (e) {
+      return sendGroupMenu(api, threadID, senderID, selected, selected.threadID, `❌ فشل تغيير الاسم: ${e.message?.slice(0, 100)}`);
+    }
+  }
+
+  else if (step === "group_set_bot_nick") {
+    const { selected } = session;
+    if (!input) return api.sendMessage("❌ اللقب فارغ.", threadID);
+    try {
+      const botId = String(global.botUserID || (api.getCurrentUserID ? api.getCurrentUserID() : ""));
+      await api.changeNickname(input, selected.threadID, botId);
+      return sendGroupMenu(api, threadID, senderID, selected, selected.threadID, `✅ تم تغيير لقب البوت إلى: ${input}`);
+    } catch (e) {
+      return sendGroupMenu(api, threadID, senderID, selected, selected.threadID, `❌ فشل تغيير اللقب: ${e.message?.slice(0, 100)}`);
+    }
+  }
+
+  else if (step === "group_set_user_nick") {
+    const { selected } = session;
+    let targetId = null;
+    if (messageReply?.senderID) targetId = String(messageReply.senderID);
+    else if (event.mentions && Object.keys(event.mentions).length > 0) targetId = String(Object.keys(event.mentions)[0]);
+    if (!targetId) return api.sendMessage("⚠️ لازم رد على رسالة العضو أو اعمل منشن.", threadID);
+    try {
+      await api.changeNickname(input, selected.threadID, targetId);
+      return sendGroupMenu(api, threadID, senderID, selected, selected.threadID, `✅ تم تغيير لقب العضو.`);
+    } catch (e) {
+      return sendGroupMenu(api, threadID, senderID, selected, selected.threadID, `❌ فشل تغيير لقب العضو: ${e.message?.slice(0, 100)}`);
+    }
   }
 };
 

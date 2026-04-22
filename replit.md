@@ -16,7 +16,7 @@ includes/        — Core bot logic
   zaoCookiePatcher.js  — Patches FCA API for full cookie-session support
   nkxfcaModernizer.js  — API enhancement layer (rate-limiting, caching, anti-suspension)
   antiSuspension.js    — Account protection module
-  fcaClient.js         — Promise wrapper around shadowx-fca
+  fcaClient.js         — Promise wrapper around @neoaz07/nkxfca
 SCRIPTS/ZAO-CMDS/ — Command modules (one .js per command)
 SCRIPTS/ZAO-EVTS/ — Event handler modules
 DB/               — Database controllers (SQLite via Sequelize + MongoDB support)
@@ -46,10 +46,10 @@ The bot supports 3 account tiers that are tried in order on startup or session f
 
 ## Cookie Patcher (includes/zaoCookiePatcher.js)
 Applied after every successful login:
+- Fixes FCA anti-suspension false-positive signals (generic errors no longer trip the circuit breaker)
 - Ensures cookie persistence after every `getAppState()` call
 - Provides `getBotInfo` shim for cookie-only sessions
 - Protects `setOptions` from accidentally disabling core features
-- Note: shadowx-fca has no internal antiSuspension singleton — rate limiting is handled by the modernizer layer
 
 ## Key Config Files
 - `ZAO-SETTINGS.json` — main bot configuration (prefix, admins, features, API keys)
@@ -61,7 +61,7 @@ Applied after every successful login:
 - `altv.json` — Tier 3 backup (optional)
 
 ## Dependencies
-Key npm packages: `shadowx-fca`, `express`, `fastify`, `mongoose`, `sequelize`,
+Key npm packages: `@neoaz07/nkxfca`, `express`, `fastify`, `mongoose`, `sequelize`,
 `sqlite3`, `canvas`, `jimp`, `ytdl-core`, `axios`, `chalk`, `moment-timezone`
 
 ## Development

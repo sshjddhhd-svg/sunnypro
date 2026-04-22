@@ -15,11 +15,7 @@ module.exports.languages = {
 };
 
 module.exports.onLoad = () => {
-  // [FIX Djamel] — Only initialise lockBot if it has never been set.
-  // Previously this unconditionally wrote false, so running the refresh
-  // command (which re-calls onLoad for every command) silently unlocked
-  // the bot even when an admin had explicitly locked it with "قفل تفعيل".
-  if (global.lockBot === undefined) global.lockBot = false;
+  global.lockBot = false;
 };
 
 module.exports.run = async function ({ api, event, permssion }) {

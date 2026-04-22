@@ -18,8 +18,6 @@ module.exports.run = async ({ event, api, Threads, Users }) => {
 
   if (data.antiout !== true) return;
 
-  if (!event.logMessageData || !event.logMessageData.leftParticipantFbId) return;
-
   if (event.logMessageData.leftParticipantFbId == api.getCurrentUserID()) return;
 
   const leftID = event.logMessageData.leftParticipantFbId;

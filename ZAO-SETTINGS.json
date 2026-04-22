@@ -63,9 +63,8 @@
     "BOTNAME": "✺ ⚆  -- ➢ ZAO✸  ⟽  ",
     "PREFIX": ".",
     "ADMINBOT": [
-        "100000434205615",
-        "100089220841183", 
-        "100000422915498"
+        "61566669951133",
+        "61573327406251" 
     ],
     "BOTID": "",
     "OWNER": "⋕ 𝗖𝗿͡𝗲𝗮͜𝘁𝗼𝗿 ‹〄› 𝐒𝖆̶𝖎̶ ₰",
@@ -129,7 +128,7 @@
         "enableWarmup": true,
         "warmupMinutes": 25,
         "enableCircuitBreaker": true,
-        "enableE2EE": true,
+        "enableE2EE": false,
         "postSafeGuard": true,
         "enableTypingWrap": true,
         "maxSendConcurrency": 3,
@@ -139,7 +138,7 @@
     },
 
     "e2ee": {
-        "enabled": true,
+        "enabled": false,
         "autoEncryptDMs": true,
         "autoDecryptIncoming": true,
         "keyFile": "data/e2ee-keys.json",

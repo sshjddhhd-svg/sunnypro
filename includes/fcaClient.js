@@ -1,6 +1,6 @@
 "use strict";
 
-const login = require("shadowx-fca");
+const { login } = require("@neoaz07/nkxfca");
 
 const LOGIN_TIMEOUT_MS = 60 * 1000;
 

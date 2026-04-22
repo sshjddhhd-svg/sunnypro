@@ -77,11 +77,20 @@ module.exports.run = async function ({ api, event, args, permssion }) {
     if (!data.time) return api.sendMessage("⚠️ لم تحدد وقت المحرك بعد.\nاستخدم: محرك وقت [مثال: 30s]", threadID, messageID);
 
     data.status = true;
-    data.interval = setInterval(() => {
-      const botApi = global._botApi || api;
-      const r = botApi.sendMessage(data.message, threadID);
-      if (r && typeof r.catch === 'function') r.catch(() => {});
-    }, data.time);
+    try {
+      const { scheduleMotorLoop } = require("../../includes/motorSafeSend");
+      if (data.interval) {
+        try { clearInterval(data.interval); } catch (_) {}
+        try { clearTimeout(data.interval); } catch (_) {}
+        data.interval = null;
+      }
+      scheduleMotorLoop({
+        api,
+        threadID,
+        getData: () => global.motorData[threadID],
+        onDisable: () => {}
+      });
+    } catch (_) {}
 
     return api.sendMessage(`✅ تم تفعيل المحرك.\n📝 الرسالة: "${data.message}"\n⏱ كل: ${data.time / 1000}s`, threadID, messageID);
   }
@@ -90,7 +99,8 @@ module.exports.run = async function ({ api, event, args, permssion }) {
   else if (args[0] === "ايقاف") {
     if (data.status === false) return api.sendMessage("⚠️ المحرك غير مفعل أصلاً.", threadID, messageID);
 
-    clearInterval(data.interval);
+    try { clearInterval(data.interval); } catch (_) {}
+    try { clearTimeout(data.interval); } catch (_) {}
     data.status = false;
     data.interval = null;
     return api.sendMessage("🔴 تم إيقاف المحرك.", threadID, messageID);

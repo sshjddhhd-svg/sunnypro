@@ -3,11 +3,6 @@ const path = require("path");
 
 const MOTOR2_FILE = path.join(process.cwd(), "data", "motor2-state.json");
 
-// A transient FB error won't disable motor2. Only after FAIL_THRESHOLD
-// consecutive send failures on the same thread is it auto-disabled.
-const FAIL_THRESHOLD = 3;
-const _failCounts = {};
-
 function loadState() {
   try {
     fs.ensureDirSync(path.dirname(MOTOR2_FILE));
@@ -29,56 +24,39 @@ function saveState() {
         time:    d.time
       };
     }
-    const tmp = MOTOR2_FILE + ".tmp";
-    fs.writeFileSync(tmp, JSON.stringify(toSave, null, 2), "utf8");
-    fs.renameSync(tmp, MOTOR2_FILE);
+    fs.writeFileSync(MOTOR2_FILE, JSON.stringify(toSave, null, 2), "utf8");
   } catch (_) {}
 }
 
 function startInterval(api, threadID) {
   const d = global.motorData2[threadID];
   if (!d || !d.status || !d.message || !d.time) return;
-  if (d.interval) { clearInterval(d.interval); d.interval = null; }
-  d.interval = setInterval(() => {
-    const botApi = global._botApi || api;
-    if (!botApi) return;
+  try { clearInterval(d.interval); } catch (_) {}
+  try { clearTimeout(d.interval); } catch (_) {}
+  d.interval = null;
+
+  d.shouldSend = function () {
     const lastActive = (global.lastActivity || {})[threadID];
-    if (!lastActive) return;
-    if (Date.now() - lastActive < d.time * 2) {
-      botApi.sendMessage(d.message, threadID).then(() => {
-        // Success — reset fail counter
-        _failCounts[threadID] = 0;
-      }).catch((err) => {
-        const msg = String(err && (err.message || err)).toLowerCase();
+    if (!lastActive) return false;
+    return (Date.now() - lastActive) < (Number(d.time) || 0) * 2;
+  };
 
-        // Skip MQTT/connectivity errors — don't count them against the thread
-        if (msg.includes("mqtt") || msg.includes("not connected")) return;
-
-        // Only count definitively dead-thread errors toward auto-disable
-        const isDeadThread =
-          msg.includes("no message_thread") ||
-          msg.includes("thread may not exist") ||
-          msg.includes("not a participant") ||
-          msg.includes("you are not a member");
-
-        if (isDeadThread) {
-          _failCounts[threadID] = (_failCounts[threadID] || 0) + 1;
-          if (_failCounts[threadID] >= FAIL_THRESHOLD) {
-            if (d.interval) { clearInterval(d.interval); d.interval = null; }
-            d.status = false;
-            delete _failCounts[threadID];
-            saveState();
-          }
-        }
-        // All other errors are transient — keep the motor running
-      });
-    }
-  }, d.time);
+  try {
+    const { scheduleMotorLoop } = require("../../includes/motorSafeSend");
+    scheduleMotorLoop({
+      api,
+      threadID,
+      getData: () => global.motorData2[threadID],
+      onDisable: () => {
+        try { saveState(); } catch (_) {}
+      }
+    });
+  } catch (_) {}
 }
 
 module.exports.config = {
   name: "محرك2",
-  version: "2.1.0",
+  version: "2.0.0",
   hasPermssion: 2,
   credits: "لي حواك",
   description: "إرسال رسالة تلقائية بشرط وجود نشاط — يبقى بعد إعادة التشغيل",
@@ -96,6 +74,7 @@ module.exports.onLoad = function ({ api }) {
   global.motorData2   = global.motorData2   || {};
   global.lastActivity = global.lastActivity || {};
 
+  // Restore persisted state and re-start active intervals
   const saved = loadState();
   for (const [tid, d] of Object.entries(saved)) {
     global.motorData2[tid] = {
@@ -165,7 +144,6 @@ module.exports.run = async function ({ api, event, args, permssion }) {
     if (!data.message) return api.sendMessage("⚠️ لم تحدد الرسالة بعد.\nاستخدم: محرك2 رسالة [النص]", threadID, messageID);
     if (!data.time) return api.sendMessage("⚠️ لم تحدد الوقت بعد.\nاستخدم: محرك2 وقت [30s أو 0.5m]", threadID, messageID);
     data.status = true;
-    _failCounts[threadID] = 0;
     startInterval(api, threadID);
     saveState();
     return api.sendMessage(
@@ -176,9 +154,10 @@ module.exports.run = async function ({ api, event, args, permssion }) {
 
   if (args[0] === "ايقاف") {
     if (data.status === false) return api.sendMessage("⚠️ المحرك غير مفعل أصلاً.", threadID, messageID);
-    if (data.interval) { clearInterval(data.interval); data.interval = null; }
+    try { clearInterval(data.interval); } catch (_) {}
+    try { clearTimeout(data.interval); } catch (_) {}
+    data.interval = null;
     data.status = false;
-    delete _failCounts[threadID];
     saveState();
     return api.sendMessage("🔴 تم إيقاف المحرك.", threadID, messageID);
   }

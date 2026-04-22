@@ -13,6 +13,7 @@ const path  = require('path');
 let pingTimer     = null;
 let dtsgTimer     = null;
 let saveTimer     = null;
+let notiTimer     = null;
 let isSaving      = false;
 
 function log(level, msg) {
@@ -206,13 +207,8 @@ async function doSaveCookies(source) {
     const appState = api.getAppState();
     if (!appState || !appState.length) return;
 
-    // Use the active tier's file paths so a Tier-2/3 session never overwrites
-    // the wrong cookie file.  global.activeStateFile / global.activeAltFile are
-    // set by autoRelogin on every successful login or tier switch.
-    const statePath = global.activeStateFile
-      || path.join(process.cwd(), global.config?.APPSTATEPATH || 'ZAO-STATE.json');
-    const altPath   = global.activeAltFile
-      || path.join(process.cwd(), 'alt.json');
+    const statePath = path.join(process.cwd(), global.config?.APPSTATEPATH || 'ZAO-STATE.json');
+    const altPath   = path.join(process.cwd(), 'alt.json');
     const newData   = JSON.stringify(appState, null, 2);
 
     const current = await fs.readFile(statePath, 'utf-8').catch(() => '');
@@ -223,9 +219,7 @@ async function doSaveCookies(source) {
     await fs.move(tmpPath, statePath, { overwrite: true });
     await fs.writeFile(altPath, newData, 'utf-8');
 
-    const stateLabel = path.basename(statePath);
-    const altLabel   = path.basename(altPath);
-    log('info', `Cookies saved to ${stateLabel} & ${altLabel}${source ? ` (${source})` : ''} ✓`);
+    log('info', `Cookies saved to ZAO-STATE.json & alt.json${source ? ` (${source})` : ''} ✓`);
   } catch (e) {
     log('warn', `Failed to save cookies: ${e.message || e}`);
   } finally {
@@ -242,6 +236,70 @@ async function doRefreshDtsg() {
     await doSaveCookies('post-dtsg-refresh');
   } catch (e) {
     log('warn', `fb_dtsg refresh failed: ${e.message || e}`);
+  }
+}
+
+async function doNotificationVisit() {
+  try {
+    const api = global._botApi;
+    if (!api) return;
+
+    const botID = api.getCurrentUserID ? api.getCurrentUserID() : (global.botUserID || '');
+    if (!botID) return;
+
+    // Prefer api.httpPost when available to reuse FCA headers/session
+    if (typeof api.httpPost === 'function') {
+      const form = {
+        av: botID,
+        fb_api_req_friendly_name: 'CometNotificationsDropdownQuery',
+        fb_api_caller_class: 'RelayModern',
+        doc_id: '5025284284225032',
+        variables: JSON.stringify({
+          count: 5,
+          environment: 'MAIN_SURFACE',
+          menuUseEntryPoint: true,
+          scale: 1
+        })
+      };
+      await new Promise((resolve, reject) => {
+        api.httpPost('https://www.facebook.com/api/graphql/', form, (err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+      log('info', 'Notifications tab visited ✓');
+      return;
+    }
+
+    // Fallback: raw HTTP using axios
+    const cookieStr = getCookieStr(api);
+    if (!cookieStr) return;
+    const UA = getUserAgent();
+    const body = new URLSearchParams({
+      av: botID,
+      fb_api_req_friendly_name: 'CometNotificationsDropdownQuery',
+      fb_api_caller_class: 'RelayModern',
+      doc_id: '5025284284225032',
+      variables: JSON.stringify({
+        count: 5,
+        environment: 'MAIN_SURFACE',
+        menuUseEntryPoint: true,
+        scale: 1
+      })
+    });
+
+    await axios.post('https://www.facebook.com/api/graphql/', body.toString(), {
+      headers: {
+        ...buildHeaders(cookieStr, UA, 'https://www.facebook.com/'),
+        'content-type': 'application/x-www-form-urlencoded'
+      },
+      timeout: 20000,
+      maxRedirects: 0,
+      validateStatus: () => true
+    });
+    log('info', 'Notifications tab visited (http) ✓');
+  } catch (e) {
+    log('warn', `Notification visit failed: ${e.message || e}`);
   }
 }
 
@@ -268,14 +326,27 @@ function schedulePing() {
   log('info', `Next ping in ${minutes} min`);
 }
 
+function scheduleNotificationVisit() {
+  if (notiTimer) clearTimeout(notiTimer);
+  const delay = getRandomMs(30, 120);
+  const minutes = Math.round(delay / 60000);
+  notiTimer = setTimeout(async () => {
+    await doNotificationVisit();
+    scheduleNotificationVisit();
+  }, delay);
+  log('info', `Next notifications visit in ${minutes} min`);
+}
+
 function startKeepAlive() {
   if (pingTimer) clearTimeout(pingTimer);
   if (dtsgTimer) clearInterval(dtsgTimer);
   if (saveTimer) clearInterval(saveTimer);
+  if (notiTimer) clearTimeout(notiTimer);
 
-  log('info', 'Session keep-alive started — Ping every 5-10 min | cookies every 30 min | dtsg every 24h');
+  log('info', 'Session keep-alive started — Ping every 5-10 min | noti visit every 30-120 min | cookies every 30 min | dtsg every 24h');
 
   schedulePing();
+  scheduleNotificationVisit();
 
   saveTimer = setInterval(() => doSaveCookies('scheduled'), 30 * 60 * 1000);
   dtsgTimer = setInterval(() => doRefreshDtsg(), 24 * 60 * 60 * 1000);
@@ -285,7 +356,9 @@ function stopKeepAlive() {
   if (pingTimer) clearTimeout(pingTimer);
   if (dtsgTimer) clearInterval(dtsgTimer);
   if (saveTimer) clearInterval(saveTimer);
+  if (notiTimer) clearTimeout(notiTimer);
   pingTimer = dtsgTimer = saveTimer = null;
+  notiTimer = null;
 }
 
 module.exports = { startKeepAlive, stopKeepAlive, doSaveCookies, doPing };
