@@ -5,13 +5,13 @@ description: Generate and retrieve media including AI-generated images, AI-gener
 
 # Media Generation Skill
 
-Generate custom images, videos, and retrieve stock images for your application.
+Generate custom images, videos, and retrieve stock images.
 
 ## Available Functions
 
 ### generateImage(images, ...)
 
-Generate custom images from text descriptions using AI image generation. Waits for generation to complete before returning.
+Generate custom images from text descriptions. Waits for generation to complete before returning.
 
 **Parameters:**
 
@@ -73,12 +73,7 @@ for (const img of result.images) {
 
 ### generateImageAsync(images, ...)
 
-Generate images asynchronously in the background. Returns immediately with a workflow ID.
-
-**Parameters:**
-
-- `images` (list, required): Same format as `generateImage`
-- `overwrite` (bool, default True): Whether to overwrite existing files
+Generate images asynchronously. Returns immediately with a workflow ID. Same parameters as `generateImage`.
 
 **Returns:** Dict with `workflowId`, `workflowAlias`, `status`, and `imagePaths`
 
@@ -96,7 +91,7 @@ console.log(`Images will be saved to: ${result.imagePaths}`);
 
 ### generateVideo(prompt, ...)
 
-Generate short video clips from text descriptions using AI video generation.
+Generate short video clips from text descriptions.
 
 **Parameters:**
 
@@ -124,17 +119,7 @@ console.log(`Video saved to: ${result.filePath}`);
 
 ### generateVideoAsync(prompt, ...)
 
-Generate a video asynchronously in the background. Returns immediately with a workflow ID.
-
-**Parameters:**
-
-- `prompt` (str, required): Detailed text description of the desired video
-- `summary` (str, default "generated_video"): Short description for the filename
-- `aspectRatio` (str, default "16:9"): "16:9" (landscape) or "9:16" (portrait)
-- `resolution` (str, default "720p"): "720p" or "1080p"
-- `durationSeconds` (int, default 6): 4, 6, or 8 seconds
-- `negativePrompt` (str, optional): Description of what should NOT appear
-- `personGeneration` (str, optional): "dont_allow" or "allow_adult" for controlling people
+Generate a video asynchronously. Returns immediately with a workflow ID. Same parameters as `generateVideo`.
 
 **Returns:** Dict with `workflowId`, `workflowAlias`, `status`, and `videoPath`
 
@@ -156,7 +141,7 @@ await wait_for_background_tasks({ wait_mode: "all" });
 
 ### stockImage(description, ...)
 
-Retrieve stock images matching a description from a stock image provider.
+Retrieve stock images matching a description.
 
 **Parameters:**
 
@@ -227,7 +212,7 @@ for (const path of result.filePaths) {
 2. **Use negative prompts**: Exclude unwanted elements like "blurry", "watermark", "text"
 3. **Choose appropriate formats**: Match aspect ratio and media type to intended use
 4. **Consider stock for realism**: Use stock images when you need authentic photography
-5. **Do not over generate**: Do not over generate images in one user request unless explicitly requested by the user
+5. **Do not over generate**: Only generate multiple images when the user explicitly asks.
 
 ## Output Locations
 
@@ -237,14 +222,14 @@ for (const path of result.filePaths) {
 
 ## Limitations
 
-- Generated videos are limited to 8 seconds maximum
+- Generated videos: 8 seconds maximum
 - Stock image availability depends on the search query
 - Complex or highly specific prompts may not match exactly
 - Text in generated media is not reliably rendered
 
 ## Copyright
 
-- Always use this skill to create media assets rather than copying from websites
+- Use this skill to create media assets instead of copying from websites
 - Generated images and videos are created for your use
 - Stock images are licensed for use in your projects
-- Do not download or copy media files directly from external websites
+- Do not download or copy media files from external websites

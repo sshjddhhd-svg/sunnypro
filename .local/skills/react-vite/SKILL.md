@@ -81,7 +81,7 @@ Note: It's important to do all the DB schema/definitions/seeding and development
 
 No OpenAPI, no codegen. Launch the design subagent immediately.
 
-If the user is creating a site for a real company, or wants to match an existing company/site, gather context before launching the design subagent: use `extractBranding` for brand tokens, `webFetch` on the homepage, about page, or key product pages for real messaging, and external-URL `screenshot` when the visual feel of the source site matters. Pass the distilled brand and product context into the brief, not raw tool output.
+If the user is creating a site for a real company, or wants to match an existing company/site, gather context before launching the design subagent: use `extractBranding` for brand tokens, fall back to `imageSearch` via the `image-search` skill when you need a cleaner or missing logo, use `webFetch` on the homepage, about page, or key product pages for real messaging, and use external-URL `screenshot` when the visual feel of the source site matters. Pass the distilled brand and product context into the brief, not raw tool output. When passing brand context, include colors, typography, and images.
 
 1. Create the artifact and read the `design` skill
 2. Launch the design subagent (async) immediately — no codegen step needed. Follow the `design` skill's presentation-heavy delegation rules:

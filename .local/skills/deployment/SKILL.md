@@ -20,6 +20,8 @@ Use this skill when:
 - The user wants to see what errors are occurring in production
 - The user needs to debug a runtime issue with their deployed app
 - The user asks to check deployment or server logs
+- The user says their app failed to publish or a deployment build failed
+- After a deployment attempt that the agent initiated fails
 
 ## When NOT to Use
 
@@ -32,6 +34,7 @@ Use this skill when:
 This skill has additional reference documents for specific deployment scenarios. Read them as needed:
 
 - `references/deployment-logs.md` — How to fetch and analyze runtime deployment logs. Read this when the user's deployed app is misbehaving, the live site is down, or they want to check production logs.
+- `references/deployment-failure-debugging.md` — How to diagnose and fix deployment build failures. Read this when the user's deployment build fails to publish, the app crashes during the publishing step, or the user asks for help debugging a deployment error.
 
 ## Available Functions
 

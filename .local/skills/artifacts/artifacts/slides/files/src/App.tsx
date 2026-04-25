@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation } from "wouter";
 
 import { slides } from "@/slideLoader";
 
@@ -11,9 +11,8 @@ function getSlideIndex(pathname: string): number {
 }
 
 function SlideEditor() {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const currentIndex = getSlideIndex(location.pathname);
+  const [location, navigate] = useLocation();
+  const currentIndex = getSlideIndex(location);
 
   // In the workspace, the slide iframe is nested inside another iframe,
   // so window.parent !== window.parent.parent. In the deployed SlideViewer,
@@ -194,22 +193,21 @@ function SlideViewer() {
 }
 
 export default function App() {
-  const location = useLocation();
-  const navigate = useNavigate();
+  const [location, navigate] = useLocation();
 
   // DO NOT edit this useEffect - redirects unknown routes to the first slide.
   // The "/" and "/allslides" routes are handled separately below.
   useEffect(() => {
     if (
-      location.pathname !== "/" &&
-      location.pathname !== "/allslides" &&
-      getSlideIndex(location.pathname) === -1
+      location !== "/" &&
+      location !== "/allslides" &&
+      getSlideIndex(location) === -1
     ) {
       if (slides.length > 0) {
         navigate(`/slide${slides[0].position}`, { replace: true });
       }
     }
-  }, [location.pathname, navigate]);
+  }, [location, navigate]);
 
   // DO NOT edit this useEffect - allows the parent frame to navigate
   // between slides via postMessage so it can avoid changing the iframe
@@ -229,7 +227,7 @@ export default function App() {
     return () => window.removeEventListener("message", onMessage);
   }, [navigate]);
 
-  if (location.pathname === "/") return <SlideViewer />;
-  if (location.pathname === "/allslides") return <AllSlides />;
+  if (location === "/") return <SlideViewer />;
+  if (location === "/allslides") return <AllSlides />;
   return <SlideEditor />;
 }

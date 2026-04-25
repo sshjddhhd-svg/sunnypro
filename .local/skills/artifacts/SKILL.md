@@ -14,7 +14,7 @@ If the user asks to create any other type of artifact (web app, video, slides, m
 
 - This project does not support artifacts.
 - They can create other artifact types by creating a new project.
-- Link: https://replit-add-agent-4-docs.mintlify.app/replitai/artifacts
+- Link: https://docs.replit.com/replitai/artifacts
 
 
 

@@ -7,12 +7,81 @@ description: Instructions for building, editing, and importing slide deck artifa
 
 ## PPTX Import — Handle First
 
-If the user has attached a `.pptx` file or asks to import/convert a presentation, call `importPptx` IMMEDIATELY. Do NOT generate templates, outlines, images, or content — the import callback handles everything.
+If the user has attached a `.pptx` file or asks to import/convert a presentation, call `importPptx` IMMEDIATELY, then copy the generated components into the slides artifact. The goal is near 1:1 fidelity — like importing into Google Slides. Do NOT generate templates, outlines, images, or boilerplate content — the import gives you the finished components.
 
-1. Call `importPptx({ filePath: "attached_assets/<filename>.pptx" })` — the artifact directory is resolved automatically.
-2. Tell the user: "I've imported your deck — it's ready to view. Want me to adjust the styling or content?"
+### How it works
 
-Do NOT proceed with any other slide creation workflow when importing a PPTX. No template selection, no content outline, no manual slide building.
+`importPptx` converts the PPTX into React slide components via `pptx-parser` and writes them to a **staging directory** under the workspace root (NOT into the artifact):
+
+```
+attached_assets/imported_slides/<safe_filename>/
+  Slide1.tsx
+  Slide2.tsx
+  media/...  (images)
+```
+
+Each PPTX gets its own subfolder so multiple imports never collide. **The original imports stay in the staging directory permanently as a reference** — never delete or move them.
+
+The callback response includes `stagingDir` (where the files were written) and `artifactDir` (the path of the slides artifact, if one exists). Use these to drive the copy step below. The callback does NOT touch the artifact's `slides-manifest.json`.
+
+### Import steps
+
+1. If no slides artifact exists, scaffold one first with the standard slides artifact creation flow.
+2. Call `importPptx({ filePath: "attached_assets/<filename>.pptx" })`. Read the `stagingDir` and `files` fields from the response.
+3. **Copy each slide component** from `<stagingDir>/SlideN.tsx` into the artifact at `<artifactDir>/src/pages/slides/`. Preserve the file contents exactly — do not edit them. If a destination filename already exists (e.g. another import also had `Slide1.tsx`), rename the copy with a deck-specific suffix (e.g. `Slide1_<safe_filename>.tsx`) and update the default-exported component identifier in the copied file to match.
+4. **Copy any referenced image/media files** from `<stagingDir>/` into the artifact, preserving whatever relative paths the slide components reference (most commonly `public/...` or `src/assets/...` depending on what the generated imports expect). Leave the originals in place too.
+5. **Append manifest entries** to `<artifactDir>/src/data/slides-manifest.json` — one entry per copied slide, with `filepath` set to the copied location (e.g. `src/pages/slides/Slide1.tsx`). Use the flat `src/pages/slides/<BaseName>.tsx` form — do not write nested paths. Assign a fresh UUID for `id`, the next contiguous `position`, a sensible `title`, a non-empty `description` (default it to `"Imported slide"`, or use a very short one-line summary if one is obvious from the slide content — the manifest schema rejects empty strings, so do not use `""`), and `speakerNotes: ""`. Re-read the manifest right before writing in case the workspace updated it.
+6. Run `pnpm run --filter @workspace/<slug> validate-slides` to confirm the manifest is valid and every slide file resolves.
+7. **Eyeball every imported slide.** Open the slides preview and screenshot. The PPTX import is a heuristic — most slides come through clean, but expect a small handful with obvious breakage: text clipped at the slide edge, overlapping text boxes, white text on a white background, missing or broken images, or a font fallback that wrecks the layout. You can usually tell at a glance. Fix only the obviously broken slides — match the layout of the surrounding slides, do not redesign. Skip cosmetic tweaks; the goal here is "ship without obvious bugs," not "perfect every slide."
+8. The imported slides are now viewable. Tell the user: "I've imported your deck — it's ready to view. Want me to adjust anything?"
+
+Do NOT rebuild or recreate the slides from scratch after import. The imported components render with full fidelity to the original PPTX layout, positioning, and images.
+
+### When the user wants adaptation instead of 1:1 import
+
+If the user says something like "make my slides more like this deck" or "use this as inspiration", then read the staged slide components in `attached_assets/imported_slides/<safe_filename>/` to understand content and layout, and adapt the existing artifact slides using the standard slide-building workflow below. In this mode you do NOT need to copy the staged components into `src/pages/slides/`. This is the exception, not the default — the default import path is 1:1 fidelity via the copy flow above.
+
+
+## Template Selection and Pre-Generation Flow
+
+When creating a NEW slide deck, the backend has already presented the user with template choices (ranked by a classifier) and the user has selected one. The selected template ID and preview image are in your context.
+
+### Using the Selected Template
+
+1. **Study the template preview** — A preview image for the selected template was automatically injected into your context. This is your primary visual target — match it as closely as possible.
+2. **Read the reference file** — Read `templates/<template-id>.md` (relative to the skill file) for exact hex codes, font choices, layout details, source code for all 4 slides, and design patterns.
+3. **Build Slide 1 first** — Create the first slide matching the reference image as closely as possible. Take a screenshot and compare against the reference image to verify fidelity before proceeding.
+4. **Then build remaining slides** — Maintain consistent styling throughout the deck guided by both the reference images and the text description.
+
+The preview image is the ground truth. The text description and source code supplement it with precise values. Follow both as your creative direction, then adapt to the specific content.
+
+When the user selected an "Auto" option, no preview image is injected. Follow the standard planning process below to develop an original creative direction.
+
+### Content Outline Review
+
+After studying the template, generate the full slide-by-slide content based on the user's topic and selected theme. Then call `user_query` with:
+
+1. **Content outline** — `AgentQuerySlideOutline`:
+   - Use the `AgentQuerySlideOutline` query type. Set `prompt` to a read-only message shown above the editable cards (e.g. "Here's a draft outline for your deck. Edit anything you'd like, then confirm."). Set `slides` to an array of `{headline, body}` objects — one per slide.
+   - Generate the actual text content that will appear on each slide — not just titles, but the real headlines, bullet points, stats, and key messages.
+   - Example: `{"prompt": "Here's a draft outline for your deck. Edit anything you'd like, then confirm.", "slides": [{"headline": "Main Title", "body": "Subtitle text"}, {"headline": "Slide 2 Title", "body": "- bullet point 1\n- bullet point 2\n- bullet point 3"}, {"headline": "Slide 3 Title", "body": "Key stat: number + context\nSupporting text"}]}`
+   - Include real content for every slide — the user should be able to read through this and see exactly what their deck will say.
+   - The user's response comes back as a `slideOutlineResponse` with the edited `slides` array.
+
+Wait for the user's response. If they request changes, incorporate them. Then proceed to the planning and implementation phases below.
+
+### Skip conditions
+
+Skip the content outline review and proceed directly to building if:
+
+- The user explicitly says "just make it", "surprise me", "just build it", "go ahead", "no questions", or similar
+- The user has already specified slide count and topic in their initial message (e.g. "make me 10 slides on X")
+- The user has already specified all preferences in their initial message (slide count, style, and content outline)
+- The user is asking to edit/modify an existing deck, not create a new one
+
+### Static Asset Paths
+
+Template reference files may show bare absolute paths like `src="/photos/image.png"`. **Do not copy these verbatim.** Slides are served under a sub-path, so all static asset references in `public/` must be prefixed with `import.meta.env.BASE_URL`. For example: `src={` + "`${import.meta.env.BASE_URL}photos/image.png`" + `}`. This applies to images, fonts, and any other file in `public/`.
 
 
 
@@ -21,19 +90,41 @@ A slides artifact is a React + Tailwind CSS application that functions as a slid
 
 The workspace UI includes a visual editor that lets users click on elements in a slide and modify them (text, colors, layout). For this to work, the editor must be able to map each DOM element back to a specific line in your JSX source. This means slide components must use static, inline JSX -- every element written out by hand, no `.map()` loops, no dynamic content generation, no `<br/>` tags. Use Tailwind spacing utilities instead of line breaks.
 
-The slide manifest at `src/data/slides-manifest.json` is the contract between your React app and the workspace. The workspace reads this file to populate its UI -- thumbnails, titles, ordering, descriptions, and speaker notes all come from the manifest. Each entry has `id` (UUID string), `position` (contiguous 1-based number), `filepath` (e.g. `src/pages/slides/MarketOverview.tsx`), `title`, `description`, and `speakerNotes`. Do not modify the `speakerNotes` field -- it is a user-facing field managed by the workspace UI. When creating new manifest entries, initialize `speakerNotes` to `""` and never update it afterward. When you create, remove, or reorder slides you must update this manifest. The Replit UI may also modify this file based on user interactions, so re-read `slides-manifest.json` before editing it rather than assuming your last write is still current. After any manifest or slide file change, run `pnpm run --filter @workspace/<slug> validate-slides` to catch broken invariants before they reach the user.
+The slide manifest at `src/data/slides-manifest.json` is the contract between your React app and the workspace. The workspace reads this file to populate its UI -- thumbnails, titles, ordering, descriptions, and speaker notes all come from the manifest. Each entry has `id` (UUID string), `position` (contiguous 1-based number), `filepath` (e.g. `src/pages/slides/MarketOverview.tsx`), `title`, `description`, and `speakerNotes`. The `speakerNotes` field is user-facing and primarily managed by the workspace UI: initialize it to `""` by default and do not touch it on subsequent edits. **Exception:** if the user explicitly asks for speaker notes (e.g. "generate speaker notes," "add talking points," "write a script for each slide"), populate `speakerNotes` per slide in the manifest at that point — see the speaker-notes rules in `<constraints>` → Content. When you create, remove, or reorder slides you must update this manifest. **When the user asks to duplicate a slide, copy the underlying `.tsx` component file to a new filename (e.g. `Pricing.tsx` → `Pricing2.tsx` or `PricingCopy.tsx`), update the default-exported component identifier in the copy to match, and add a new manifest entry pointing at the new file with a fresh UUID and the next contiguous `position`.** Do NOT just add a second manifest entry that points at the same `filepath` — both entries would render the same component, and any later edit to one would silently change the other. Same rule applies if the workspace UI ever appears to have duplicated a slide by manifest entry alone: split the shared file into two before editing either. The Replit UI may also modify this file based on user interactions, so re-read `slides-manifest.json` before editing it rather than assuming your last write is still current. After any manifest or slide file change, run `pnpm run --filter @workspace/<slug> validate-slides` to catch broken invariants before they reach the user.
 
 Visiting the root URL (`/`) renders a presentation viewer that displays slides in a 16:9 aspect ratio centered on a black background with keyboard/click navigation. Individual slides must remain accessible at `/slideN` for workspace preview, and `/allslides` for export. Unknown routes redirect to the first slide. The routing logic in `App.tsx` must not be modified. The SPA is configured with a catch-all rewrite so that direct navigation to any route works correctly. No additional routing configuration is needed for deployment.
 
 Slides are composed for **16:9 aspect ratio** (1920x1080 reference). Each slide's root container must use `w-screen h-screen overflow-hidden relative`. The `/allSlides` view relies on CSS selector overrides (`[&_.w-screen]:!w-full [&_.h-screen]:!h-full`) to scale slides into fixed-size boxes, so these classes are required -- do not replace them with `w-full h-full` or other alternatives. Use viewport-relative units (`vw`/`vh`) for sizing text, spacing, and elements so proportions stay consistent regardless of screen size. Each slide component must use a **default export**. Place static assets you create (not user-attached) in `public/` so they are served at the base URL. User-attached assets use the `@assets/...` import syntax.
+
+Before declaring the deck done, read `references/visual_qa.md` and walk every check — it covers `/allslides` rendering, 16:9 bounds, text-scaling integrity, and the final visual QA loop.
 </context>
 
 Your goal is to create visually stunning, professional slide decks. Every deck should look like it was designed by a top-tier design agency. Prioritize clarity, visual hierarchy, and polish. Your work should feel "crafted," not "assembled." Each slide is a single, static, full-screen 16:9 frame. The content should be immediately visible on load. Every deck should have a specific, nameable aesthetic direction. Reject mediocrity. Build something with a point of view.
 
+<clarifying_questions>
+Only ask clarifying questions for information the user has not already given you. Before asking anything, scan the user's request for:
+
+- **Slide count** ("10 slides", "a short deck", "around 6")
+- **Audience** ("for the board", "for a sales pitch", "internal team")
+- **Tone / aesthetic** ("playful", "corporate", "editorial", "minimal")
+- **Brand or company** (named company, attached logo, linked website)
+- **Content topic** (the deck subject — explicit topic vs. vague hand-wave)
+- **Length / depth** (overview vs. detailed)
+
+If the user provided it, do NOT re-ask. If the user provided enough to start (count + topic, or topic + clear brand, or topic + audience), skip clarifying questions entirely and start building. Use sensible defaults for anything missing — pick a slide count of 6–7, infer audience from topic, and commit to an aesthetic that matches the subject.
+
+Only ask when the request is genuinely ambiguous AND the missing information would change the deck materially (e.g. "make a deck" with no topic, no count, no brand — ask). When you do ask, ask the minimum needed to unblock — never re-ask things that were already specified.
+</clarifying_questions>
+
 <first_build>
 When building a new slide deck for the first time, follow this exact sequence:
 
-1. **Research brand** (real companies only): If the user provides or implies an official company website, use `extractBranding` first to get colors, fonts, and visual identity. Use `webFetch` on the homepage, about page, or key product pages when you need real company copy or positioning for the deck. If `extractBranding` is not possible, use a single `webSearch` call with multiple queries to find brand colors, fonts, and visual identity concurrently. If the visual feel of the source site matters, use external-URL `screenshot` for quick visual reference.
+1. **Research brand** (real companies only): **Skip this step entirely if the user already supplied the brand source of truth** — attached brand guide, exact hex codes, approved fonts, design system file, sibling artifact CSS, etc. Use what they gave you. Otherwise, for real companies, prefer the Firecrawl-backed tools — they return real, structured data. The order is: `extractBranding` → `webFetch` on official pages → `webSearch` only as a last resort.
+   - Start with `extractBranding` on the official site for colors, fonts, and visual identity.
+   - Use `webFetch` on the homepage, about page, or key product pages for real company copy and positioning.
+   - Only fall back to `webSearch` if neither tool can reach the site (e.g. the company has no public site, or you genuinely cannot find the URL). Do NOT default to `webSearch` for brand colors, fonts, or positioning — search snippets are noisy and miss the real brand tokens that `extractBranding` returns.
+   - `extractBranding` already returns the company's logo image alongside colors and fonts — use that logo when it's good. `imageSearch` via the `image-search` skill is a useful complement: reach for it when `extractBranding`'s logo is missing or low-quality, when the company has no site Firecrawl can reach, or when you want a cleaner reference image. For non-brand real-world imagery (product shots, team photos, venues), defer to step 3 of `<planning>` — don't stall the first build crawling for those.
+   - If the visual feel of the source site matters, use external-URL `screenshot` for quick visual reference.
 2. **Generate images** (if needed): Kick off `generateImageAsync` via the media-generation skill FIRST so images generate in parallel while you write slides.
 3. **Write ALL files in a single parallel batch.** `index.html`, `index.css`, every slide `.tsx` file, and `slides-manifest.json` are all independent — write them ALL in one parallel tool call. Do not write them sequentially.
    - `index.html`: Update Google Fonts links for your chosen display + body fonts.
@@ -51,7 +142,18 @@ Avoid screenshotting in the first build. You have two priorities: speed and desi
 <planning>
 Before writing any code, establish your creative direction:
 
-1. **Brand research**: For real companies, use `extractBranding` with a website URL to find their official brand guidelines, colors, fonts, and visual identity. Use their real palette and typography -- don't guess. If official guidelines aren't available, base your palette on the company's public-facing website and explicitly note that the colors are inferred, not official. If scraping a website instead of using `extractBranding`, use a single `webSearch` call with multiple queries to search concurrently:
+1. **Brand research**: **If the user supplied brand tokens** (attached brand guide, exact hex codes, approved fonts, sibling artifact CSS, design system file, etc.), use those as the source of truth and skip this step. Crawl only to fill genuine gaps the user did not provide.
+
+   For real companies where the user did not supply brand tokens, lead with the Firecrawl-backed tools — `extractBranding` and `webFetch` return real, structured data. `webSearch` is the fallback, not the default.
+
+   **Preferred order:**
+   - `extractBranding` on the official website URL — returns the company's actual brand tokens (colors, fonts, visual identity).
+   - `webFetch` on the homepage, about page, or product pages for real positioning and tone.
+   - `webSearch` ONLY as a last resort, when the company has no public site or you cannot find the URL. Do not default to `webSearch` for brand colors, fonts, or positioning when an official site exists — search snippets are noisy and miss what `extractBranding` already returns directly.
+
+   **Logo sourcing.** `extractBranding` returns a logo image when Firecrawl can parse one. If that logo is good, use it. If it's missing, low-resolution, or clearly wrong (e.g. a favicon placeholder), or if you just want a cleaner reference, use `imageSearch` for queries like `"<company> logo png"` or `"<company> logo transparent"`, pick the highest-quality result from the company's own domain or a reputable press/brand asset site, and download it to `attached_assets/`. Pass it to the `design` subagent as part of the brand context (colors + typography + reference logo image), the same way an `extractBranding` logo would be — it's a brand reference image, not necessarily a slide asset. It's fine to use both — `extractBranding`'s logo plus a sharper `imageSearch` hit — if that gives the design subagent better context.
+
+   When `webSearch` is the only option, batch concurrent queries:
 
    ```text
    webSearch({
@@ -64,8 +166,10 @@ Before writing any code, establish your creative direction:
    })
    ```
 
-   Always prefer `extractBranding` if possible, but as a fallback, use `webSearch` to find brand color hex codes on sites like Brandfetch, brand guideline PDFs, and design blog posts that document the company's visual identity. Never guess brand colors when you can look them up. If the site's visual style matters, use external-URL `screenshot` for a quick reference on layout, logo treatment, and overall tone.
-2. **Content research**: If the deck is about a real company, product, industry, or topic, use `webSearch` to gather real facts, figures, and context before writing any slides. When the deck is for or about a specific company and you need real messaging, use `webFetch` on the homepage, about page, or key product pages before writing headlines and supporting copy. Do not fabricate statistics, revenue numbers, headcount, market share, or any verifiable claim. Search for the real data in a single batch call:
+   Use their real palette and typography — don't guess. If official guidelines aren't available, base your palette on the company's public-facing website and explicitly note that the colors are inferred, not official. If the site's visual style matters, use external-URL `screenshot` for a quick reference on layout, logo treatment, and overall tone.
+2. **Content research**: If the deck is about a real company, product, industry, or topic, gather real facts before writing slides. **Lead with `webFetch`** on the company's own pages (homepage, about, product, pricing) — that's where real headlines, messaging, and positioning live. Only use `webSearch` for facts that aren't on the company's site (industry stats, third-party data, market sizing, recent news).
+
+   Do not fabricate statistics, revenue numbers, headcount, market share, or any verifiable claim. When you do need `webSearch`, batch concurrently:
 
    ```text
    webSearch({
@@ -80,7 +184,12 @@ Before writing any code, establish your creative direction:
    ```
 
    If you cannot verify a figure from a real source, either omit it or mark it explicitly as an estimate. A deck with 5 real numbers is better than one with 20 invented ones.
-3. **Image sourcing**: For real companies and products, use Brave Image Search (via the `external_apis` skill and `externalApi__brave`) to find real logos, product photos, office images, and team photos. Real imagery makes the deck feel authentic -- don't generate a fake logo when the real one is searchable. Download found images to `attached_assets/` and import them with the `@assets/...` syntax. Fall back to the `media-generation` skill only for supplemental or abstract visuals that don't exist on the web.
+3. **Image sourcing**: For real companies and real-world references, `imageSearch` via the `image-search` skill is a great tool when you need images of real things on the web — product photos, office/venue shots, team or founder headshots, known landmarks, competitor screenshots, or a sharper logo than `extractBranding` surfaced. `imageSearch` and Firecrawl complement each other: Firecrawl gives you the site's brand tokens and logo in one pass; `imageSearch` finds everything else that's "real" and publicly photographed. Use whichever (or both) gets you the right image. Download found images to `attached_assets/` and import them with the `@assets/...` syntax. Use the `media-generation` skill for supplemental or abstract visuals that don't exist on the web. Do not generate a fake logo when the real one is searchable.
+
+   Quick image-sourcing cheat-sheet (use any combination that gets the right image):
+   - Brand tokens (colors, fonts, logo, positioning) → Firecrawl `extractBranding` + `webFetch`.
+   - Real-world images (products, people, places, sharper or missing logos) → `imageSearch`.
+   - Supplemental / abstract / doesn't exist on the web → `media-generation` skill.
 4. **Color palette**: Pick a bold, intentional palette. State exact hex codes. You want 1 primary, 1 accent, 1-2 neutrals, and a background tone. The palette should have a clear vibe -- editorial, corporate, playful, luxurious, energetic, whatever fits the content. Every color should feel like a deliberate choice. Build every slide from these colors -- consistency is what makes it feel designed, not generated.
 5. **Typography**: Pick ONE display font + ONE body font. Choose from common PowerPoint-bundled fonts that work on web or popular Google Fonts -- decks are exported to PPTX and other platforms, and fonts that don't exist on the target platform will break the slide. Analyze the emotional goal of the deck, then select a font *type* that amplifies it:
    - Trust/Authority -> strong geometric sans-serif
@@ -101,10 +210,37 @@ Before writing any code, establish your creative direction:
    These are starting points -- invent your own direction if the content calls for it. The point is to have a nameable aesthetic, not a vague "clean and modern."
 
    **Context matters for imagery too.** Corporate and formal decks should lean on clean typography, whitespace, and restrained visuals -- decorative images distract. But fun, personal, or creative topics should tastefully include generated images, illustrations, and rich photography. A deck about dogs deserves cute dog photos; a birthday party deck deserves festive visuals and warm colors. Read the room and design accordingly.
+
+   **Commit to a system up front.** Before writing slides, write out (in planning text) the system you'll use for the whole deck: the section-header layout, the title-slide layout, how content slides are composed, the image-slide pattern, and the closing-slide treatment. Limit the deck to **1–2 background colors max** — varied background tones break visual cohesion fast. Decide where visual rhythm comes from (a recurring accent shape, a consistent type lockup, a divider style). State the system before you build it; it's what separates a designed deck from an assembled one.
 7. **Asset planning**: Inventory any assets the user attached (logos, product shots, brand images, etc.) and decide where each one appears. Then plan what additional images to source with the `media-generation` skill to fill the remaining slides. Rich visual material elevates a deck -- plan it upfront, not as an afterthought.
 
 Commit to a direction and execute.
 </planning>
+
+<title_grammar>
+**If the user supplied the titles (or exact slide copy), use them verbatim — skip this section.** The rules below apply only when you are writing titles from scratch. See the "User-supplied copy is canonical" rule in `<constraints>` → Content for the full precedence rule.
+
+Slide titles are the spine of the deck — read top-to-bottom, they should read like a table of contents. Mixing grammatical styles within one deck is the single clearest tell of AI-authored copy.
+
+**Pick ONE structure for the whole deck and hold it:**
+
+- **A. Short topic noun phrases** — `Market Research · Team Structure · Risk Factors`
+- **B. Brief declarative sentences** — `Revenue grew 40%. · Costs held flat.`
+- **C. Imperatives, sparingly** — `Cut the text. · Ship the draft.`
+
+Choose the structure that fits the content, then hold the register on every slide. If you're tempted to write a "punchier" title for one slide mid-deck, that's the urge to break parallelism — resist it.
+
+**Title anti-patterns — reject on sight:**
+
+- Punchline titles ("The Magic Moment", "Why Everything Changes Now")
+- "It's Not X. It's Y." construction, anywhere
+- Faux-insight reframes ("Rethinking how we build slides")
+- Titles that deliver the verdict instead of orienting the slide
+- Titles that sound like the speaker's punchline rather than a chapter heading
+- Over-long title phrases ("How we rethought the way we build…")
+
+After drafting titles, read the title list top-to-bottom in isolation. If a person reading only the titles couldn't follow the flow of the deck, rewrite the titles before building any slides.
+</title_grammar>
 
 <visual_composition>
 Every slide should have visual depth and intentional composition. Layer backgrounds, content, and accent elements to create polish.
@@ -138,6 +274,13 @@ Every slide should have visual depth and intentional composition. Layer backgrou
 - Pursue cohesive art direction, intentional color palettes, restraint, and strong typographic hierarchy.
 - Use Tailwind and CSS variables from `index.css`. Import your fonts from Google Fonts via `index.html`. Use CSS variables for your color palette so every slide stays in sync.
 - When the user wants simple: focus on clean execution, strong typography, and generous whitespace. The difference between beautiful simplicity and lazy simplicity is intentional spacing, a great font, and a cohesive palette.
+
+**One thousand no's for every yes.** Never pad slides with placeholder text, dummy stats, or generic icons just to fill space. Every element should earn its place. If a slide feels empty, fix it with layout and composition — not by inventing content. Avoid "data slop": numbers, stats, percentages, or iconography that don't actually inform the message. Less is more. If you think a slide needs an extra section to feel "full," try removing something instead.
+
+**Useful CSS:**
+
+- `text-wrap: pretty` (or `text-wrap: balance` for headlines) prevents awkward orphans on multi-line text. Apply to headlines, subtitles, and bullet copy.
+- CSS Grid and `display: contents` are powerful for layered compositions — use them.
 </visual_composition>
 
 <slide_layouts>
@@ -191,6 +334,18 @@ Typography is the backbone of slide design. Get this right and the deck is 80% t
 | Body text | 1.5-2vw | Regular/Medium |
 | Caption | 1.2-1.5vw | Regular/Light |
 | Big stat number | 8-12vw | Black |
+
+**Minimum readable size at export.** At the 1920x1080 export size, body text must render at ≥24px equivalent — that's `1.5vw` or larger. Read the smallest font size across your slide JSX; if it falls below `1.5vw`, raise it. See `references/visual_qa.md` for the full text-scaling rules and forbidden patterns (no `clamp()` with px caps, no `transform: scale` on text, no hardcoded `px` font sizes).
+
+**Font selection:**
+
+- **One family ideally; two only when the content demands it** (editorial serif display + clean sans body). Variety comes from composition, weight, and scale — not from adding fonts.
+- **Three weights max per deck.** Weight jumps must be ≥200 (e.g. 400 → 700). 400 next to 500 reads muddy from the back of the room; pick a real contrast.
+- **Banned as your default fallback:** Inter, Roboto, Arial, system-ui, Fraunces. When you are picking the font yourself, do not reach for these — they read as "AI did this." Pick a font with intent — see the typography decision tree in `<planning>` and pull from the full Google Fonts catalog (or PowerPoint-bundled fonts so PPTX export holds).
+- **Exception — when the font is specified, use it.** If a selected template (e.g. `templates/<template-id>.md` in the template-selection flow), an attached brand guide, the user's prompt, or `extractBranding` results name a specific font — including Inter, Roboto, or anything else on the banned list — use that font verbatim. The ban only applies to fonts *you* are choosing from scratch; it never overrides a font the user, brand, or template hands you. This mirrors the "user-supplied copy is canonical" rule in `<constraints>` → Content.
+- **Vary across decks.** When you are choosing the font yourself, vary your choice across decks — don't default to the same pairing every build.
+- **No all-italic body text.** Italic for emphasis or titles of works only.
+- **No underline as styling.** Underline = link only.
 
 </typography_system>
 
@@ -249,28 +404,18 @@ These rules apply **only when the user explicitly asks for animations**. If the 
 </animations>
 
 <quality_checks>
-Before considering the deck complete, run these checks:
-
-- **Squint test**: Squint at each slide. Can you still see the visual hierarchy? If everything blurs into the same level of importance, your hierarchy is too flat.
-- **Readability test**: Is all text at least 1.5vw? Could someone in the back row of a conference room read every word?
-- **Consistency test**: Do slides with similar content use similar layouts and styling? Does the color palette hold across every slide? Does the typography system stay consistent?
-- **Flow test**: Click through the deck from slide 1 to the end. Does it tell a clear story? Do section dividers appear where they should? Does the closing slide feel like a proper ending?
-- **Brand test**: For real company decks -- would the company recognize this as "theirs"? Are the colors, fonts, and tone aligned with their brand?
-- **Content density test**: Does any slide have more than 6 lines of text or feel like a document page? Split it.
-- **Whitespace test**: Does any slide have an entire half that's empty for no reason? Does any slide feel crammed? Balance is the goal.
-- **Emoji audit**: Scan every slide for emoji characters. If any emoji appears anywhere in the deck -- titles, bullets, labels, descriptions, speaker notes -- remove it immediately. This is a hard quality gate. A single emoji fails the entire deck.
-- **Overflow test**: Does any slide have content clipped at the bottom or right edge? Mentally verify that the total stacked height of all elements (including padding, gaps, and headings) does not exceed 100vh. Card grids, multi-column layouts, and bullet lists are the most common overflow offenders. If content is cut off, reduce items, shrink sizing, or split the slide.
+After the deck builds and `validate-slides` passes, **read `references/visual_qa.md` and walk every check before declaring the deck done.** The reference covers `/allslides` rendering, 16:9 bounds, text-scaling integrity, the squint / readability / consistency / flow / brand / density / whitespace / emoji / overflow checks, and the final "looks good" gate.
 </quality_checks>
 
 <implementation_checklist>
 
-1. Establish creative direction (palette, fonts, aesthetic). Write it out before any code.
+1. Establish creative direction (palette, fonts, aesthetic, visual system). Write it out before any code.
 2. Plan assets -- inventory user-attached files, plan supplemental images.
 3. Set up `index.html` (fonts) and `index.css` (CSS variables).
 4. Build slides in `src/pages/slides/`. Title slide first to lock in the visual system.
 5. Update `src/data/slides-manifest.json` manifest for each slide.
 6. Run `pnpm run --filter @workspace/<slug> validate-slides` and fix any issues.
-7. Run quality checks.
+7. **Read `references/visual_qa.md` and run every check** — walk through your slide JSX file by file, apply the code-level checks, and fix any clipping or scaling issues.
 8. Present the artifact.
 
 </implementation_checklist>
@@ -308,6 +453,8 @@ These elements are exceptions to the general no-interactivity rule. All other in
 - **Text must fit its container.** If you give a container a fixed height, the text inside must actually fit at the chosen font size. Clipped or truncated text is a bug, not a feature. Reduce content length or font size so everything is visible.
 - **Absolute positioning safety.** Elements using `absolute` or `fixed` positioning must stay fully within the viewport. Use `vh`/`vw` values that keep content inside the 100vh/100vw boundary -- never position an element where its content could extend off-screen.
 
+The deeper text-scaling forbidden patterns (`clamp` with px caps, `transform: scale` on text, container queries, etc.) and the `/allslides` final verification loop live in `references/visual_qa.md` — **read it before finishing the deck.**
+
 **Visual:**
 
 - Never use plain white (`#ffffff`) or plain black (`#000000`) as a slide background -- at minimum use a very subtle off-white, off-black, or gentle gradient
@@ -323,7 +470,7 @@ These elements are exceptions to the general no-interactivity rule. All other in
 - No text smaller than 1.5vw
 - Max 6 lines of text per slide -- if you have more to say, split it across two slides
 - Max 2 fonts (one display + one body)
-- Only use common PowerPoint-bundled fonts or popular Google Fonts -- niche or decorative fonts break when exported to PPTX or other platforms. Each deck should use a different font pairing -- do not default to the same fonts every time
+- Only use common PowerPoint-bundled fonts or popular Google Fonts -- niche or decorative fonts break when exported to PPTX or other platforms. Font selection rules (banned defaults, weight discipline, vary across decks) live in the **Font selection** sub-block of `<typography_system>` — follow them.
 - No text walls -- slides are not documents
 
 **Style:**
@@ -335,10 +482,21 @@ These elements are exceptions to the general no-interactivity rule. All other in
 - No drop shadows on everything
 - No overusing AI-generated images (especially as full-slide backgrounds) -- use them sparingly and purposefully
 - No more than 2-3 image-background slides per deck
+- **Avoid the AI-slop trope** of rounded-corner containers with a left-border accent color — it's the visual equivalent of "as an AI language model." Use real card treatments (subtle shadow, tinted background, restrained borders) or no container at all.
 
 **Content:**
 
+- **User-supplied copy is canonical — use it verbatim.** If the user gave you exact slide text (in the prompt, an attached doc, the `AgentQuerySlideOutline` response, or any other channel), reproduce it word-for-word. Do not rewrite it for "punch," do not "improve" it, do not pad it with extra bullets, and do not invent supporting copy to fill space. Match casing, punctuation, and line breaks. The grammar, length, and tone rules below (title styles, AI-slop list, "one idea per slide", "title with 'and' = two slides") apply only to copy *you* are generating from scratch — they do not override copy the user handed you. If the user's copy contains something you'd otherwise flag (a banned word, an "and" in the title, a punchline-style heading), keep it as written. If you genuinely think a change is needed, ask first; do not edit silently.
+- **Speaker notes: off by default, generate when asked.** Leave `speakerNotes` as `""` in the manifest unless the user explicitly asks for them ("generate speaker notes," "add talking points," "write a script per slide," "include presenter notes," etc.). When asked, write notes directly into the `speakerNotes` field of each slide's entry in `src/data/slides-manifest.json` — that is where they live, not inside the slide JSX. Re-read the manifest right before writing in case the workspace updated it, and run `validate-slides` afterward.
 - **Never use emoji.** Not in slide text, not in speaker notes, not in titles, not in bullet points, not in any user-visible content. This includes Unicode emoji characters, emoji shortcodes, and decorative symbols used as emoji substitutes (e.g. 🚀 🎯 💡 ✅ 📊 🔥 and similar are all banned). Arrows (→), checkmarks (✓), bullets (•), and stars (★) are fine as typographic elements -- but anything that renders as a colorful pictograph is not. Emoji makes slides look unserious and unprofessional. If you need visual indicators, use proper icons, shapes, or typographic symbols instead. This rule has zero exceptions -- even for "fun" or "casual" decks.
+- **Avoid AI-slop language.** Strike on sight in titles, headlines, subtitles, captions, and speaker notes — these are the SaaS-deck vocabulary that signal an LLM wrote the copy:
+  - Words: "magic", "delight", "seamless", "unlock", "rethink/rethinking", "game-changer", "supercharge", "leverage", "empower"
+  - Heavy-handed imperatives ("You must…", "Never forget…")
+  - Three-word punchy conclusions that don't actually conclude anything
+  - Takeaway boxes, "pro tip:" banners, tip-callout containers
+  - Dramatic tension-building with no payoff
+  - Replace each hit with a concrete, specific claim — or cut the line entirely.
+- **One idea per slide.** If a title contains "and," it's almost always two slides — split it.
 - No decks shorter than 6 slides unless the user explicitly asks for a short deck
 
 **Visual editing compatibility:**

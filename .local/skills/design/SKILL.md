@@ -70,7 +70,8 @@ What NOT to include:
 
 If the user provides a real company/site URL, or asks you to create a site for an existing company, gather a little context before delegating:
 
-- Use `extractBranding` to capture colors, fonts, and other brand cues from the official site.
+- Use `extractBranding` to capture colors, fonts, and other brand cues from the official site. When passing brand context, include colors, typography, and images.
+- If `extractBranding` does not give you a usable logo, use `imageSearch` via the `image-search` skill to look for `"<company> logo png"` or `"<company> logo transparent"`, preferring official domains and press or brand asset pages.
 - Use `webFetch` on the homepage, about page, or key product pages to pull real messaging, product language, and positioning.
 - If the visual feel of the source site matters, use external-URL `screenshot` for quick visual reference.
 

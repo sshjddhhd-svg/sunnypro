@@ -342,13 +342,9 @@ relevantFiles: ["artifacts/mockup-sandbox/public/ads/[filename].html"]
 
 // Repeat for each angle — all launch simultaneously
 
-// Wait for all to complete
-
-await waitForBackgroundTasks();
-
 ```
 
-After all subagents finish, embed each ad as an iframe on the canvas using `apply_canvas_actions`. Then call`presentArtifact({ artifactId, shapeIds: [...] })` with the IDs of the new iframe shapes.
+After launching, call the `wait_for_background_tasks` tool to wait for every ad-design subagent. Then embed each ad as an iframe on the canvas using `apply_canvas_actions`, and call `presentArtifact({ artifactId, shapeIds: [...] })` with the IDs of the new iframe shapes.
 
 #### Viewport-Relative Sizing (mandatory)
 

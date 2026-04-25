@@ -120,9 +120,11 @@ Before embedding iframes, call `getCanvasState()` to see what already exists on 
 
 If an iframe is created while the workflow is still booting, rely on the canvas host's iframe retry behavior plus the dev server's automatic 404 rescan to recover. Do not ask the user to refresh the whole board.
 
-**Variant grid layout.** Arrange multiple variants in a horizontal row with ~50px gutters. Do not add text labels above iframes -- the iframe title bar already shows the `componentName`. Use descriptive `componentName` values instead (e.g. "Minimal Pricing Card", "Bold Pricing Card").
+**Variant grid layout.** Arrange multiple variants in a horizontal row. Place them at approximate positions, then clean up the layout with `align` + `distribute` in the same `applyCanvasActions` batch -- do not hand-compute 50px gutters across 3+ iframes. See the canvas skill's "Align and Distribute Shapes" section for recipes. Do not add text labels above iframes -- the iframe title bar already shows the `componentName`. Use descriptive `componentName` values instead (e.g. "Minimal Pricing Card", "Bold Pricing Card").
 
-**Multi-viewport layouts.** When showing the same component at different screen sizes, place them in a row using the viewport presets (Mobile: 390x844, Tablet: 768x1024, Desktop: 1280x720) with ~50px gutters.
+**Multi-viewport layouts.** When showing the same component at different screen sizes, place them in a row using the viewport presets (Mobile: 390x844, Tablet: 768x1024, Desktop: 1280x720). Use `align` (top) + `distribute` (horizontal) in the same batch to line them up instead of hand-computing 50px gutters.
+
+**Clean up the layout before presenting.** Before the final `presentArtifact` call (Step 5), align and distribute any row or column of 3+ iframes you placed. This produces a pixel-perfect layout that hand-computed coordinates usually miss by a few units, and it's what the user first sees when they focus on your work. For a 2-shape pair (e.g. before/after), align the shared edge but set the gap on create -- `distribute` rejects 2 shapes.
 
 **Do not call `suggestDeploy()`.** The mockup sandbox is a local prototyping tool and is not meant to be deployed — if the user asks to publish or deploy canvas/mockup content, integrate/graduate it into a real app artifact first.
 
@@ -454,7 +456,7 @@ Parent: Check system logs, fix issues and restart workflow once all subagents co
 
 1. Run the design-exploration comprehension steps (analyze component, identify constraints, select variation axes) and compose a structured design brief
 2. Create the folder (e.g., `mockups/pricing-cards/`)
-3. Place iframes with `state: "building"` in a horizontal row on the canvas, one per variant, with stable shape IDs
+3. Place iframes with `state: "building"` in a horizontal row on the canvas, one per variant, with stable shape IDs. For 3+ variants, place them at rough positions and use `align` (top) + `distribute` (horizontal) in the same batch rather than hand-computing gutters.
 4. Seed each subagent with: the design brief, target file path, shape ID to update, dev URL, and the specific design hypothesis for this variant and ask it to set the iframe live.
 5. After all subagents complete: restart workflow, call `presentArtifact` with all shape IDs.
 

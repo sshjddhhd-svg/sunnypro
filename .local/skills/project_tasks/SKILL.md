@@ -5,10 +5,7 @@ description: Create and manage persistent project tasks visible to the user.
 
 # Project Tasks
 
-Manage persistent, user-visible project tasks that can be handed to the
-main agent or to a task agent. Only task agents run in isolated
-environments. Use these to track high-level deliverables and milestones
-that the user cares about.
+Manage persistent, user-visible project tasks that the main agent or a task agent can execute. Only task agents run in isolated environments. Use these to track high-level deliverables and milestones that the user cares about.
 
 ## Project Tasks vs Internal Task List
 
@@ -59,7 +56,7 @@ const task = await getProjectTask({ taskRef: "#1" });
 
 ### updateProjectTask(taskRef, title=None, description=None, dependsOn=None, artifactKinds=None)
 
-Update an existing project task's content. All fields are optional - only provided fields are updated.
+Update an existing project task's content. Only provided fields are updated.
 
 **Parameters:**
 
@@ -69,7 +66,7 @@ Update an existing project task's content. All fields are optional - only provid
 | `title` | str | No | New title |
 | `description` | str | No | New description |
 | `dependsOn` | array of str | No | Full list of dependency task refs (replaces existing) |
-| `artifactKinds` | array | No | Updated artifact kind tags for the task. Pass `[]` to clear stale artifact tags when the task is no longer artifact-producing. |
+| `artifactKinds` | array | No | Updated artifact kind tags. Pass `[]` to clear stale tags when the task is no longer artifact-producing. |
 
 **Returns:** Dict with `taskRef`, `title`, `description`, `state`, `createdAt`, `updatedAt`
 
@@ -110,7 +107,7 @@ Search project tasks by text query, ordered by relevance.
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `query` | str | Yes | Search query. Supports boolean syntax: `"exact phrase"`, `foo bar` (both words), `foo OR bar`, `-foo` (exclude) |
-| `locale` | str | No | BCP 47 locale of the query (e.g. `"en"`, `"es"`, `"fr"`). Pass when the query is in a non-English language for better stemming. Omit for English. |
+| `locale` | str | No | BCP 47 locale of the query (e.g. `"en"`, `"es"`, `"fr"`). Pass for non-English queries for better stemming. |
 | `limit` | int | No | Maximum number of results (default: 20) |
 
 **Returns:** List of dicts, each with `taskRef`, `title`, `description`, `state`, `score`, `matchType`, `createdAt`, `updatedAt`
@@ -147,7 +144,7 @@ List project tasks, optionally filtered by state or specific task refs.
 | `taskRefs` | array of str | No | List of specific task refs to retrieve |
 | `includeDescription` | bool | No | Whether to include the task description (default: false) |
 
-**Returns:** List of dicts, each with `taskRef`, `title`, `state`, `dependsOn`, `createdAt`, `updatedAt` (plus `description` if `includeDescription` is true). `dependsOn` lists the task refs of dependency tasks that are also in the result set. When filtering by `taskRefs`, dependencies pointing outside the filter are omitted.
+**Returns:** List of dicts, each with `taskRef`, `title`, `state`, `dependsOn`, `createdAt`, `updatedAt` (plus `description` if `includeDescription` is true). `dependsOn` lists dependency task refs also in the result set; dependencies pointing outside the `taskRefs` filter are omitted.
 
 **Example:**
 
@@ -162,8 +159,6 @@ for (const task of allTasks) {
 
 Create multiple tasks at once with dependency relationships. Each task is created in PROPOSED state. The plan file content becomes the task description.
 
-By default, create one task per user request. Combine related work into a single plan rather than splitting into many tasks. Only create multiple tasks if the user explicitly asks for them or the request contains clearly independent, unrelated goals.
-
 **Parameters:**
 
 | Parameter | Type | Required | Description |
@@ -174,11 +169,11 @@ Each task object:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `id` | str | No | Alias for this task within the batch. Used by other tasks' `dependsOn` to declare dependencies. Auto-generated if omitted. |
+| `id` | str | No | Alias within the batch, referenced by other tasks' `dependsOn`. Auto-generated if omitted. |
 | `title` | str | Yes | Short title for the task |
 | `filePath` | str | Yes | Path to the plan file (e.g. `.local/tasks/payment-integration.md`). The file content becomes the task description. |
-| `dependsOn` | array | No | List of `id` values from other tasks in this batch, or task refs (`"#1"`, `"#2"`) of already-existing accepted tasks. Never depend on existing PROPOSED tasks — only on tasks that are PENDING or later. Tasks within the same batch may depend on each other freely. |
-| `artifactKinds` | array | No | Artifact kind strings for tasks that create one or more new artifacts. Valid values: `web`, `mobile`, `video`, `slides`, `automation`, `data-app`, `design`. Omit this field for code-only or non-artifact work. |
+| `dependsOn` | array | No | List of `id` values from other tasks in this batch, or task refs (`"#1"`, `"#2"`) of already-accepted tasks. Never depend on PROPOSED — only PENDING or later. Tasks within the same batch may depend on each other freely. |
+| `artifactKinds` | array | No | Artifact kinds for tasks creating new artifacts. Values: `web`, `mobile`, `video`, `slides`, `automation`, `data-app`, `design`. Omit for code-only or non-artifact work. |
 
 **Returns:** List of created task dicts with `taskRef`, `title`, `description`, `state`, `dependsOn`, `createdAt`, `updatedAt`
 
@@ -216,54 +211,35 @@ const created = await bulkCreateProjectTasks({
 
 ## Plan File Format
 
-Write each project-task plan file as a plain markdown document in
-`.local/tasks/`. The file content becomes the task description.
+Write each project-task plan as a plain markdown document in `.local/tasks/`. The file content becomes the task description.
 
-By default, create one project task per user request. Combine related work
-into a single plan rather than splitting into many tasks. Only create
-multiple tasks if the user explicitly asks for them or the request contains
-clearly independent, unrelated goals.
+By default, create one project task per user request. Combine related work into a single plan rather than splitting into many tasks. Only create multiple tasks if the user explicitly asks for them or the request contains clearly independent, unrelated goals.
 
-Dependencies are not declared in the plan file. Pass them via `dependsOn`
-when creating or updating tasks. Artifact tags are also not declared in the
-plan file. Pass them via `artifactKinds` when a task creates one or more new
-artifacts.
+Dependencies and artifact tags are not declared in the plan file — pass them via `dependsOn` and `artifactKinds` when creating or updating tasks.
 
 ### Plan body
 
-The first line should be a short, descriptive title (3-6 words) prefixed
-with `#`. Then include these sections:
+First line: a short, descriptive title (3-6 words) prefixed with `#`. Then include these sections:
 
 - **What & Why** — Brief description of the feature/change and its purpose.
-- **Done looks like** — Observable outcomes when complete (what the user
-  sees, not code-level details).
+- **Done looks like** — Observable outcomes when complete (what the user sees, not code-level details).
 - **Out of scope** — What is explicitly NOT included.
-- **Steps** — Numbered list of implementation steps within this plan. These
-  are internal steps for the executor agent, not separate project tasks.
-- **Relevant files** — Existing files discovered during investigation that
-  the executor should start from. Use backtick-wrapped paths only, with no
-  descriptions after them. Only list files you verified exist.
+- **Steps** — Numbered implementation steps for the executor agent, not separate project tasks.
+- **Relevant files** — Existing files discovered during investigation that the executor should start from. Use backtick-wrapped paths only, no trailing descriptions. Only list files you verified exist.
   - Whole file: `src/api/billing.ts`
   - Specific lines: `src/api/billing.ts:12-85`
   - Multiple ranges: `src/api/billing.ts:12-85,200-250`
   - WRONG: `src/api/billing.ts` — Billing API handlers (lines 12-85)
 
-Assume features build on each other. If a new task depends on another task,
-declare that dependency via `dependsOn` rather than in the plan body. You
-may depend on existing tasks that are PENDING or later — never on existing
-PROPOSED tasks. Tasks within the same batch may depend on each other freely.
+Assume features build on each other. If a new task depends on another task, declare that dependency via `dependsOn` rather than in the plan body. You may depend on existing tasks that are PENDING or later — never on existing PROPOSED tasks. Tasks within the same batch may depend on each other freely.
 
 Rules for the `## Steps` section:
 
 - Each step should be describable in 1-2 sentences.
 - Focus on what to build, not how to build it.
-- Do not include file paths, code snippets, CSS classes, or line-level edits
-  in step bullets. Put file references in `## Relevant files` instead.
-- Draw clean boundaries so parallel executors will not create conflicting
-  changes. If two steps would touch the same area, combine them into one
-  project task.
-- If there is a critical architectural constraint the executor must follow,
-  add a short note.
+- Do not include file paths, code snippets, CSS classes, or line-level edits in step bullets. Put file references in `## Relevant files` instead.
+- Draw clean boundaries so parallel executors won't conflict. Combine same-area steps into one project task.
+- Add a short note for critical architectural constraints.
 
 ### Example
 
@@ -283,11 +259,9 @@ Add Stripe payment processing so users can upgrade to paid plans.
 - Multiple payment methods (Stripe only for now)
 
 ## Steps
-1. **Stripe backend integration** — Set up Stripe SDK, create endpoints for creating checkout sessions and handling webhooks.
-
-2. **Payment UI** — Build the checkout page with plan selection and Stripe Elements for card input.
-
-3. **Tier activation** — On successful payment, upgrade the user's account to the paid tier and reflect it in the UI.
+1. **Stripe backend integration** — Set up Stripe SDK, create endpoints for creating checkout sessions and handling webhooks
+2. **Payment UI** — Build the checkout page with plan selection and Stripe Elements for card input
+3. **Tier activation** — On successful payment, upgrade the user's account to the paid tier and reflect it in the UI
 
 ## Relevant files
 - `src/api/billing.ts:12-85`
@@ -296,7 +270,7 @@ Add Stripe payment processing so users can upgrade to paid plans.
 
 ### proposeProjectTasks(taskRefs)
 
-Propose existing tasks for user review and approval. This pauses the agent to wait for user approval.
+Propose existing tasks for user review. Pauses the agent until the user approves.
 
 **Parameters:**
 
@@ -327,10 +301,10 @@ await proposeProjectTasks({ taskRefs: created.map(t => t.taskRef) });
 
 ## User Communication Rules
 
-Task management is how you coordinate work with the user. Follow these rules strictly:
+Follow these rules strictly when discussing tasks with the user:
 
-1. **Always describe tasks by ref and title**: When referring to tasks, always use their task ref and title, e.g. "Task #1 (Add authentication button)".
-2. **Never use internal state names**: When talking to the user, use these display names instead:
+1. **Always describe tasks by ref and title**: e.g. "Task #1 (Add authentication button)"
+2. **Never use internal state names**: use these display names instead:
    - PROPOSED → "Drafts"
    - PENDING → "Active"
    - IN_PROGRESS → "Active"
@@ -339,7 +313,7 @@ Task management is how you coordinate work with the user. Follow these rules str
    - MERGED → "Merged"
    - CANCELLED → "Archived"
    - BLOCKED_BY_DRIFT → "Affected by another task that changed"
-3. **Never expose implementation details**: Do not reveal function names (`bulkCreateProjectTasks`, `updateProjectTask`, etc.), API surface, or internal task system mechanics to the user.
+3. **Never expose implementation details**: Do not reveal function names (`bulkCreateProjectTasks`, `updateProjectTask`, etc.), API surface, or internal task system mechanics to the user
 
 ## Best Practices
 

@@ -101,12 +101,72 @@ This applies to ALL `<video>`, `<img>`, and `backgroundImage` references to publ
 
 When generating video clips or images via tools, always use the exact file path and extension returned by the generation tool in your `src` attributes. Do not assume or change the file extension — if the tool returns `.webm`, use `.webm`, not `.mp4`.
 
-**AnimatePresence mode:** Use `mode="popLayout"` or `mode="sync"`. **Never use `mode="wait"`** — it causes blank frames between scenes.
+**AnimatePresence mode:** Pick `mode="wait"` or `mode="popLayout"`/`mode="sync"` based on how the scene transition is composed — see `<animate_presence_wait>` for the full trade-off. Short version: `mode="wait"` is cleaner (no overlap frame) but requires short exits (≤ 150 ms) or careful `SCENE_DURATIONS` compensation *on the incoming scene*, and scene wrappers that paint non-zero pixels on every captured frame (both `initial` and `exit`). `mode="popLayout"` / `mode="sync"` are right when the transition needs the overlap (morph/wipe/persistent-anchor, or outer-wrapper clip-path presets like `clipCircle`). Always use `<AnimatePresence initial={false} ...>` regardless of mode.
 
 **Scene files:** Place scenes in `src/components/video/video_scenes/` (e.g., `Scene1.tsx` through `Scene5.tsx`). Export as named exports matching the filename.
 
 **Do not modify `src/lib/video/hooks.ts`** — the recording/export pipeline depends on its exact implementation.
 </critical_rules>
+
+<how_the_export_captures_motion>
+The export pipeline captures the page at a fixed 30 frames per second using a virtualized clock — every frame of output occupies exactly 1/30 s of video time, and the renderer never drops or duplicates frames. The output file is always labeled 30 fps.
+
+What this means in practice: a viewer's perception of "smooth" vs "laggy" depends entirely on **how much the pixels change between one captured frame and the next**. If consecutive frames look nearly identical, the playback reads as frozen or choppy even though it's technically 30 fps. A few rules of thumb that help produce smooth-feeling exports:
+
+- **Keep something visibly moving at all times.** A scene that finishes its entrance at 1.2 s and then sits unchanged until it unmounts at 7 s produces ~170 nearly-identical frames in a row — that reads as "the video froze." If a scene needs to hold a message on screen so the viewer can read it, layer in gentle continuous motion (a slow drift, a subtle scale pulse, a staggered character reveal, a slow background pan) so every captured frame differs slightly from the previous one.
+- **Per-frame change should be noticeable.** At 30 fps, a rotation with `duration: 20s` advances ~0.6° per frame and reads as motionless. A rotation with `duration: 3s` advances ~4° per frame and reads as clearly spinning. When you want subtle ambient motion, pick durations that still produce a few degrees or a few pixels of change between frames — roughly `duration ≤ 4s` for full rotations, `duration ≤ 3s` for position/scale loops of ~10% amplitude.
+- **Animation durations should fit inside the scene they live in.** A `transition={{ duration: 8 }}` inside a 3.5 s scene captures only the first ~40% of the easing curve, which is usually the flattest part — the scene unmounts before the motion reaches anywhere dynamic, so the captured frames look like a slow still. Keep per-animation `duration` (Framer Motion seconds) less than or equal to the scene's `SCENE_DURATIONS` entry **converted to seconds** (`SCENE_DURATIONS` is in milliseconds, `transition.duration` is in seconds — an 8s animation in a `3500` ms scene is 8 ≤ 3.5, which fails).
+- **Prefer `transform` and `opacity` for motion; be sparing with `filter` and layout-affecting props.** `x`, `y`, `scale`, `rotate`, and `opacity` composite cheaply and redraw reliably on every captured frame. `filter: blur(...)` at 1080p is expensive enough that heavy use (large radii, long animated sweeps) extends render wall-clock time substantially and can hurt cross-scene transitions. Animating `width`, `height`, `letterSpacing`, `top`/`left`, `padding`, `margin` forces layout on every frame, so small per-frame changes (~1-2 px) can look like "ticking" rather than smooth growth — prefer `scaleX`/`scaleY` for growth effects instead.
+- **Initialize every animated property.** If `animate={{ letterSpacing: '-0.04em' }}` is used with an `initial` prop that doesn't set `letterSpacing`, Framer Motion has nothing to interpolate from and the property snaps instantly on frame 1 instead of animating. Always include the starting value in `initial`.
+- **Stagger per-character / per-element reveals to fill dead time.** Instead of one `fadeUp` on a whole headline followed by a long static tail, stagger the characters or words with 50-80 ms delays between them — that trades "one second of motion + three seconds of still" for "four seconds of continuous reveal."
+- **For 3D transforms, set `perspective` on the parent.** `rotateX` / `rotateY` without ancestor `transformPerspective` or CSS `perspective` renders nearly flat and can flicker on the first captured frame. Add `style={{ perspective: '1000px' }}` to the container or use Framer Motion's `transformPerspective` on the animated element.
+
+The throughline: the export is an extremely literal 30 fps recording of whatever the page shows. Design every scene assuming the viewer is watching a 30 fps capture, not a live 60 fps preview — what feels like "a brief pause" in dev will read as "the video stalled" in the export unless you keep some visible motion going.
+</how_the_export_captures_motion>
+
+<animate_presence_wait>
+`AnimatePresence` has three modes, and the right choice depends on how the scene transition is composed:
+
+- **`mode="wait"`** — the incoming scene doesn't mount until the outgoing exit completes. No overlap frame, no compositing of two full-bleed scenes simultaneously (which at 1080p under SwiftShader is one of the most expensive frames the renderer produces). This is the cleaner default for ordinary cut-to-next-scene pacing, *if* the two constraints below are met.
+- **`mode="popLayout"`** / **`mode="sync"`** — outgoing and incoming scenes overlap during the transition. Necessary for transitions that actively transform one scene into the next: morph-expands, clip-path wipes that travel across both scenes, persistent-anchor transitions where one element stays while the rest changes.
+
+Two constraints apply when choosing `mode="wait"`:
+
+**1. The outer scene wrapper must paint non-zero pixels at every captured frame while it's on screen — including its exit.** In `mode="wait"` the outgoing scene is the *only thing on screen* until its exit completes (the incoming scene isn't mounted yet), and then the incoming scene renders its first captured frame from wherever its `initial` leaves it. If either side paints zero visible pixels at any point, the export shows a frame of whatever sits underneath (usually the page `bg-black` or the Vite splash color) and reads as a flash. So avoid zero-pixel states on *both* the incoming `initial` and the outgoing `exit`:
+
+- `initial={{ opacity: 0 }}` or `exit={{ opacity: 0 }}` on the wrapper.
+- Fully-clipped `clipPath` — `circle(0%)`, `inset(50% 50% 50% 50%)`, or any `clipPath` that reveals no area, whether used in `initial` or `exit`. This includes several of the transition presets listed in `<transitions>` (`clipCircle`, `clipPolygon`, `wipe`, `splitHorizontal`, `splitVertical`) — they're designed for the overlap case, not `mode="wait"`.
+- `scale: 0` on the wrapper (zero-area box) in either direction.
+
+Safe alternatives that keep the wrapper painting through the whole transition:
+
+- **Keep the outer wrapper fully opaque for the entire lifetime of the scene** (`initial={{ opacity: 1 }}`, `exit={{ opacity: 1 }}`) with its final `bg-*` class painted from mount to unmount, and run the `opacity` / `y` / `scale` / `clipPath` animations on child text/graphics *inside* it. The base color is painted on every captured frame; previous- and next-scene pixels never show through.
+- **Cover any wrapper-level reveal with a subtle transform rather than a pixel-count reduction** — `scale: 0.95 → 1 → 0.95` (stays nearly full-size), `y: 20 → 0 → -20` (slides slightly), `filter: brightness(1.2) → 1 → brightness(0.8)`. Pixels stay painted at all times.
+- If you need a clip reveal on the wrapper, start and end at a partial reveal (e.g. `clipPath: 'circle(15%)' → 'circle(70%)' → 'circle(15%)'`) rather than touching zero.
+
+If you want to use `clipCircle` / `clipPolygon` / `wipe` transitions on the outer scene wrapper, switch to `mode="popLayout"` instead — those presets are designed for the overlap case, where the outgoing scene's pixels are still on screen underneath the clipping mask and cover the gap.
+
+**2. Exit animations eat into the **next** scene's visible time (important: `SCENE_DURATIONS` compensation goes on the incoming scene, not the outgoing one).** `useVideoPlayer` starts the next scene's timeout as soon as `currentScene` advances, but `mode="wait"` defers *mounting* that next scene until the outgoing scene's exit completes. An N-second exit subtracts N seconds from the following scene's visible on-screen time.
+
+Concretely, for `SCENE_DURATIONS = { open: 3500, build1: 3500 }` where `open` has a 1 s exit:
+
+- `t = 0` — `open` mounts; hook sets its timer to 3500 ms.
+- `t = 3500` — hook timer fires; `currentScene` advances to `build1`; hook sets `build1`'s timer to 3500 ms. `AnimatePresence` starts `open`'s exit.
+- `t = 4500` — `open`'s exit finishes; `build1` mounts.
+- `t = 7000` — `build1`'s timer fires; `currentScene` advances again.
+
+Result: `open` is visible for 4500 ms (its 3500 + its own 1000 ms exit), `build1` is visible for only 2500 ms. To keep `build1` visible for the intended 3500 ms, add the **outgoing** scene's exit duration to the **incoming** scene's `SCENE_DURATIONS` entry — i.e. `SCENE_DURATIONS = { open: 3500, build1: 4500 }` (because `open` has a 1 s exit that eats into `build1`'s time). Extending `open` does nothing for `build1`; the hook timer for `build1` already started at `t = 3500`, so padding has to go on `build1` itself. Remember to compensate the loop-back too: if scene `N-1` has an exit that runs before scene `0` mounts on loop, pad `SCENE_DURATIONS[scene_0]` by scene `N-1`'s exit duration as well.
+
+Easier alternative: **keep exit animations short — ≤ 150 ms is the safe zone.** Short exits make the on-screen-time error negligible and also read as snappy cut-like transitions (which is what `mode="wait"` is best at). If you need longer scene transitions, that's the signal to switch to `mode="popLayout"` or `mode="sync"` and use the overlap.
+
+**`initial={false}`** — regardless of which mode you pick, use `<AnimatePresence initial={false} mode="...">` at the scenes level. `initial={false}` skips the entrance animation on the first mount of each child, so each scene appears at its animated state immediately — no pop-in from `initial` on the first scene of the loop. Inner element choreography still runs normally; this only affects the outer scene wrapper's entrance.
+
+**Quick chooser:**
+
+- Short exits (≤ 150 ms) + scene wrapper paints non-zero pixels on every frame (incoming `initial` and outgoing `exit`) → `mode="wait"` (cleaner, no overlap cost).
+- Longer exits where you've padded the *incoming* scene's `SCENE_DURATIONS` entry + wrappers paint pixels throughout → `mode="wait"` still works, but error-prone; usually easier to pick `popLayout`/`sync` when exits are long.
+- Transition actively uses the overlap (morph/wipe/persistent-anchor across both scenes, or outer wrapper uses a clip-to-zero preset) → `mode="popLayout"` or `mode="sync"`.
+</animate_presence_wait>
 
 <slideshow_vs_motion_graphics>
 This is the single most important section. If you ignore everything else, read this.
@@ -186,6 +246,8 @@ A video with only shapes, gradients, and text feels thin. Real images and video 
 - Gradient backgrounds that animate (shift hue or position during the scene)
 - Blurred background shapes behind sharp foreground content (depth of field)
 - Parallax: background moves slower than foreground during transitions
+
+**A note on heavy blur backgrounds:** Persistent radial-gradient layers with large `blur-[100px]`-style radii are a common pattern, and they work well — but keep a few things in mind. They render on every captured frame even when a fully-opaque scene sits on top of them, so if a scene's background completely covers the persistent layer, consider fading the blur layer's `opacity` via the `animate` prop keyed on `currentScene` (so it dissolves alongside the incoming scene's entrance and stays in sync with the `AnimatePresence` transition). Avoid conditionally mounting the layer with `{currentScene !== X && ...}` — that would flip instantly at the scene boundary while the outgoing scene is still exiting and produce a visible pop. When the blur layer is animating position/scale, its blur cache invalidates every frame, so moderate radii (~40-80 px) render considerably faster than very large ones (~120 px+) at 1080p without a visible difference in softness.
 </visual_layering>
 
 <intra_scene_choreography>
@@ -258,6 +320,7 @@ Final tagline/lockup reveals through the window
 - No black gaps: never fade to black between scenes
 - Elements should transform, not just appear/disappear
 - Use 2-3 consistent transition types per video, not random different ones
+- **Prefer transform / clipPath / opacity transitions over `filter: blur(...)` for scene exits.** Animating a large blur radius across a 0.8-1.2 s exit is one of the most expensive things the renderer does at 1080p — it can double or triple the wall-clock cost of the transition, and because adjacent frames differ only by a small change in blur radius it often just looks like a mushy cross-dissolve on playback. Clip-path reveals, directional pushes, scale morphs, and opacity fades are both cheaper and visually crisper. If you want a blur effect, keep the radius small (≤ 6 px) and the animation short (≤ 0.4 s).
 - **The last scene needs an exit animation too.** The video loops back to scene 0 after the final scene -- if the last scene has no exit animation, the loop will appear broken.
 </transitions>
 
@@ -358,6 +421,9 @@ You are a Design Engineer who creates polished, elevated visuals.
 
 - Animations overlap -- as one element settles, the next is already starting
 - No static screens. Use subtle floating or pulsing if text needs time to be read.
+- Every scene should have visible motion from frame 0 until it unmounts. A scene whose entrance finishes at 1 s but unmounts at 5 s leaves 4 seconds of captured frames that look identical — the viewer reads that as the video freezing. Add a slow background drift, a staggered reveal, a gentle scale pulse, a subtle character-by-character typeon, or anything else that keeps per-frame pixels changing for the full duration.
+- **Prefer animation durations close to the scene's duration.** A transition with `duration: 8s` inside a 3.5s scene only plays the first ~44% of the easing curve, which on most ease curves is the flattest part — captured frames end up looking static. Keep each `transition.duration` (in seconds) less than or equal to the enclosing scene's `SCENE_DURATIONS` entry divided by 1000 (since `SCENE_DURATIONS` is specified in milliseconds).
+- **Match infinite-loop durations to perceivable motion.** Infinite rotations / drifts with very long durations (e.g. `duration: 15` or `20`) advance fractions of a degree per captured frame and read as motionless. For ambient motion, keep loop durations short enough to produce a few degrees or a few pixels of change per frame — roughly 2-4s for full rotations, 6-10s for gentle background drifts of ~10% amplitude.
 
 **Visual depth:**
 
@@ -484,7 +550,7 @@ const { currentScene } = useVideoPlayer({ durations: SCENE_DURATIONS });
 - The hook calls `startRecording` on mount, advances scenes by duration, calls `stopRecording` once after the first complete pass, then loops
 - **Do not modify `src/lib/video/hooks.ts`.** The hook manages the recording lifecycle -- calling `window.startRecording?.()` on mount and `window.stopRecording?.()` after the first complete pass. The recording/export pipeline depends on both calls firing at the correct time with the correct implementation. Do not rewrite, refactor, or replace the hook. If you need different scene behavior, change your `SCENE_DURATIONS` or scene components -- not the hook itself.
 - **VideoTemplate MUST import and use `useVideoPlayer` from `@/lib/video`.** Even for single-scene or static content, wrap it with `useVideoPlayer({ durations: { main: DURATION_MS } })`. The `startRecording()` call in the hook is required for video export. Without it, export will wait 30 seconds before auto-starting -- wasting time and producing lower quality results.
-- Wrap scenes in `AnimatePresence` -- use `mode="popLayout"` (snaps new scene into layout while old animates out) or `mode="sync"` (simultaneous enter/exit overlap). **Never use `mode="wait"`** -- it causes blank frames between scenes.
+- Wrap scenes in `AnimatePresence initial={false}`. Pick `mode="wait"` when exits are short (≤ 150 ms) or you're willing to pad the incoming scene's `SCENE_DURATIONS` entry by the outgoing scene's exit duration, *and* scene wrappers paint non-zero pixels through both `initial` and `exit` — it eliminates the full-bleed overlap frame. Pick `mode="popLayout"` or `mode="sync"` when the transition actively uses the overlap (morph/wipe/persistent-anchor transitions, or outer-wrapper clip-path presets). See `<animate_presence_wait>` for the full trade-off and a worked-through timing example.
 - Each scene needs exit animations so they blend into the next
 
 **Pacing:**
@@ -502,7 +568,7 @@ const { currentScene } = useVideoPlayer({ durations: SCENE_DURATIONS });
 The `useVideoPlayer` hook automatically resets `currentScene` to 0 after the last scene completes. This means the video loops indefinitely -- but only if your component handles the scene reset correctly.
 
 - **Every scene must have both enter and exit animations.** If a scene only has entrance animations and no exit, `AnimatePresence` can't transition cleanly back to scene 0 and the video may appear to freeze.
-- **Use `AnimatePresence` with `mode="popLayout"` or `mode="sync"`** -- never `mode="wait"` (causes blank frames). Without `AnimatePresence`, scenes will still loop but won't have coordinated exit/enter animations.
+- **Use `AnimatePresence initial={false}` with `mode="wait"`, `mode="popLayout"`, or `mode="sync"`** — see `<animate_presence_wait>` for how to pick. The one blanket rule: `initial={false}` prevents the first scene of every loop pass from pop-mounting from its `initial` state. Without `AnimatePresence`, scenes will still loop but won't have coordinated exit/enter animations.
 - **Give every scene a unique `key` prop.** `AnimatePresence` relies on keys to reliably detect scene changes and trigger exit/enter animations.
 - **Do not conditionally stop the video.** No logic that prevents scenes from advancing. No `useState` flags that block the loop. The video plays and loops forever.
 - **Do not modify `src/lib/video/hooks.ts`.** Do not rewrite or replace the `useVideoPlayer` hook -- the recording/export pipeline depends on its exact implementation. The hook already handles `window.startRecording?.()` on mount and `window.stopRecording?.()` after the first full pass.
@@ -628,8 +694,16 @@ export default function VideoTemplate() {
         transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
       />
 
-      {/* Only scene-specific foreground content lives inside AnimatePresence */}
-      <AnimatePresence mode="popLayout">
+      {/* Only scene-specific foreground content lives inside AnimatePresence.
+         Scene1 below uses sceneTransitions.clipCircle (initial: circle(0%))
+         on its root wrapper, which needs the outgoing scene's pixels on
+         screen underneath the clipping mask — so this example uses
+         mode="popLayout". For scenes that paint non-zero pixels on frame 1
+         and use short exits, prefer mode="wait" instead (cleaner, no
+         full-bleed overlap cost). See <animate_presence_wait> for the
+         trade-off. initial={false} prevents the first scene of each loop
+         pass from popping in from its initial state. */}
+      <AnimatePresence initial={false} mode="popLayout">
         {currentScene === 0 && <Scene1 key="open" />}
         {currentScene === 1 && <Scene2 key="build1" />}
         {currentScene === 2 && <Scene3 key="build2" />}
@@ -663,22 +737,22 @@ export function Scene1() {
     <motion.div className="absolute inset-0 flex items-center justify-center"
       {...sceneTransitions.clipCircle}>
 
-      {/* Midground: floating accent shapes */}
+      {/* Midground: floating accent shape — duration ≤ scene duration (open: 3500 → 3s) */}
       <motion.div className="absolute top-[20%] left-[15%] w-24 h-24 rounded-full border border-white/10"
-        animate={{ y: [0, -15, 0], rotate: [0, 90, 180] }}
-        transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }} />
+        animate={{ y: [0, -15, 0], rotate: [0, 180, 360] }}
+        transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }} />
 
-      {/* Accent line draws across */}
+      {/* Accent line draws across — scaleX is composite-only (no layout) */}
       {phase >= 1 && (
-        <motion.div className="absolute top-1/2 left-0 h-[2px] bg-[#e94560]"
-          initial={{ width: 0 }} animate={{ width: '40%' }}
+        <motion.div className="absolute top-1/2 left-0 h-[2px] w-[40%] bg-[#e94560] origin-left"
+          initial={{ scaleX: 0 }} animate={{ scaleX: 1 }}
           transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }} />
       )}
 
       {/* Foreground: choreographed text with per-character spring animation */}
       {/* All text elements are always in the DOM — phase controls animate state, not mounting.
          This prevents layout jumps in the flex-centered container. */}
-      <div className="text-center px-12 relative z-10">
+      <div className="text-center px-12 relative z-10" style={{ perspective: '1000px' }}>
         <motion.h1 className="text-[7vw] font-black tracking-tighter text-white leading-none"
           style={{ fontFamily: 'var(--font-display)' }}>
           {'LAUNCH'.split('').map((char, i) => (
@@ -691,8 +765,8 @@ export function Scene1() {
           ))}
         </motion.h1>
         <motion.p className="text-[1.5vw] text-white/60 mt-4"
-          initial={{ opacity: 0, filter: 'blur(10px)' }}
-          animate={phase >= 3 ? { opacity: 1, filter: 'blur(0px)' } : { opacity: 0, filter: 'blur(10px)' }}
+          initial={{ opacity: 0, y: 12 }}
+          animate={phase >= 3 ? { opacity: 1, y: 0 } : { opacity: 0, y: 12 }}
           transition={{ duration: 0.5 }}>
           The future of video, in code
         </motion.p>
@@ -777,13 +851,18 @@ This section is for YOU, the design subagent. You are responsible for validation
 
 1. **Validate recording lifecycle**: Run `bash scripts/validate-recording.sh`. If it fails, fix the issues it reports.
 
-2. **Verify frame containment and loop integrity yourself** (do not delegate -- subagents cannot spawn nested subagents). Walk through each scene file and check:
+2. **Verify frame containment, loop integrity, and motion smoothness yourself** (do not delegate -- subagents cannot spawn nested subagents). Walk through each scene file and check:
    - Root container has `overflow-hidden` and `w-full h-screen`
    - All layout-critical dimensions use viewport-relative units (`vw`, `vh`, `%`), not hardcoded pixels
    - Images and video clips use `object-cover` or `object-contain` to prevent stretch/overflow
    - Every scene's root `motion.div` has `initial`, `animate`, and `exit` props
    - Every scene inside `AnimatePresence` has a unique `key` prop
    - No `useState` flags or conditions that could block scene advancement
+   - No scene has a long static tail where internal timers finish well before the scene unmounts and nothing else is moving — add gentle continuous motion to cover dead stretches
+   - No `transition.duration` (Framer Motion seconds) inside a scene exceeds that scene's `SCENE_DURATIONS` value divided by 1000 (`SCENE_DURATIONS` is in ms; `transition.duration` is in s — a `duration: 8` inside a `3500` ms scene means 8s > 3.5s and needs to be lowered)
+   - Infinite-loop rotations/drifts on ambient elements use durations that produce visible per-frame change (roughly ≤ 4s for full rotations; avoid `duration: 15` / `20` on small decorative elements)
+   - Scene exits don't animate `filter: blur(...)` with large radii; prefer `opacity` / `scale` / `clipPath` for exits
+   - Every `animate` property that's interpolated has a matching `initial` value (otherwise it snaps on frame 1)
    - See `.local/skills/video-js/references/finalize_playback.md` for the full checklist
 
 3. **Verify asset paths**: Confirm that every `src=` attribute referencing a file in `public/` uses `import.meta.env.BASE_URL` and the correct file extension matching the actual file on disk — see `<critical_rules>` at the top of this file.

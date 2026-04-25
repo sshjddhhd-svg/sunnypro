@@ -293,12 +293,7 @@ Return your findings in this exact format:
 const group2 = await startAsyncSubagent({ /* same pattern, different tables */ });
 ```
 
-**Step 4: Synthesize and Query** — Wait for all subagents, then write the final query:
-
-```javascript
-await waitForBackgroundTasks();
-// Read subagent outputs, combine relevant tables/columns, write the final SQL query
-```
+**Step 4: Synthesize and Query** — Use the `wait_for_background_tasks` tool to wait for the schema-discovery subagents. Once they complete, read their outputs, combine the relevant tables/columns, and write the final SQL query.
 
 ### Dialect-Specific Notes
 

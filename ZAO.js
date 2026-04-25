@@ -557,6 +557,77 @@ async function onBot({ models }) {
 
   let handleListen = require('./includes/listen')(listenArgs);
 
+  // ── Single-source-of-truth listener restarter ─────────────────────────────
+  // Both the MQTT error handler AND the MQTT-silence health check used to
+  // build their own listenMqtt() inline. On forks where stopListening() does
+  // not fully tear down the underlying MQTT client, that left zombie
+  // subscriptions piling up over time → memory creep + duplicate events +
+  // detection-flagged traffic. We funnel ALL restarts through one re-entrant
+  // -safe function so only one listener can ever be live at a time.
+  let _listenerGen = 0;
+  let _isRestartingListener = false;
+  let _lastListenerRestart = 0;
+  function safeRestartListener(reason) {
+    if (_isRestartingListener) {
+      logger.log([
+        { message: '[ LISTEN ]: ', color: ['red', 'cyan'] },
+        { message: `restart already in progress — skipping (${reason})`, color: 'white' }
+      ]);
+      return;
+    }
+    // Throttle: never restart more than once every 8 s (prevents thrash if
+    // a flood of MQTT errors fire back-to-back).
+    const now = Date.now();
+    if (now - _lastListenerRestart < 8000) {
+      logger.log([
+        { message: '[ LISTEN ]: ', color: ['red', 'cyan'] },
+        { message: `restart throttled — last restart was ${Math.round((now - _lastListenerRestart) / 1000)}s ago (${reason})`, color: 'white' }
+      ]);
+      return;
+    }
+    _isRestartingListener = true;
+    _lastListenerRestart = now;
+    const myGen = ++_listenerGen;
+
+    // Tear down old listener first.
+    try {
+      if (global['handleListen']) {
+        try { global['handleListen'].stopListening(); } catch (_) {}
+      }
+    } catch (_) {}
+    global['handleListen'] = null;
+
+    // Wait for the underlying MQTT client to actually close (fcas vary widely
+    // here — 1.5 s was empirically not enough on @neoaz07/nkxfca under load).
+    setTimeout(() => {
+      try {
+        if (myGen !== _listenerGen) {
+          // A newer restart raced past us — abort.
+          _isRestartingListener = false;
+          return;
+        }
+        const newHandle = _api['listenMqtt'](function _genGuardedHandler(err, message) {
+          // Drop events from any stale listener that survived stopListening().
+          if (myGen !== _listenerGen) return;
+          return messageHandler(err, message);
+        });
+        global['handleListen']     = newHandle;
+        global['lastMqttActivity'] = Date.now();
+        logger.log([
+          { message: '[ LISTEN ]: ', color: ['red', 'cyan'] },
+          { message: `listener restarted (gen ${myGen}) — reason: ${reason}`, color: 'white' }
+        ]);
+      } catch (e2) {
+        logger.log([
+          { message: '[ LISTEN ]: ', color: ['red', 'cyan'] },
+          { message: `restart failed: ${e2.message}. health check will retry.`, color: 'white' }
+        ]);
+      } finally {
+        _isRestartingListener = false;
+      }
+    }, 2500);
+  }
+
   // ── Auto-Relogin — standalone module (cooldown + max retries + admin notify) ──
   const autoRelogin = require('./includes/login/autoRelogin');
   global['_triggerAutoRelogin'] = function (reason) {
@@ -609,33 +680,9 @@ async function onBot({ models }) {
     } else {
       logger.log([
         { message: '[ LISTEN-ERR ]: ', color: ['red', 'cyan'] },
-        { message: `Connection error — restarting listener: ${errStr.slice(0, 120)}`, color: 'white' }
+        { message: `Connection error: ${errStr.slice(0, 120)}`, color: 'white' }
       ]);
-      try {
-        if (global['handleListen']) {
-          try { global['handleListen'].stopListening(); } catch (_) {}
-        }
-        setTimeout(() => {
-          try {
-            global['handleListen']     = _api['listenMqtt'](messageHandler);
-            global['lastMqttActivity'] = Date.now();
-            logger.log([
-              { message: '[ LISTEN-ERR ]: ', color: ['red', 'cyan'] },
-              { message: 'Listener restarted successfully. Bot stays alive.', color: 'white' }
-            ]);
-          } catch (e2) {
-            logger.log([
-              { message: '[ LISTEN-ERR ]: ', color: ['red', 'cyan'] },
-              { message: `Listener restart failed: ${e2.message}. MQTT health check will retry.`, color: 'white' }
-            ]);
-          }
-        }, 1500);
-      } catch (e) {
-        logger.log([
-          { message: '[ LISTEN-ERR ]: ', color: ['red', 'cyan'] },
-          { message: `Restart setup failed: ${e.message}. MQTT health check will retry.`, color: 'white' }
-        ]);
-      }
+      safeRestartListener('listen-error: ' + errStr.slice(0, 80));
     }
   }
 
@@ -1079,38 +1126,22 @@ async function onBot({ models }) {
     return handleListen(message);
   }
 
-  // Start listening
-  global['handleListen']  = _api['listenMqtt'](messageHandler);
+  // Start listening (gen-guarded so any future zombie listener is silenced).
+  {
+    const myGen = ++_listenerGen;
+    global['handleListen'] = _api['listenMqtt'](function _genGuardedHandler(err, message) {
+      if (myGen !== _listenerGen) return;
+      return messageHandler(err, message);
+    });
+  }
   global['client']['api'] = _api;
   global._botApi          = _api;   // keep reference fresh after listen starts
 
   // ── دالة إعادة تشغيل المستمع للـ MQTT Health Check ────────
-  global['_restartListener'] = function () {
-    try {
-      if (global['handleListen']) {
-        try { global['handleListen'].stopListening(); } catch (_) {}
-      }
-      setTimeout(() => {
-        try {
-          global['handleListen']     = _api['listenMqtt'](messageHandler);
-          global['lastMqttActivity'] = Date.now();
-          logger.log([
-            { message: '[ MQTT-HEALTH ]: ', color: ['red', 'cyan'] },
-            { message: 'تمت إعادة تشغيل المستمع بنجاح. البوت يبقى يعمل.', color: 'white' }
-          ]);
-        } catch (e2) {
-          logger.log([
-            { message: '[ MQTT-HEALTH ]: ', color: ['red', 'cyan'] },
-            { message: `فشل إعادة التشغيل: ${e2.message}. سيحاول مجددًا.`, color: 'white' }
-          ]);
-        }
-      }, 1500);
-    } catch (e) {
-      logger.log([
-        { message: '[ MQTT-HEALTH ]: ', color: ['red', 'cyan'] },
-        { message: `فشل إعداد إعادة التشغيل: ${e.message}. البوت يبقى يعمل.`, color: 'white' }
-      ]);
-    }
+  // Funnel through safeRestartListener so we can never end up with two
+  // overlapping listenMqtt clients.
+  global['_restartListener'] = function (reason) {
+    safeRestartListener(reason || 'mqtt-health');
   };
 
   // ── تشغيل MQTT Health Check ────────────────────────────────

@@ -216,11 +216,9 @@ await startAsyncSubagent({ task: `Research FOCUS AREA 3: [Area] ...` });
 
 // ... (3 for Quick, 5 for Standard/Deep)
 
-// Wait for all subagents to complete
-
-const results = await waitForBackgroundTasks();
-
 ```
+
+Then call the `wait_for_background_tasks` tool to collect their results.
 
 Each subagent should:
 
@@ -476,10 +474,6 @@ await startAsyncSubagent({ task: `Research FOCUS AREA 4: EV Charging Infrastruct
 
 await startAsyncSubagent({ task: `Research FOCUS AREA 5: EV Consumer Economics ...` });
 
-// Wait for all subagents
-
-const results = await waitForBackgroundTasks();
-
 // Phase 4: Triangulate -- evaluate sources, resolve conflicts, score credibility
 
 // Phase 5: Gap analysis -- identify weak spots, launch follow-up if Deep tier
@@ -491,6 +485,8 @@ const results = await waitForBackgroundTasks();
 // Save to research/[topic].md and present to user
 
 ```
+
+After the launch block above, call the `wait_for_background_tasks` tool to wait for subagents, then proceed to Phase 4.
 
 ## Best Practices
 

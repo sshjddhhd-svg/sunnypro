@@ -21,10 +21,10 @@
     "@vitejs/plugin-react": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "react-router-dom": "^7.9.5",
     "tailwindcss": "catalog:",
     "tsx": "catalog:",
     "vite": "catalog:",
+    "wouter": "catalog:",
     "zod": "catalog:"
   }
 }

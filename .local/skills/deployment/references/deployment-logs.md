@@ -51,7 +51,7 @@ Returns a dictionary with:
 2. **Use timestamps for recent issues**: If the user reports a recent issue, use `afterTimestamp` to focus on recent logs
 3. **Filter by log level**: Use message regex like `"ERROR"` or `"WARN"` to find problematic entries
 4. **Look for patterns**: Search for specific error messages, stack traces, or module names
-5. **Use context for debugging**: When investigating specific errors, use `messageContext` to see surrounding log lines (similar to `grep -C`)
+5. **Use context for debugging**: When investigating specific errors, use `messageContext` to see surrounding log lines (similar to `rg -C`)
 
 ## Examples
 

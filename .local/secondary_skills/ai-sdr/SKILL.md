@@ -148,7 +148,7 @@ Prospects with an active trigger convert 3-5x higher. Rank by signal strength:
 4. **Competitor customer search** — companies using competitors or reviewing them on G2/Capterra
 5. **Lookalike search** — competitors and alternatives to any strong-fit companies already found
 
-Each agent should return 10-15 prospects with all columns filled in. Deduplicate after all agents return via `waitForBackgroundTasks`, then merge into the final spreadsheet.
+Each agent should return 10-15 prospects with all columns filled in. Use the `wait_for_background_tasks` tool to wait for them, then deduplicate and merge into the final spreadsheet.
 
 ### Step 6: Output as a Spreadsheet
 

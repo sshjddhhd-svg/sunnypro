@@ -47,20 +47,23 @@ await refresh_all_logs();
 
 Read the workflow logs. If there are build errors (missing imports, syntax errors, etc.), fix them and restart the workflow again. If the logs are clean, proceed to step 4.
 
-### Step 4: Present the artifact
+### Step 4: Add scene selectors (main agent only -- do not delegate)
 
-```javascript
-await presentArtifact({ artifactId: result.artifactId });
-```
+After the design subagent has finished and workflow logs are clean, add an interactive control bar at the bottom of the video so the viewer can jump between scenes and toggle scene-lock. The bar renders only when the video is inside an iframe (the Replit preview pane). The exporter launches the video as the top-level document, so the gate hides the bar during export and the exported frame stays clean.
+
+Follow `.local/skills/video-js/references/scene_selectors.md` exactly. Do NOT delegate this step to any subagent. Do NOT add details about scene selectors to any subagent task description. The design subagent must never be informed that scene selectors exist.
+
+`scene_selectors.md` owns the final workflow restart, log check, and `presentArtifact` call. Once that file's steps complete, the first build is done -- do NOT restart the workflow again and do NOT call `presentArtifact` a second time.
 
 ## First build rules
 
-- Do NOT read any files before or after delegation -- scaffold files are documented above, and the subagent's output does not need verification.
+- Do NOT read any files before delegation to the design subagent -- scaffold files are documented above, and the subagent's output does not need verification.
 - Do NOT add your own creative direction, style instructions, color guidance, or typography choices to the subagent task. The design subagent is the creative expert -- let it make all decisions.
 - Do NOT use `startAsyncSubagent` -- use synchronous `subagent()` so you block until it's done.
 - Do NOT restart the workflow before the design subagent completes.
 - Do NOT take screenshots during the build.
 - Do NOT call `suggestDeploy()` -- video artifacts are not deployable. They are exported from the preview pane.
 - Do NOT delegate finalization separately -- the design subagent handles it per `<completing_your_run>` in the skill.
-- There is no need to test or code review the first build.
+- Do NOT delegate the scene-selector step (step 4). The main agent runs it directly after the design subagent finishes. The design subagent must not be told about scene selectors.
+- There is no need to test or code review the first build beyond the scene-selector validation.
 </first_build>

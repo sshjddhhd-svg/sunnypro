@@ -99,9 +99,14 @@ module.exports.run = async function ({ api, event, args, permssion }) {
   else if (args[0] === "ايقاف") {
     if (data.status === false) return api.sendMessage("⚠️ المحرك غير مفعل أصلاً.", threadID, messageID);
 
+    // Mark stopped FIRST so any in-flight tick aborts before re-scheduling.
+    data.status = false;
+    try {
+      const { stopMotorLoop } = require("../../includes/motorSafeSend");
+      stopMotorLoop(threadID);
+    } catch (_) {}
     try { clearInterval(data.interval); } catch (_) {}
     try { clearTimeout(data.interval); } catch (_) {}
-    data.status = false;
     data.interval = null;
     return api.sendMessage("🔴 تم إيقاف المحرك.", threadID, messageID);
   }

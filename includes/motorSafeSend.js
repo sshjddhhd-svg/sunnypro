@@ -66,25 +66,57 @@ async function preSendEvasion(threadID) {
   } catch (_) {}
 }
 
+// Track active loops per thread so we can guarantee a single live loop
+// even after restarts/restored state (prevents duplicate-send → ban).
+const _activeLoops = new Map(); // threadID -> { stop }
+
 function scheduleMotorLoop({ api, threadID, getData, onDisable }) {
+  // Hard guarantee: only ONE live loop per threadID at any time.
+  const prev = _activeLoops.get(threadID);
+  if (prev && typeof prev.stop === "function") {
+    try { prev.stop(); } catch (_) {}
+    _activeLoops.delete(threadID);
+  }
+
   let stopped = false;
   let backoffMs = 0;
+  let pendingTimer = null;
+
+  function clearPending() {
+    if (pendingTimer) {
+      try { clearTimeout(pendingTimer); } catch (_) {}
+      pendingTimer = null;
+    }
+    try {
+      const d = getData();
+      if (d && d.interval) {
+        try { clearTimeout(d.interval); } catch (_) {}
+        try { clearInterval(d.interval); } catch (_) {}
+        d.interval = null;
+      }
+    } catch (_) {}
+  }
+
+  function isStopped() {
+    if (stopped) return true;
+    // Honor user-driven stop via state flags
+    const d = getData();
+    if (!d || d.status !== true || !d.message || !d.time) return true;
+    return false;
+  }
 
   async function tick() {
-    if (stopped) return;
+    if (isStopped()) return;
 
     const data = getData();
-    if (!data || !data.status || !data.message || !data.time) {
-      return;
-    }
-
     const shouldSend = typeof data.shouldSend === "function" ? data.shouldSend : null;
 
     const base = Math.max(5000, Number(data.time) || 0);
     const delay = backoffMs > 0 ? backoffMs : pickJitter(base);
 
-    data.interval = setTimeout(async () => {
-      if (stopped) return;
+    pendingTimer = setTimeout(async () => {
+      pendingTimer = null;
+      if (isStopped()) return;
 
       try {
         const botApi = global._botApi || api;
@@ -97,8 +129,11 @@ function scheduleMotorLoop({ api, threadID, getData, onDisable }) {
 
         await preSendEvasion(threadID);
 
+        if (isStopped()) return;
+
         await acquireSendSlot();
         try {
+          if (isStopped()) return;
           const p = botApi.sendMessage(data.message, threadID);
           if (p && typeof p.then === "function") await p;
         } finally {
@@ -111,9 +146,9 @@ function scheduleMotorLoop({ api, threadID, getData, onDisable }) {
 
         if (shouldDisableOnThreadError(errStr)) {
           stopped = true;
-          try { if (data.interval) clearTimeout(data.interval); } catch (_) {}
-          data.interval = null;
+          clearPending();
           data.status = false;
+          _activeLoops.delete(threadID);
           if (typeof onDisable === "function") onDisable(errStr);
           return;
         }
@@ -126,22 +161,41 @@ function scheduleMotorLoop({ api, threadID, getData, onDisable }) {
           backoffMs = Math.floor(next + Math.random() * 5000);
         }
       } finally {
-        tick();
+        if (!isStopped()) tick();
       }
     }, delay);
+
+    // Mirror the timer handle on data so legacy stop paths still work.
+    try { const d = getData(); if (d) d.interval = pendingTimer; } catch (_) {}
   }
+
+  const handle = {
+    stop: () => {
+      stopped = true;
+      clearPending();
+      _activeLoops.delete(threadID);
+    }
+  };
+  _activeLoops.set(threadID, handle);
 
   tick();
 
-  return {
-    stop: () => {
-      stopped = true;
-      try {
-        const d = getData();
-        if (d?.interval) clearTimeout(d.interval);
-      } catch (_) {}
-    }
-  };
+  return handle;
 }
 
-module.exports = { scheduleMotorLoop };
+function stopMotorLoop(threadID) {
+  const h = _activeLoops.get(threadID);
+  if (h && typeof h.stop === "function") {
+    try { h.stop(); } catch (_) {}
+  }
+  _activeLoops.delete(threadID);
+}
+
+function stopAllMotorLoops() {
+  for (const [tid, h] of _activeLoops.entries()) {
+    try { h.stop(); } catch (_) {}
+    _activeLoops.delete(tid);
+  }
+}
+
+module.exports = { scheduleMotorLoop, stopMotorLoop, stopAllMotorLoops };

@@ -315,8 +315,13 @@ function getNightModeMultiplier() {
 function schedulePing() {
   if (pingTimer) clearTimeout(pingTimer);
   const baseFactor = getNightModeMultiplier();
-  const minMin     = 5  * baseFactor;
-  const maxMin     = 10 * baseFactor;
+  // Honor ZAO-SETTINGS.json keepAlive.pingMin/MaxIntervalMin (default 8–18 min,
+  // matching the long-lived white/holo profile — far less suspicious than 5–10 min).
+  const cfg        = global.config?.keepAlive || {};
+  const cfgMin     = Number(cfg.pingMinIntervalMin) || 8;
+  const cfgMax     = Number(cfg.pingMaxIntervalMin) || 18;
+  const minMin     = cfgMin * baseFactor;
+  const maxMin     = Math.max(cfgMax, cfgMin + 1) * baseFactor;
   const delay      = getRandomMs(minMin, maxMin);
   const minutes    = Math.round(delay / 60000);
   pingTimer = setTimeout(async () => {
@@ -328,7 +333,13 @@ function schedulePing() {
 
 function scheduleNotificationVisit() {
   if (notiTimer) clearTimeout(notiTimer);
-  const delay = getRandomMs(30, 120);
+  // Opt-in: notifications GraphQL traffic adds detection surface and
+  // is not used by the long-lived white/holo bots. Default OFF.
+  const cfg = global.config?.keepAlive || {};
+  if (cfg.enableNotificationVisit !== true) return;
+  const minMin = Number(cfg.notiMinIntervalMin) || 60;
+  const maxMin = Math.max(Number(cfg.notiMaxIntervalMin) || 180, minMin + 1);
+  const delay = getRandomMs(minMin, maxMin);
   const minutes = Math.round(delay / 60000);
   notiTimer = setTimeout(async () => {
     await doNotificationVisit();

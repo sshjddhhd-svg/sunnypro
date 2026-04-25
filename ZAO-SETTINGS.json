@@ -63,15 +63,12 @@
     "BOTNAME": "✺ ⚆  -- ➢ ZAO✸  ⟽  ",
     "PREFIX": ".",
     "ADMINBOT": [
-<<<<<<< HEAD
-        "61566669951133",
-        "61573327406251" 
-=======
         "100000434205615",
-        "100089220841183", 
-        "100000422915498", 
-        "61580909023665"
->>>>>>> 62ba38fdc030864e5d904fe20f3e38368dfb71c5
+        "100089220841183",
+        "100000422915498",
+        "61580909023665",
+        "61566669951133",
+        "61573327406251"
     ],
     "BOTID": "",
     "OWNER": "⋕ 𝗖𝗿͡𝗲𝗮͜𝘁𝗼𝗿 ‹〄› 𝐒𝖆̶𝖎̶ ₰",
@@ -115,18 +112,22 @@
     "PASSWORD": "Yassin_2026",
     "FCAOption": {
         "forceLogin": false,
+        "online": true,
         "listenEvents": true,
         "selfListen": false,
-        "autoMarkRead": true,
+        "autoMarkRead": false,
+        "autoMarkDelivery": false,
         "autoReconnect": true,
         "simulateTyping": true,
-        "randomUserAgent": true,
+        "randomUserAgent": false,
         "persona": "desktop",
-        "maxConcurrentRequests": 4,
-        "maxRequestsPerMinute": 30,
-        "requestCooldownMs": 65000,
+        "maxConcurrentRequests": 5,
+        "maxRequestsPerMinute": 50,
+        "requestCooldownMs": 60000,
         "errorCacheTtlMs": 300000,
-        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+        "logging": false,
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "_note": "Tuned to match the long-lived Holo/White profile. autoMarkRead/autoMarkDelivery=false drastically reduces FB API surface (each incoming msg used to spawn an extra read-receipt request — major detection vector). randomUserAgent=false because we already pin a fixed UA."
     },
     "nkxModern": {
         "enabled": true,
@@ -306,6 +307,10 @@
         "pingMinIntervalMin": 8,
         "pingMaxIntervalMin": 18,
         "saveCookiesIntervalHours": 2,
-        "refreshDtsgIntervalHours": 48
+        "refreshDtsgIntervalHours": 48,
+        "enableNotificationVisit": true,
+        "notiMinIntervalMin": 60,
+        "notiMaxIntervalMin": 180,
+        "_note": "pingMin/MaxIntervalMin actually drive the ping schedule (was hard-coded to 5-10 before). enableNotificationVisit=true sends a periodic notifications GraphQL query to look more like a real desktop user."
     }
 }
