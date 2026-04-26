@@ -15,6 +15,13 @@
 
 const fs   = require("fs-extra");
 const path = require("path");
+// [FIX Djamel] — atomic write so a SIGKILL during the snapshot doesn't
+// leave a half-written .zao-pending-callbacks.json that the next boot
+// fails to parse and silently discards (losing every pending reply chain).
+const { atomicWriteFileSync } = (() => {
+  try { return require("../../utils/atomicWrite"); }
+  catch (_) { return { atomicWriteFileSync: fs.writeFileSync.bind(fs) }; }
+})();
 
 const STATE_FILE = path.join(process.cwd(), ".zao-pending-callbacks.json");
 
@@ -49,7 +56,7 @@ function save() {
       handleReaction: handleReaction
     };
 
-    fs.writeFileSync(STATE_FILE, JSON.stringify(payload, null, 2), "utf-8");
+    atomicWriteFileSync(STATE_FILE, JSON.stringify(payload, null, 2), "utf-8");
     log(`Saved ${handleReply.length} reply + ${handleReaction.length} reaction callbacks to disk.`);
   } catch (e) {
     log("Could not save callbacks: " + e.message);

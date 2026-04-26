@@ -19,13 +19,20 @@ const fs             = require("fs-extra");
 const path           = require("path");
 const parseAppState  = require("./parseAppState");
 const { patchCookieApi } = require("../zaoCookiePatcher");
+// [FIX Djamel] — atomic writes for tier-state files. A torn write here
+// would lose the active-tier marker AND corrupt the cookie file, forcing
+// the bot back to Tier 1 on every restart.
+const { atomicWriteFileSync } = (() => {
+  try { return require("../../utils/atomicWrite"); }
+  catch (_) { return { atomicWriteFileSync: fs.writeFileSync.bind(fs) }; }
+})();
 
 // ── Tier persistence (mirrors logic in Emalogin/index.js) ────────────────────
 const TIER_PERSIST_FILE = path.join(process.cwd(), "data", "active-tier.json");
 function writePersistedTier(tier) {
   try {
     fs.ensureDirSync(path.dirname(TIER_PERSIST_FILE));
-    fs.writeFileSync(TIER_PERSIST_FILE, JSON.stringify({ tier, ts: new Date().toISOString() }, null, 2), "utf-8");
+    atomicWriteFileSync(TIER_PERSIST_FILE, JSON.stringify({ tier, ts: new Date().toISOString() }, null, 2), "utf-8");
   } catch (_) {}
 }
 
@@ -87,9 +94,12 @@ function buildLoginOptions() {
 function saveState(stateFile, altFile, appState) {
   try {
     const data = JSON.stringify(appState, null, 2);
-    fs.writeFileSync(stateFile, data, "utf-8");
+    // [FIX Djamel] — atomic writes prevent half-written cookie files
+    // when the bot is killed mid-save (very common during the
+    // RESTART_DELAY window after a successful relogin).
+    atomicWriteFileSync(stateFile, data, "utf-8");
     if (altFile && fs.existsSync(path.dirname(altFile))) {
-      fs.writeFileSync(altFile, data, "utf-8");
+      atomicWriteFileSync(altFile, data, "utf-8");
     }
   } catch (_) {}
 }
@@ -184,44 +194,51 @@ async function forceTierSwitch(api, reason) {
   let idx = TIERS.findIndex(t => t.tier === activeTier);
   if (idx === -1) idx = 0;
 
-  // Advance to next tier
-  const nextIdx = idx + 1;
-  if (nextIdx >= TIERS.length) {
-    log("error", "forceTierSwitch: all tiers exhausted — cannot switch further.");
+  isAttempting = true;
+
+  // [FIX Djamel] — previous version tried ONLY the next tier and bailed.
+  // If Tier 2 was dead and we were on Tier 1, the bot would keep failing
+  // at Tier 2 forever and never reach Tier 3. Now we walk forward through
+  // every remaining tier in the same call so a single forceTierSwitch
+  // truly exhausts the account pool.
+  let loginResult = null;
+  let tierInfo    = null;
+  for (let nextIdx = idx + 1; nextIdx < TIERS.length; nextIdx++) {
+    tierInfo = TIERS[nextIdx];
+    log("warn", `forceTierSwitch → Tier ${tierInfo.tier} (${tierInfo.stateFile}) | reason: ${reason || "send failures"}`);
     notifyAdmins(api,
-      `⛔ HEALTH MONITOR: all ${TIERS.length} account tiers have been tried.\n` +
+      `🔄 ACCOUNT HEALTH MONITOR\n\n` +
+      `Switching to Tier ${tierInfo.tier} due to send failures.\n` +
+      `Reason: ${reason || "consecutive message send failures"}`
+    );
+
+    try {
+      loginResult = await tryTierLogin(tierInfo, api);
+    } catch (e) {
+      log("error", `forceTierSwitch: Tier ${tierInfo.tier} login threw: ${e.message}`);
+      loginResult = null;
+    }
+
+    if (loginResult) {
+      currentTierIdx = nextIdx;
+      retryCount     = 0;
+      lastAttempt    = 0;
+      break;
+    }
+
+    log("error", `forceTierSwitch: Tier ${tierInfo.tier} failed — trying next tier...`);
+    notifyAdmins(api, `❌ HEALTH MONITOR: Tier ${tierInfo.tier} also failed.`);
+  }
+
+  if (!loginResult) {
+    isAttempting = false;
+    log("error", `forceTierSwitch: all tiers after Tier ${activeTier} have been tried — none succeeded.`);
+    notifyAdmins(api,
+      `⛔ HEALTH MONITOR: all account tiers have been tried.\n` +
       `Please upload fresh cookie files via the panel.\n` +
       `Reason: ${reason || "send failures"}`
     );
-    return false;
-  }
-
-  currentTierIdx = nextIdx;
-  retryCount     = 0;
-  lastAttempt    = 0;  // bypass cooldown — health monitor already waited
-  isAttempting   = true;
-
-  const tierInfo = TIERS[currentTierIdx];
-  log("warn", `forceTierSwitch → Tier ${tierInfo.tier} (${tierInfo.stateFile}) | reason: ${reason || "send failures"}`);
-  notifyAdmins(api,
-    `🔄 ACCOUNT HEALTH MONITOR\n\n` +
-    `Switching to Tier ${tierInfo.tier} due to send failures.\n` +
-    `Reason: ${reason || "consecutive message send failures"}`
-  );
-
-  let loginResult = null;
-  try {
-    loginResult = await tryTierLogin(tierInfo, api);
-  } catch (e) {
-    log("error", `forceTierSwitch: login threw: ${e.message}`);
-  }
-
-  isAttempting = false;
-
-  if (!loginResult) {
-    log("error", `forceTierSwitch: Tier ${tierInfo.tier} login failed — trying next tier if available.`);
-    notifyAdmins(api, `❌ HEALTH MONITOR: Tier ${tierInfo.tier} also failed.`);
-    // Try the tier after that on next call
+    // Force the relogin module to start the cycle from scratch on next call
     retryCount = MAX_RETRIES;
     return false;
   }
@@ -252,6 +269,9 @@ async function forceTierSwitch(api, reason) {
     setTimeout(() => process.exit(0), RESTART_DELAY);
     return true;
   } catch (saveErr) {
+    // [FIX Djamel] — without resetting isAttempting here a save failure
+    // would jam the relogin module forever ("already in progress").
+    isAttempting = false;
     log("error", `forceTierSwitch: login ok but could not save cookies: ${saveErr.message}`);
     return false;
   }

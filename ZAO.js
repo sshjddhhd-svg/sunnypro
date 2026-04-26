@@ -4,6 +4,12 @@
 
 const chalk = require('chalk');
 const { readdirSync, readFileSync, writeFileSync } = require('fs-extra');
+// [FIX Djamel] — atomic writes for cookie/state files. Falls back to
+// raw writeFileSync if the helper is missing so the bot still boots.
+const { atomicWriteFileSync } = (() => {
+  try { return require('./utils/atomicWrite'); }
+  catch (_) { return { atomicWriteFileSync: writeFileSync }; }
+})();
 const axios = require('axios');
 const { join, resolve } = require('path');
 const { execSync } = require('child_process');
@@ -716,7 +722,7 @@ async function onBot({ models }) {
       for (const [tid, d] of Object.entries(global['motorData'] || {})) {
         out[tid] = { status: d.status, message: d.message, time: d.time };
       }
-      require('fs').writeFileSync(_motorFile, JSON.stringify(out, null, 2), 'utf8');
+      atomicWriteFileSync(_motorFile, JSON.stringify(out, null, 2), 'utf8');
     } catch (_) {}
   }
   // Expose _saveMotorState globally so the uncaughtException handler can call it
@@ -972,7 +978,7 @@ async function onBot({ models }) {
               for (const [_tid, _d] of Object.entries(global['motorData2'] || {})) {
                 _out[_tid] = { status: _d.status, message: _d.message, time: _d.time };
               }
-              require('fs').writeFileSync(_m2File, JSON.stringify(_out, null, 2), 'utf8');
+              atomicWriteFileSync(_m2File, JSON.stringify(_out, null, 2), 'utf8');
             } catch (_) {}
           }
           if (action === 'set-message') { d.message = message; _saveMotor2State(); return _json(res, { ok: true }); }
@@ -1301,7 +1307,7 @@ async function onBot({ models }) {
       const appState = _api.getAppState();
       if (!appState || !Array.isArray(appState) || appState.length === 0) return;
       const altPath  = join(process.cwd(), 'alt.json');
-      require('fs').writeFileSync(altPath, JSON.stringify(appState, null, 2), 'utf-8');
+      atomicWriteFileSync(altPath, JSON.stringify(appState, null, 2), 'utf-8');
       global['lastAltJsonSave'] = Date.now();
       logger.log([
         { message: '[ ALT-SAVE ]: ', color: ['red', 'cyan'] },
@@ -1438,8 +1444,8 @@ async function onBot({ models }) {
       try {
         const appState     = _api.getAppState();
         const appStatePath = join(process.cwd(), global['config']['APPSTATEPATH'] || 'ZAO-STATE.json');
-        writeFileSync(appStatePath, JSON.stringify(appState, null, 2), 'utf-8');
-        writeFileSync(join(process.cwd(), 'alt.json'), JSON.stringify(appState, null, 2), 'utf-8');
+        atomicWriteFileSync(appStatePath, JSON.stringify(appState, null, 2), 'utf-8');
+        atomicWriteFileSync(join(process.cwd(), 'alt.json'), JSON.stringify(appState, null, 2), 'utf-8');
         logger.log([
           { message: '[ MEMORY ]: ', color: ['red', 'cyan'] },
           { message: 'State saved — exiting for watchdog restart.', color: 'white' }
@@ -1461,8 +1467,8 @@ async function onBot({ models }) {
     try {
       const appState     = _api.getAppState();
       const appStatePath = join(process.cwd(), global['config']['APPSTATEPATH'] || 'ZAO-STATE.json');
-      writeFileSync(appStatePath, JSON.stringify(appState, null, 2), 'utf-8');
-      writeFileSync(join(process.cwd(), 'alt.json'), JSON.stringify(appState, null, 2), 'utf-8');
+      atomicWriteFileSync(appStatePath, JSON.stringify(appState, null, 2), 'utf-8');
+      atomicWriteFileSync(join(process.cwd(), 'alt.json'), JSON.stringify(appState, null, 2), 'utf-8');
       logger.log([
         { message: '[ SHUTDOWN ]: ', color: ['red', 'cyan'] },
         { message: 'Cookies saved successfully.', color: 'white' }
@@ -1483,7 +1489,7 @@ async function onBot({ models }) {
       for (const [_tid, _d] of Object.entries(global['motorData2'] || {})) {
         _m2Out[_tid] = { status: _d.status, message: _d.message, time: _d.time };
       }
-      require('fs').writeFileSync(_m2File, JSON.stringify(_m2Out, null, 2), 'utf8');
+      atomicWriteFileSync(_m2File, JSON.stringify(_m2Out, null, 2), 'utf8');
     } catch (_) {}
     // Save nm locks
     try {
@@ -1493,7 +1499,7 @@ async function onBot({ models }) {
       if (global.nameLocks) {
         for (const [k, v] of global.nameLocks.entries()) _nmOut[k] = v;
       }
-      require('fs').writeFileSync(_nmFile, JSON.stringify(_nmOut, null, 2), 'utf8');
+      atomicWriteFileSync(_nmFile, JSON.stringify(_nmOut, null, 2), 'utf8');
     } catch (_) {}
     // Save nicknames state
     try {
@@ -1501,7 +1507,7 @@ async function onBot({ models }) {
       require('fs-extra').ensureDirSync(require('path').dirname(_nickFile));
       const _nickOut = {};
       for (const [k, v] of Object.entries(global.nickPersist || {})) _nickOut[k] = v;
-      require('fs').writeFileSync(_nickFile, JSON.stringify(_nickOut, null, 2), 'utf8');
+      atomicWriteFileSync(_nickFile, JSON.stringify(_nickOut, null, 2), 'utf8');
     } catch (_) {}
     // Save reply/reaction callbacks
     try { require('./includes/login/statePersist').save(); } catch (_) {}
@@ -1723,8 +1729,8 @@ process.on('uncaughtException', (err, origin) => {
           : 1;
         const { stateFile, altFile } = TIER_FILES[activeTier];
         const appStatePath = join(process.cwd(), stateFile);
-        writeFileSync(appStatePath, JSON.stringify(appState, null, 2), 'utf-8');
-        writeFileSync(join(process.cwd(), altFile), JSON.stringify(appState, null, 2), 'utf-8');
+        atomicWriteFileSync(appStatePath, JSON.stringify(appState, null, 2), 'utf-8');
+        atomicWriteFileSync(join(process.cwd(), altFile), JSON.stringify(appState, null, 2), 'utf-8');
         if (log) log.log([{ message: '[ UNCAUGHT-EXCEPTION ]: ', color: ['red', 'cyan'] }, { message: `Cookies saved to Tier-${activeTier} files after crash.`, color: 'white' }]);
       }
     }

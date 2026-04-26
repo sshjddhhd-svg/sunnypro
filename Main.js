@@ -4,6 +4,13 @@ const { spawn }  = require('child_process');
 const http       = require('http');
 const fs         = require('fs');
 const path       = require('path');
+// [FIX Djamel] — atomic writes for settings + cookie files served by
+// the panel API. A panel save mid-write would otherwise corrupt the
+// active config or appstate.
+const { atomicWriteFileSync } = (() => {
+  try { return require('./utils/atomicWrite'); }
+  catch (_) { return { atomicWriteFileSync: fs.writeFileSync.bind(fs) }; }
+})();
 
 const PORT          = parseInt(process.env.PORT || '5000', 10);
 const BOT_API_PORT  = 3001;
@@ -149,7 +156,7 @@ const server = http.createServer(async (req, res) => {
         try {
           const body = await readBody(req);
           const cfg = JSON.parse(body);
-          fs.writeFileSync(SETTINGS_PATH, JSON.stringify(cfg, null, 4), 'utf-8');
+          atomicWriteFileSync(SETTINGS_PATH, JSON.stringify(cfg, null, 4), 'utf-8');
           return jsonRes(res, { ok: true });
         } catch (e) { return jsonRes(res, { error: e.message }, 400); }
       }
@@ -171,11 +178,11 @@ const server = http.createServer(async (req, res) => {
           const cfg = JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf-8'));
           if (email !== undefined) cfg.EMAIL = email;
           if (password !== undefined) cfg.PASSWORD = password;
-          fs.writeFileSync(SETTINGS_PATH, JSON.stringify(cfg, null, 4), 'utf-8');
+          atomicWriteFileSync(SETTINGS_PATH, JSON.stringify(cfg, null, 4), 'utf-8');
           if (cookies && cookies.trim()) {
             JSON.parse(cookies);
-            fs.writeFileSync(STATE_PATH, cookies, 'utf-8');
-            fs.writeFileSync(ALT_PATH, cookies, 'utf-8');
+            atomicWriteFileSync(STATE_PATH, cookies, 'utf-8');
+            atomicWriteFileSync(ALT_PATH, cookies, 'utf-8');
           }
           return jsonRes(res, { ok: true });
         } catch (e) { return jsonRes(res, { error: e.message }, 400); }
@@ -262,32 +269,57 @@ setInterval(() => {
   req.end();
 }, 10_000);
 
-function restoreCookies() {
+// [FIX Djamel] — restoreCookies now handles ALL three tiers, not just Tier 1.
+// Previously a corrupt ZAO-STATEX.json or ZAO-STATEV.json would never be
+// restored from its sibling alt file, so a crash on Tier 2 or 3 would
+// permanently nuke that tier on disk and force a downgrade to Tier 1.
+function _validAppStateFile(p) {
   try {
-    if (fs.existsSync(STATE_PATH)) {
-      try {
-        const raw  = fs.readFileSync(STATE_PATH, 'utf-8').trim();
-        const data = JSON.parse(raw);
-        if (Array.isArray(data) && data.length > 0) return;
-      } catch (_) {
-        log('PROTECT', 'ZAO-STATE.json تالف — محاولة الاستعادة من alt.json...');
-      }
+    if (!fs.existsSync(p)) return false;
+    const raw = fs.readFileSync(p, 'utf-8').trim();
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    return Array.isArray(data) && data.length > 0;
+  } catch (_) {
+    return false;
+  }
+}
+
+function restoreCookies() {
+  const TIER_PAIRS = [
+    { state: STATE_PATH,                              alt: ALT_PATH },
+    { state: path.join(__dir, 'ZAO-STATEX.json'),     alt: path.join(__dir, 'altx.json') },
+    { state: path.join(__dir, 'ZAO-STATEV.json'),     alt: path.join(__dir, 'altv.json') },
+  ];
+
+  for (const pair of TIER_PAIRS) {
+    try {
+      if (_validAppStateFile(pair.state)) continue;
+      if (!_validAppStateFile(pair.alt))  continue;
+
+      const altRaw = fs.readFileSync(pair.alt, 'utf-8').trim();
+      atomicWriteFileSync(pair.state, altRaw, 'utf-8');
+      log('PROTECT', `تم استعادة ${path.basename(pair.state)} من ${path.basename(pair.alt)} ✓`);
+    } catch (e) {
+      log('PROTECT', `خطأ في الاستعادة (${path.basename(pair.state)}): ${e.message}`);
     }
-    if (!fs.existsSync(ALT_PATH)) return;
-    const altRaw  = fs.readFileSync(ALT_PATH, 'utf-8').trim();
-    const altData = JSON.parse(altRaw);
-    if (!Array.isArray(altData) || altData.length === 0) return;
-    fs.writeFileSync(STATE_PATH, altRaw, 'utf-8');
-    log('PROTECT', `تم استعادة ${altData.length} كوكي من alt.json ✓`);
-  } catch (e) {
-    log('PROTECT', `خطأ في الاستعادة: ${e.message}`);
   }
 }
 
 const MAX_RESTARTS = 100;
 const STABLE_MS    = 10 * 60 * 1000;
-const BASE_DELAY   = 3_000;
-const MAX_DELAY    = 30_000;
+// [FIX Djamel] — Crash retry policy redesigned per user request:
+//   • CLEAN_DELAY: clean exit (autoRelogin success) → restart immediately.
+//   • QUICK_DELAY: a single fast retry after the FIRST crash, in case the
+//     crash was transient (e.g. one-off network blip). Avoids 10 minutes
+//     of downtime for benign crashes.
+//   • CRASH_INTERVAL_MS: from the second crash onward, wait 10 minutes
+//     between restart attempts. This gives the tier-switching logic a
+//     full breath cycle and stops the watchdog from hammering Facebook
+//     in tight loops, which is what gets accounts permanently banned.
+const CLEAN_DELAY        = 1_000;
+const QUICK_DELAY        = 30_000;
+const CRASH_INTERVAL_MS  = 10 * 60 * 1000;
 
 function startBot() {
   if (isStopping) return;
@@ -338,12 +370,16 @@ function startBot() {
     const uptime = Date.now() - botStart;
 
     if (code === 0) {
+      // Clean exit usually means autoRelogin succeeded and asked us to
+      // cycle. Restart immediately and reset the crash counter.
       log('WATCHDOG', 'خروج نظيف — إعادة التشغيل فوراً...');
       restarts = 0;
-      return setTimeout(startBot, 1_000);
+      return setTimeout(startBot, CLEAN_DELAY);
     }
 
     if (uptime >= STABLE_MS) {
+      // The bot stayed up for at least the stable window before crashing,
+      // so this is treated as a fresh single failure, not a crash loop.
       log('WATCHDOG', `كان مستقراً ${Math.round(uptime / 60000)} دقيقة — إعادة تعيين عداد الأعطال.`);
       restarts = 0;
     }
@@ -352,13 +388,20 @@ function startBot() {
     log('WATCHDOG', `انتهى بكود ${code} — محاولة ${restarts}/${MAX_RESTARTS}`);
 
     if (restarts > MAX_RESTARTS) {
-      log('WATCHDOG', `تجاوز الحد الأقصى — انتظار 5 دقائق.`);
+      log('WATCHDOG', `تجاوز الحد الأقصى — انتظار 10 دقائق.`);
       restarts = Math.floor(MAX_RESTARTS / 2);
-      return setTimeout(startBot, 5 * 60 * 1000);
+      return setTimeout(startBot, CRASH_INTERVAL_MS);
     }
 
-    const delay = Math.min(BASE_DELAY * Math.pow(2, restarts - 1), MAX_DELAY);
-    log('WATCHDOG', `إعادة التشغيل بعد ${Math.round(delay / 1000)} ثانية...`);
+    // [FIX Djamel] — 10-minute interval between crash retries (per user request).
+    // First crash gets a 30-second grace retry in case the failure was
+    // transient (network blip, momentary FCA glitch). From the second
+    // crash onward we wait a full 10 minutes so:
+    //   1. tier-switching logic in Emalogin can cycle accounts cleanly,
+    //   2. Facebook stops seeing rapid login bursts that look bot-like,
+    //   3. the operator gets a predictable rhythm to inspect logs.
+    const delay = (restarts === 1) ? QUICK_DELAY : CRASH_INTERVAL_MS;
+    log('WATCHDOG', `إعادة التشغيل بعد ${Math.round(delay / 60000)} دقيقة (${Math.round(delay / 1000)} ثانية)...`);
     setTimeout(startBot, delay);
   });
 }

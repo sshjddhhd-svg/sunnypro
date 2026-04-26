@@ -5,6 +5,13 @@ const { join }  = require("path");
 const { loginAsync } = require("../fcaClient");
 const parseAppState  = require("../login/parseAppState");
 const { patchCookieApi } = require("../zaoCookiePatcher");
+// [FIX Djamel] — atomic writes for cookie state files. Without this a
+// SIGKILL during the initial saveState would leave both the main and
+// alt cookie files truncated, locking the user out on next boot.
+const { atomicWriteFileSync } = (() => {
+  try { return require("../../utils/atomicWrite"); }
+  catch (_) { return { atomicWriteFileSync: writeFileSync }; }
+})();
 
 // ── Tier persistence helpers ─────────────────────────────────────────────────
 // Store the last-active tier to disk so restarts resume from the right account
@@ -25,7 +32,7 @@ function readPersistedTier() {
 function writePersistedTier(tier) {
   try {
     require("fs-extra").ensureDirSync(require("path").dirname(TIER_PERSIST_FILE));
-    writeFileSync(TIER_PERSIST_FILE, JSON.stringify({ tier, ts: new Date().toISOString() }, null, 2), "utf-8");
+    atomicWriteFileSync(TIER_PERSIST_FILE, JSON.stringify({ tier, ts: new Date().toISOString() }, null, 2), "utf-8");
   } catch (_) {}
 }
 
@@ -75,8 +82,8 @@ function buildLoginOptions(extra = {}) {
 function saveState(stateFile, altFile, appState) {
   try {
     const data = JSON.stringify(appState, null, 2);
-    writeFileSync(stateFile, data, "utf-8");
-    if (altFile) writeFileSync(altFile, data, "utf-8");
+    atomicWriteFileSync(stateFile, data, "utf-8");
+    if (altFile) atomicWriteFileSync(altFile, data, "utf-8");
   } catch (e) {
     console.warn(`[ Login ]: Warning — could not save cookies: ${e.message}`);
   }

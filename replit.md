@@ -128,3 +128,81 @@ Key npm packages: `@neoaz07/nkxfca`, `express`, `fastify`, `mongoose`, `sequeliz
   destructured `cooldowns` directly. The latent bug never surfaced in this
   session because stale Facebook cookies prevented login from succeeding, so no
   command ever fired.
+
+- **DB/controller/threadsData.js hardcoded poison fallback**: when
+  `api.getThreadInfo(threadID)` failed, the `create_` path silently fell back to
+  a hardcoded `threadInfo` object pinned to thread `6540332652744904`, then
+  wrote that polluted record into the DB under the *real* failing thread's ID.
+  Replaced with a clean throw of `THREAD_INFO_UNAVAILABLE`, which
+  `handleCreateDatabase.js` already handles by removing the threadID from
+  `allThreadID` so the next event will retry cleanly. Also added defensive
+  `Array.isArray` / object guards on `adminIDs`, `userInfo`, `nicknames` for
+  partial responses.
+- **DB/controller/usersData.js concurrent-create hang**: when two messages from
+  the same user arrived back-to-back, the second call did
+  `return findInCreatingData.promise;` *inside* the `new Promise(async ...)`
+  executor — returning a value from an async executor is ignored, `resolve()`
+  was never called, and every subsequent caller hung forever. Fixed to
+  `return resolve(findInCreatingData.promise);` mirroring the threadsData.js
+  pattern.
+- **DB/controller/{usersData,threadsData}.js splice(-1, 1) bug**: cleanup did
+  `creatingData.splice(findIndex(...), 1)`. When the entry was already removed
+  `findIndex` returns `-1`, and `splice(-1, 1)` deletes the LAST element of the
+  queue — an unrelated in-flight create for a different ID. Guarded with
+  `if (_idx !== -1)`.
+- **DB/controller/usersData.js null-userInfo crash**: `(await api.getUserInfo(userID))[userID]`
+  threw `Cannot read property 'userID' of null` whenever Facebook returned null
+  (suspended account, network blip, rate limit). Both `create_` and
+  `refreshInfo` now null-check the response and throw a clean
+  `USER_INFO_UNAVAILABLE` so the caller can retry.
+
+## Round 2 Bug Fixes — Tier Switching & Persistence
+
+### Crash-retry policy (per user request)
+**Main.js watchdog** now uses a 10-minute interval between crash restart
+attempts instead of 3-30 second exponential backoff. Specifically:
+- Clean exit (autoRelogin success) → restart in 1 second
+- First crash with short uptime → 30-second grace retry (handles transient blips)
+- Every subsequent crash → wait 10 minutes before respawn
+- If the bot stayed up ≥ 10 minutes before crashing, the counter resets,
+  so a healthy bot that occasionally crashes is not penalised
+This stops the watchdog hammering Facebook with rapid login bursts (the
+single biggest cause of permanent account bans) and gives the tier-
+switching logic a full breath cycle between attempts.
+
+### Atomic writes everywhere — `utils/atomicWrite.js`
+New helper that writes to a sibling temp file, fsyncs, then renames into
+place (POSIX-atomic). Now used by every disk write that touches durable
+state:
+- `DB/controller/{usersData,threadsData,globalData}.js` — the JSON DB
+  rewrites the entire file on every save. A SIGKILL mid-write would
+  truncate the dataset; atomic writes guarantee the prior good copy is
+  preserved if the new write doesn't complete.
+- `includes/login/autoRelogin.js` — `saveState()` and `writePersistedTier()`
+- `includes/Emalogin/index.js` — initial `saveState()` and `writePersistedTier()`
+- `includes/login/statePersist.js` — pending callbacks snapshot
+- `includes/zaoCookiePatcher.js` — token-refresh cookie persistence (this
+  one fires constantly and used to race with itself)
+- `Main.js` — `/api/config` and `/api/account` POST handlers, plus
+  `restoreCookies()`
+- `ZAO.js` — all 12 cookie/state writes (memory-guard restart, graceful
+  shutdown, alt-save interval, uncaught-exception cookie save, motor
+  state, motor2 state, nickname locks, nicknames state)
+
+### Tier switching bugs
+
+- **`forceTierSwitch` only tried ONE tier then bailed.** If Tier 2 was
+  dead and the bot was on Tier 1, the health monitor would call
+  `forceTierSwitch`, fail at Tier 2, set `retryCount = MAX_RETRIES`, and
+  return. Subsequent calls still saw `activeAccountTier = 1`, so they
+  kept trying Tier 2 again forever and Tier 3 was never reached. Rewrote
+  the function to walk forward through every remaining tier in a single
+  call.
+- **`forceTierSwitch` jammed `isAttempting = true` on save failure.**
+  If login succeeded but `saveState()` threw, the catch block never
+  reset the flag, so every future relogin call returned "already in
+  progress" forever. Now the catch block resets the flag.
+- **`restoreCookies` only knew about Tier 1 files.** A corrupt
+  `ZAO-STATEX.json` or `ZAO-STATEV.json` was never restored from its
+  sibling alt file, so a crash on Tier 2 or 3 would permanently nuke
+  that tier on disk. Now iterates through all three tier pairs.

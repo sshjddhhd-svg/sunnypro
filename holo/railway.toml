@@ -1,7 +1,0 @@
-[build]
-builder = "nixpacks"
-
-[deploy]
-startCommand = "if [ -n \"$APPSTATE_JSON\" ]; then mkdir -p artifacts/api-server && printf '%s' \"$APPSTATE_JSON\" > artifacts/api-server/appstate.json && echo '[railway] appstate.json written from APPSTATE_JSON env var'; else echo '[railway] WARNING: APPSTATE_JSON is not set — bot will not start'; fi && node --enable-source-maps ./artifacts/api-server/dist/index.mjs"
-restartPolicyType = "on_failure"
-restartPolicyMaxRetries = 10

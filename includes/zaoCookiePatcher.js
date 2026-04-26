@@ -14,6 +14,13 @@
 
 const fs   = require("fs-extra");
 const path = require("path");
+// [FIX Djamel] — atomic cookie persistence. The token-refresh hook below
+// fires constantly and can race with itself; atomic writes guarantee the
+// file is never observed half-written by another reader (or a crash).
+const { atomicWriteFileSync } = (() => {
+  try { return require("../utils/atomicWrite"); }
+  catch (_) { return { atomicWriteFileSync: fs.writeFileSync.bind(fs) }; }
+})();
 
 /**
  * Suspension signal strings that are TOO BROAD and cause false trips.
@@ -108,9 +115,9 @@ function patchCookieApi(api, accountInfo = {}) {
           _persistPending = false;
           try {
             const data = JSON.stringify(state, null, 2);
-            fs.writeFileSync(accountInfo.stateFile, data, "utf-8");
+            atomicWriteFileSync(accountInfo.stateFile, data, "utf-8");
             if (accountInfo.altFile) {
-              fs.writeFileSync(accountInfo.altFile, data, "utf-8");
+              atomicWriteFileSync(accountInfo.altFile, data, "utf-8");
             }
           } catch (_) {}
         });
