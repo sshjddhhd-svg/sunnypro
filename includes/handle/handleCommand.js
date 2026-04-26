@@ -104,6 +104,17 @@ module.exports = function ({ api, models, Users, Threads, Currencies, globalData
     if (!commandName) return;
     // Lowercase only for ASCII — preserve Arabic/non-Latin characters
     commandName = commandName.replace(/[a-zA-Z]/g, c => c.toLowerCase());
+
+    // ── Auto-lock raid guard ────────────────────────────────
+    // Tally non-admin command attempts in a rolling window. If the
+    // configured threshold is breached, this flips global.lockBot=true
+    // so the lockBot check at the top of this file silently drops
+    // every subsequent non-admin command. Admins are never counted.
+    try {
+      if (!ADMINBOT.includes(senderID)) {
+        require("../autoLockGuard").record(senderID);
+      }
+    } catch (_) {}
     var command = commands.get(commandName);
     if (!command) {
       var allCommandName = [];
@@ -194,9 +205,10 @@ module.exports = function ({ api, models, Users, Threads, Currencies, globalData
         event.threadID,
         event.messageID
       );
-    if (!client.cooldowns.has(command.config.name))
-      client.cooldowns.set(command.config.name, new Map());
-    const timestamps = client.cooldowns.get(command.config.name);
+    // ── [FIX] use destructured `cooldowns` (line 26) — `client` is undefined here ──
+    if (!cooldowns.has(command.config.name))
+      cooldowns.set(command.config.name, new Map());
+    const timestamps = cooldowns.get(command.config.name);
     const expirationTime = (command.config.cooldowns || 1) * 1000;
     if (
       timestamps.has(senderID) &&

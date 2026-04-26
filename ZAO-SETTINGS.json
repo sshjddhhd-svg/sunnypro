@@ -32,6 +32,36 @@
         "_note": "يفحص MQTT كل 2-5 دقائق (عشوائي). يعيد تشغيله إذا صمت أكثر من silentTimeoutMinutes. يستخدم backoff تصاعدي."
     },
 
+    "notiWhenListenMqttError": {
+        "minIntervalMinutes": 10,
+        "telegram": {
+            "enable": false,
+            "botToken": "",
+            "chatId": ""
+        },
+        "discordHook": {
+            "enable": false,
+            "webhookUrl": ""
+        },
+        "_note": "Pushes session-expired / listener errors to Telegram and/or Discord webhook. Throttled. Channels stay disabled until enable=true and credentials are filled."
+    },
+
+    "autoUptime": {
+        "enable": false,
+        "url": "",
+        "intervalSeconds": 180,
+        "_note": "Optional external-URL ping for free hosts (Render/Glitch/Replit deploys). Leave url blank to auto-detect from REPLIT_DEV_DOMAIN / REPL_SLUG. Off by default — Main.js already pings localhost every 10 s."
+    },
+
+    "autoLock": {
+        "enable": true,
+        "maxCommands": 15,
+        "windowSeconds": 30,
+        "unlockAfterMinutes": 10,
+        "notifyAdmins": true,
+        "_note": "Anti-raid guard. If non-admin command attempts exceed maxCommands within windowSeconds, the bot auto-locks (admins always bypass). Set unlockAfterMinutes=0 to require manual unlock via panel POST /bot/lock {value:false}."
+    },
+
     "reactUnsend": {
         "enable": true,
         "onlyAdmin": true,

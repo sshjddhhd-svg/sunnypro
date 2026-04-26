@@ -671,6 +671,8 @@ async function onBot({ models }) {
         { message: '[ SESSION ]: ', color: ['red', 'cyan'] },
         { message: `${label}: ${errStr.slice(0, 120)}`, color: 'white' }
       ]);
+      // Push an external notification so the operator hears about session deaths
+      try { require('./includes/notiWhenListenError').notify(err, label); } catch (_) {}
       const _reloginPromise = autoRelogin(_api, label);
       if (_reloginPromise && typeof _reloginPromise.catch === 'function') {
         _reloginPromise.catch(e => {
@@ -682,6 +684,7 @@ async function onBot({ models }) {
         { message: '[ LISTEN-ERR ]: ', color: ['red', 'cyan'] },
         { message: `Connection error: ${errStr.slice(0, 120)}`, color: 'white' }
       ]);
+      try { require('./includes/notiWhenListenError').notify(err, 'listen error'); } catch (_) {}
       safeRestartListener('listen-error: ' + errStr.slice(0, 80));
     }
   }
@@ -1008,6 +1011,21 @@ async function onBot({ models }) {
           return _json(res, { status: d.status, message: d.message, time: d.time });
         }
 
+        // Auto-lock raid guard — view status or manually lock/unlock the bot.
+        // POST { value: true|false } to flip; GET to read state.
+        if (pathname === '/bot/lock' && (method === 'GET' || method === 'POST')) {
+          const guard = (() => { try { return require('./includes/autoLockGuard'); } catch (_) { return null; } })();
+          if (method === 'POST') {
+            const v = body && typeof body.value === 'boolean' ? body.value : null;
+            if (v === null) return _json(res, { error: 'Missing or non-boolean "value"' }, 400);
+            if (guard && typeof guard.setLock === 'function') guard.setLock(v, 'panel');
+            else global.lockBot = v;
+          }
+          return _json(res, guard && typeof guard.status === 'function'
+            ? guard.status()
+            : { locked: global.lockBot === true });
+        }
+
         if (pathname === '/bot/lock-name' && method === 'POST') {
           const { threadID, action, name } = body;
           if (!threadID) return _json(res, { error: 'Missing threadID' }, 400);
@@ -1166,6 +1184,45 @@ async function onBot({ models }) {
     ]);
   }
 
+  // ── GraphQL notification visit (seikobot pattern) ─────────
+  // Hits the real CometNotificationsDropdownQuery endpoint on a
+  // 30-120 min jittered cadence so traffic looks more like a
+  // real Messenger client. Additive to the keep-alive ping.
+  try {
+    require('./includes/graphqlVisit').start(_api);
+  } catch (e) {
+    logger.log([
+      { message: '[ GQL-VISIT ]: ', color: ['red', 'cyan'] },
+      { message: `Failed to start GraphQL visit: ${e.message}`, color: 'white' }
+    ]);
+  }
+
+  // ── Warm thread cache from INBOX (idea ported from holo) ───
+  // Paginates getThreadList right after login so allThreadID /
+  // threadInfo are populated for every group the bot is in,
+  // not just the ones that have spoken since boot. Fire-and-forget.
+  try {
+    const sync = require('./includes/syncAllGroups');
+    if (sync && typeof sync.start === 'function') sync.start(_api);
+  } catch (e) {
+    logger.log([
+      { message: '[ SYNC-GROUPS ]: ', color: ['red', 'cyan'] },
+      { message: `Failed to start group sync: ${e.message}`, color: 'white' }
+    ]);
+  }
+
+  // ── External-URL uptime ping (white/autoUptime pattern) ───
+  // Off by default. Enable in ZAO-SETTINGS.json -> autoUptime.enable
+  // for free hosts that sleep without inbound traffic.
+  try {
+    require('./includes/autoUptime').start();
+  } catch (e) {
+    logger.log([
+      { message: '[ AUTO-UPTIME ]: ', color: ['red', 'cyan'] },
+      { message: `Failed to start autoUptime: ${e.message}`, color: 'white' }
+    ]);
+  }
+
   // ─── Protection systems startup banner ────────────────────
   const gradStr2 = require('gradient-string');
   const grad2    = gradStr2('red', 'cyan');
@@ -1185,6 +1242,12 @@ async function onBot({ models }) {
   logger.log([{ message: '[ PROTECT ]: ', color: ['red', 'cyan'] }, { message: 'Memory-Guard     ✓  clean restart if heap > 512 MB', color: 'white' }]);
   logger.log([{ message: '[ PROTECT ]: ', color: ['red', 'cyan'] }, { message: 'Graceful-Exit    ✓  saves cookies on SIGTERM/SIGINT', color: 'white' }]);
   logger.log([{ message: '[ PROTECT ]: ', color: ['red', 'cyan'] }, { message: 'Listen-Error     ✓  instant listener restart + login_blocked/account_inactive/auth_error detection', color: 'white' }]);
+  logger.log([{ message: '[ PROTECT ]: ', color: ['red', 'cyan'] }, { message: 'Error-Notify     ✓  Telegram / Discord webhook on session-kill or listen errors (opt-in)', color: 'white' }]);
+  logger.log([{ message: '[ PROTECT ]: ', color: ['red', 'cyan'] }, { message: 'GraphQL-Visit    ✓  CometNotificationsDropdownQuery every 30-120 min — looks like a real client', color: 'white' }]);
+  logger.log([{ message: '[ PROTECT ]: ', color: ['red', 'cyan'] }, { message: 'Auto-Uptime      ✓  external-URL ping for free hosts (opt-in via autoUptime.enable)', color: 'white' }]);
+  logger.log([{ message: '[ PROTECT ]: ', color: ['red', 'cyan'] }, { message: 'Sync-Groups      ✓  warm threadInfo cache from INBOX after login (idea from holo)', color: 'white' }]);
+  logger.log([{ message: '[ PROTECT ]: ', color: ['red', 'cyan'] }, { message: 'Refresh-Cache    ✓  live update on log:thread-admins / name / subscribe / unsubscribe (from seiko)', color: 'white' }]);
+  logger.log([{ message: '[ PROTECT ]: ', color: ['red', 'cyan'] }, { message: `Auto-Lock        ✓  raid guard — auto-lock after ${(global.config.autoLock||{}).maxCommands||15} non-admin cmds in ${(global.config.autoLock||{}).windowSeconds||30}s`, color: 'white' }]);
   logger.log([{ message: '[ PROTECT ]: ', color: ['red', 'cyan'] }, { message: 'Settings-Watch   ✓  hot-reload ZAO-SETTINGS.json', color: 'white' }]);
   logger.log([{ message: '[ PROTECT ]: ', color: ['red', 'cyan'] }, { message: 'Crash-Restore    ✓  alt.json → ZAO-STATE.json on crash', color: 'white' }]);
   logger.log([{ message: '[ PROTECT ]: ', color: ['red', 'cyan'] }, { message: 'Cache-Cleanup    ✓  prune userName/threadInfo/threadData maps every 2 h (max 5 000 entries)', color: 'white' }]);
@@ -1612,6 +1675,7 @@ process.on('unhandledRejection', (reason, promise) => {
     ].some(k => msgLower.includes(k));
     if (isAuthRelated && typeof global._triggerAutoRelogin === 'function') {
       global._triggerAutoRelogin('unhandledRejection: ' + msg.slice(0, 120));
+      try { require('./includes/notiWhenListenError').notify(reason, 'unhandledRejection (auth)'); } catch (_) {}
     }
   } catch (_) {}
 });

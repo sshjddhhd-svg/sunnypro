@@ -19,6 +19,7 @@ module.exports = function({ api, models, globalData, usersData, threadsData }) {
    const handleReaction = require("./handle/handleReaction");
    const handleEvent = require("./handle/handleEvent");
    const handleCreateDatabase = require("./handle/handleCreateDatabase");
+   const handleRefresh = require("./handle/handleRefresh");
 
    // Auto cleanup setup
   const cacheDirectory = __dirname + '/../SCRIPTS/ZAO-CMDS/cache';
@@ -142,6 +143,7 @@ module.exports = function({ api, models, globalData, usersData, threadsData }) {
   const storedCommandEvent = handleCommandEvent(handlerCtx);
   const storedEvent        = handleEvent(handlerCtx);
   const storedReaction     = handleReaction(handlerCtx);
+  const storedRefresh      = handleRefresh(handlerCtx);
 
   // ── Cooldown map + callback array cleanup — runs every 30 minutes ──
   // Prevents unbounded memory growth as more users interact over time.
@@ -260,6 +262,9 @@ module.exports = function({ api, models, globalData, usersData, threadsData }) {
       case "event":
         try {
           storedEvent({ event, message });
+          // Refresh cached threadInfo so admin/name/member changes don't go stale.
+          // Fire-and-forget — never blocks event dispatch and swallows its own errors.
+          try { storedRefresh({ event }); } catch (_) {}
         } catch (err) {
           const errMsg = (err && err.message) ? err.message : String(err);
           logger.log([{ message: "[ EVENT ERROR ]: ", color: ["red", "cyan"] }, { message: errMsg, color: "white" }]);

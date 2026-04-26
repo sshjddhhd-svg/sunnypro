@@ -60,6 +60,56 @@ Applied after every successful login:
 - `ZAO-STATEV.json` — Tier 3 cookies (optional)
 - `altv.json` — Tier 3 backup (optional)
 
+## Operator Notifications & Stealth (ported from sister bots)
+Three additional opt-in modules live in `includes/`:
+
+| Module | Source bot | Default | Configured via |
+|---|---|---|---|
+| `notiWhenListenError.js` | `white/bot/login/handlerWhenListenHasError.js` | OFF | `notiWhenListenMqttError` block — Telegram bot or Discord webhook |
+| `graphqlVisit.js` | `seikobot/utils/keepalive.js` | ON | (no config — runs every 30–120 min when API is live) |
+| `autoUptime.js` | `white/bot/autoUptime.js` | OFF | `autoUptime` block — external URL pinger for free hosts |
+| `handle/handleRefresh.js` | `seikobot/includes/handle/handleRefresh.js` | ON | (no config — fires on any `log:*` event) |
+| `syncAllGroups.js` | `holo/artifacts/api-server/src/bot/bot.ts` (idea, JS rewrite) | ON | (no config — fires once 8 s after first successful login) |
+| `autoLockGuard.js` | new (anti-raid) | ON | `autoLock` block — threshold, window, auto-unlock minutes |
+
+### Auto-lock raid guard
+`autoLockGuard.record(senderID)` is called from `handleCommand.js` on every
+non-admin command attempt. It tracks attempts in a sliding window and, when
+the threshold is breached, sets `global.lockBot = true` so the existing
+lockBot check at the top of `handleCommand.js` silently drops every
+non-admin command. Admins always bypass the lock.
+
+Defaults: 15 commands in 30 seconds → lock for 10 minutes (then auto-unlock).
+Tune via the `autoLock` block in `ZAO-SETTINGS.json`. Setting
+`unlockAfterMinutes: 0` means the lock stays until manually cleared.
+
+Manual lock control via panel:
+- `GET  /bot/lock`               — returns `{ locked, autoLocked, recentAttempts, … }`
+- `POST /bot/lock { value:true }` — manual lock
+- `POST /bot/lock { value:false }`— manual unlock (also clears the auto-unlock timer)
+
+When the lock fires, an alert is pushed through `notiWhenListenError` if the
+operator has Telegram or Discord channels configured (silent otherwise).
+
+`notiWhenListenError.notify(err, reason)` is invoked from:
+- `handlerWhenListenHasError` (both session-expired and generic listen errors)
+- the global `unhandledRejection` handler when the rejection looks auth-related
+
+It throttles by `minIntervalMinutes` (default 10) so a flood of identical errors
+won't spam channels. Until the operator fills in `botToken` / `webhookUrl` and
+flips `enable: true`, the module is a silent no-op.
+
+`graphqlVisit` rides on the live FCA `httpPost` to call
+`CometNotificationsDropdownQuery` — the same query the real Messenger web client
+issues when a user opens the notifications dropdown. Combined with the keep-alive
+ping (8–18 min) and the simple `?sk=notifications` GET, this gives the session
+three different traffic flavours so it's harder to fingerprint as a bot.
+
+`autoUptime` is for users on Render/Glitch/Replit-deploy free tiers that need an
+external heartbeat. Auto-detects `REPLIT_DEV_DOMAIN` / `REPL_SLUG` if `url` is
+blank. Off by default because Main.js already pings localhost every 10 s for the
+internal watchdog.
+
 ## Dependencies
 Key npm packages: `@neoaz07/nkxfca`, `express`, `fastify`, `mongoose`, `sequelize`,
 `sqlite3`, `canvas`, `jimp`, `ytdl-core`, `axios`, `chalk`, `moment-timezone`
@@ -68,3 +118,13 @@ Key npm packages: `@neoaz07/nkxfca`, `express`, `fastify`, `mongoose`, `sequeliz
 - The workflow runs `node Main.js` on port 5000
 - Main.js automatically restarts ZAO.js on crash (watchdog with exponential backoff)
 - Logs stream to the panel via Server-Sent Events at `/api/logs`
+
+## Recent Bug Fixes
+- **handleCommand.js cooldown crash**: lines 208–210 referenced `client.cooldowns`
+  but `client` was never declared in scope — the destructure on line 26 only
+  exposes `commands` and `cooldowns`. Every command would have thrown
+  `ReferenceError: client is not defined` on first invocation, caught by the
+  outer try/catch and reported as `commandError` to the user. Fixed to use the
+  destructured `cooldowns` directly. The latent bug never surfaced in this
+  session because stale Facebook cookies prevented login from succeeding, so no
+  command ever fired.
