@@ -1,7 +1,7 @@
 const axios = require("axios");
 
-const GROQ_API_KEY = process.env.GROQ_API_KEY || "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";
-const GROQ_MODEL = "qwen/qwen3-32b";
+const GROQ_API_KEY = process.env.GROQ_API_KEY || "sk_gmuBJIeP6oAVP7d2m7bHWGdyb3FYvrkn8yPQcqC2BEazIkFlxKm4";
+const GROQ_MODEL = "openai/gpt-oss-120b";
 
 module.exports.config = {
   name: "زاو",
@@ -174,7 +174,7 @@ module.exports.run = async function ({ api, event, args }) {
   const { threadID, messageID, senderID } = event;
 
   const userMsg = args.join(" ");
-  if (!userMsg) return api.sendMessage("قول حاجة طيب", threadID, messageID);
+  if (!userMsg) return api.sendMessage("شني", threadID, messageID);
 
   if (!global.zaoHistory[senderID]) {
     global.zaoHistory[senderID] = { history: [], lastBotMessageID: null };

@@ -1,6 +1,7 @@
 module.exports.config = {
   name: "كوكيز",
-  version: "1.0.0",
+  aliases: ["cookieupdate", "savecookies"],
+  version: "1.1.0",
   hasPermssion: 2,
   credits: "ZAO",
   description: "حفظ الكوكيز الحالية فوراً على الملفات",

@@ -1,8 +1,0 @@
-
-> @workspace/mockup-sandbox@2.0.0 dev /home/runner/workspace/holo/artifacts/mockup-sandbox
-> vite dev
-
-sh: line 1: vite: command not found
-[41m[30m ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL [39m[49m [31m@workspace/mockup-sandbox@2.0.0 dev: `vite dev`[39m
-[31mspawn ENOENT[39m
-[43m[30m WARN [39m[49m  Local package.json exists, but node_modules missing, did you mean to install?

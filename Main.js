@@ -180,7 +180,21 @@ const server = http.createServer(async (req, res) => {
           if (password !== undefined) cfg.PASSWORD = password;
           atomicWriteFileSync(SETTINGS_PATH, JSON.stringify(cfg, null, 4), 'utf-8');
           if (cookies && cookies.trim()) {
-            JSON.parse(cookies);
+            // [FIX] — validate strictly before overwriting BOTH cookie files.
+            // A bad paste (empty array, wrong shape, plain object, etc.)
+            // used to nuke the live session AND its only backup.
+            let parsed;
+            try { parsed = JSON.parse(cookies); }
+            catch (_) { return jsonRes(res, { error: 'Cookies are not valid JSON.' }, 400); }
+            if (!Array.isArray(parsed) || parsed.length === 0) {
+              return jsonRes(res, { error: 'Cookies must be a non-empty AppState JSON array.' }, 400);
+            }
+            const looksLikeAppState = parsed.every(c =>
+              c && typeof c === 'object' && typeof c.key === 'string' && 'value' in c
+            );
+            if (!looksLikeAppState) {
+              return jsonRes(res, { error: 'AppState entries must each have a "key" and "value".' }, 400);
+            }
             atomicWriteFileSync(STATE_PATH, cookies, 'utf-8');
             atomicWriteFileSync(ALT_PATH, cookies, 'utf-8');
           }

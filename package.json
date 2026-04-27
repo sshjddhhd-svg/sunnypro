@@ -42,7 +42,7 @@
     "sequelize": "^6.37.8",
     "sqlite3": "^5.1.7",
     "string-similarity": "^1.2.2",
-    "yt-search": "^2.13.1",
-    "ytdl-core": "^4.11.5"
+    "youtubei.js": "^17.0.1",
+    "yt-search": "^2.13.1"
   }
 }
