@@ -223,6 +223,13 @@ module.exports = function ({ api, models, Users, Threads, Currencies, globalData
             : "",
         !![]
       );
+    // [FIX Djamel] — set cooldown BEFORE invoking command.run(). Async
+    // commands previously left a window between dispatch and timestamps.set
+    // during which a spamming user could fire the same command 5-10 times
+    // (every concurrent invocation passes the gate, then races for state).
+    // Setting the timestamp up-front gives strict serialisation and stops
+    // bursty per-user fan-out — a major load+ban reducer.
+    timestamps.set(senderID, dateNow);
     var getText2;
     if (
       command.languages &&
@@ -295,7 +302,8 @@ module.exports = function ({ api, models, Users, Threads, Currencies, globalData
           ]);
         });
       }
-      timestamps.set(senderID, dateNow);
+      // [FIX Djamel] — cooldown now set BEFORE command.run (above), so
+      // we don't double-write here. Kept the comment for future readers.
       if (DeveloperMode == !![])
         logger(
           global.getText(

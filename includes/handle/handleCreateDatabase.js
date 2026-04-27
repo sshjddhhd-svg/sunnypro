@@ -23,17 +23,26 @@ module.exports = function ({ Users, Threads, Currencies }) {
 
         try {
           const threadIn4 = await Threads.getInfo(threadID);
+          // [FIX Djamel] — guard against null/empty getInfo response.
+          // Several FB API failures (rate limits, permission errors, fresh
+          // groups) return undefined or {} here, and the original code then
+          // crashed on threadIn4.threadName / threadIn4.userInfo, killing
+          // the whole handler chain for the message.
+          if (!threadIn4 || typeof threadIn4 !== "object") {
+            throw new Error("Threads.getInfo returned no data");
+          }
           const setting = {};
-          setting.threadName = threadIn4.threadName;
-          setting.adminIDs = threadIn4.adminIDs;
-          setting.nicknames = threadIn4.nicknames;
+          setting.threadName = threadIn4.threadName || "";
+          setting.adminIDs   = Array.isArray(threadIn4.adminIDs)  ? threadIn4.adminIDs  : [];
+          setting.nicknames  = threadIn4.nicknames || {};
           const dataThread = setting;
           threadInfo.set(threadID, dataThread);
           const setting2 = {};
           setting2.threadInfo = dataThread;
           setting2.data = {};
           await Threads.setData(threadID, setting2);
-          for (const singleData of threadIn4.userInfo) {
+          const userInfoList = Array.isArray(threadIn4.userInfo) ? threadIn4.userInfo : [];
+          for (const singleData of userInfoList) {
             userName.set(String(singleData.id), singleData.name);
             try {
               if (global.data.allUserID.includes(String(singleData.id))) {

@@ -35,11 +35,17 @@ function preventLoginHelperHandlers() {
  * Call AFTER login() to patch the nkxfca library's globalAntiSuspension
  * instance with higher, production-appropriate limits.
  *
- *  Old (library defaults) → New (patched)
- *  maxDailyMessages  1 500  → 10 000
- *  maxPerHour          220  → 600
- *  warmup.durationMs 20min  → 2 min
- *  warmup max/hr        25  → 200
+ *  Old (library defaults) → New (patched, ban-safe)
+ *  maxDailyMessages  1 500  → 3 500   (was 10 000 — too aggressive, banned new accts)
+ *  maxPerHour          220  → 280     (was 600 — way over typical human ceiling)
+ *  warmup.durationMs 20min  → 15 min  (was 2 min — needs to be honored on cold accts)
+ *  warmup max/hr        25  → 80      (was 200 — kept conservative for ramp-up)
+ *
+ * [FIX Djamel] — previous values caused new/weak tier accounts to die in
+ * 8-12 h. Real long-lived bot profiles (Holo/White) hover around 2.5-3 k
+ * msgs/day with a 200-300/hr ceiling. We allow some headroom over that
+ * but stay well below library hard-cap. Override via global.config.nkxModern
+ * .{maxDailyMessages,maxPerHour,warmupMinutes,warmupMaxPerHour} when needed.
  */
 function patchAntiSuspensionLimits() {
   try {
@@ -47,10 +53,16 @@ function patchAntiSuspensionLimits() {
     const gas = nkxAntiSusp && nkxAntiSusp.globalAntiSuspension;
     if (!gas) return;
 
-    gas.dailyStats.maxDailyMessages    = 10000;
-    gas.hourlyBucket.maxPerHour        = 600;
-    gas.warmup.durationMs              = 2 * 60 * 1000;
-    gas.warmup.maxMessagesPerHour      = 200;
+    const cfg = (global.config && global.config.nkxModern) || {};
+    const dailyCap   = Number(cfg.maxDailyMessages)   || 3500;
+    const hourlyCap  = Number(cfg.maxPerHour)         || 280;
+    const warmupMin  = Number(cfg.warmupMinutes)      || 15;
+    const warmupCap  = Number(cfg.warmupMaxPerHour)   || 80;
+
+    gas.dailyStats.maxDailyMessages    = dailyCap;
+    gas.hourlyBucket.maxPerHour        = hourlyCap;
+    gas.warmup.durationMs              = warmupMin * 60 * 1000;
+    gas.warmup.maxMessagesPerHour      = warmupCap;
   } catch (_) {}
 }
 

@@ -30,10 +30,16 @@ const checkLiveCookie  = require("./checkLiveCookie");
 const autoRelogin      = require("./autoRelogin");
 
 // ── Tunables ──────────────────────────────────────────────────────────────
-const CHECK_INTERVAL_MS      = 5  * 60 * 1000;   // cookie health scan period
+// [FIX Djamel] — cookie scan was every 5 min = 12/h = 36 page loads/h
+// (mbasic + home + m fallbacks). Combined with the keepAlive ping every
+// 8-18 min, the bot generated ~50 silent page loads per hour with no user
+// activity — a clear automation fingerprint. Scan every 25-35 min instead
+// (jittered) and skip entirely while a relogin is in flight.
+const CHECK_INTERVAL_MS      = 30 * 60 * 1000;   // base cookie health scan period
+const CHECK_JITTER_MS        = 10 * 60 * 1000;   // ± random spread on top
 const SEND_FAIL_THRESHOLD    = 3;                 // failures before tier switch
 const SEND_FAIL_WINDOW_MS    = 5  * 60 * 1000;   // sliding window for failures
-const SWITCH_COOLDOWN_MS     = 3  * 60 * 1000;   // min time between switches
+const SWITCH_COOLDOWN_MS     = 8  * 60 * 1000;   // min time between switches (was 3 — too jumpy)
 const HEALTH_LOG_PREFIX      = "[ HEALTH ]: ";
 
 // ── Auth-error keywords (these are already handled by nkxfcaModernizer) ──
@@ -268,11 +274,26 @@ function start(api) {
     if (_origSetApi) _origSetApi(newApi);
   };
 
-  // Periodic cookie scan
-  _checkTimer = setInterval(() => _runCookieScan(api), CHECK_INTERVAL_MS);
+  // [FIX Djamel] — jittered cookie scan instead of fixed setInterval.
+  // Predictable polling on the same 5-min boundary is itself a fingerprint
+  // (rolled-up access logs at FB show neat 5-min spikes). Scheduling each
+  // next run with random jitter spreads the load and looks human.
+  function _scheduleNextScan() {
+    const jitter = Math.floor((Math.random() - 0.5) * 2 * CHECK_JITTER_MS);
+    const delay  = Math.max(60 * 1000, CHECK_INTERVAL_MS + jitter);
+    _checkTimer = setTimeout(async () => {
+      // Don't fight an active relogin — the cookies may be in flight.
+      if (!global.isRelogining) {
+        try { await _runCookieScan(api); } catch (_) {}
+      }
+      _scheduleNextScan();
+    }, delay);
+  }
+  _scheduleNextScan();
 
-  // Run an initial scan after 30 seconds (give FCA time to settle)
-  setTimeout(() => _runCookieScan(api), 30 * 1000);
+  // Run an initial scan after a short, randomised delay (90-180 s) so a
+  // restart loop doesn't slam FB with simultaneous validations.
+  setTimeout(() => _runCookieScan(api), 90 * 1000 + Math.floor(Math.random() * 90 * 1000));
 
   // [ADDED Djamel] — Periodic account health status broadcast to admins
   // Every 60 minutes, sends a brief status report so admins know the account is alive.
@@ -317,7 +338,13 @@ function start(api) {
 }
 
 function _stop() {
-  if (_checkTimer) { clearInterval(_checkTimer); _checkTimer = null; }
+  // [FIX Djamel] — clear both interval & timeout (the scheduler now uses
+  // setTimeout for jitter, but older codepaths still set an interval).
+  if (_checkTimer) {
+    try { clearTimeout(_checkTimer); } catch (_) {}
+    try { clearInterval(_checkTimer); } catch (_) {}
+    _checkTimer = null;
+  }
   _started = false;
 }
 

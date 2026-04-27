@@ -201,10 +201,23 @@ async function forceTierSwitch(api, reason) {
   // at Tier 2 forever and never reach Tier 3. Now we walk forward through
   // every remaining tier in the same call so a single forceTierSwitch
   // truly exhausts the account pool.
+  // [FIX Djamel #2] — added a small per-tier cooldown between attempts so
+  // back-to-back tier walks don't generate three near-simultaneous logins
+  // from the same IP (Facebook's login throttle treats that as a brute-force
+  // burst and locks every account in the pool).
+  const PER_TIER_DELAY_MS = 12 * 1000;
   let loginResult = null;
   let tierInfo    = null;
+  let firstAttemptInWalk = true;
   for (let nextIdx = idx + 1; nextIdx < TIERS.length; nextIdx++) {
     tierInfo = TIERS[nextIdx];
+    if (!firstAttemptInWalk) {
+      const wait = PER_TIER_DELAY_MS + Math.floor(Math.random() * 4000);
+      log("info", `forceTierSwitch: spacing tier attempts — waiting ${Math.round(wait/1000)}s before Tier ${tierInfo.tier}.`);
+      await new Promise(r => setTimeout(r, wait));
+    }
+    firstAttemptInWalk = false;
+
     log("warn", `forceTierSwitch → Tier ${tierInfo.tier} (${tierInfo.stateFile}) | reason: ${reason || "send failures"}`);
     notifyAdmins(api,
       `🔄 ACCOUNT HEALTH MONITOR\n\n` +

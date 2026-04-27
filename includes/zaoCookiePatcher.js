@@ -28,11 +28,13 @@ const { atomicWriteFileSync } = (() => {
  * suspension events, which makes the circuit-breaker trip unnecessarily
  * and halts the bot for 45 minutes for no real reason.
  */
+// [FIX Djamel] — tightened false-positive list. The previous version
+// silently swallowed "something went wrong" and "please try again later",
+// both of which Facebook returns alongside a real soft-block when the
+// account is being throttled. Removing them lets the circuit breaker
+// trip on those genuine signals and protects the account.
 const FALSE_POSITIVE_SIGNALS = new Set([
-  "something went wrong",
-  "please try again later",
   "feature temporarily unavailable",
-  "feature temporarily blocked",
   "this content isn't available",
 ]);
 

@@ -18,8 +18,13 @@ const axios = require("axios");
  *   null  = uncertain — network error, let FCA decide
  */
 module.exports = async function checkLiveCookie(cookie, userAgent) {
-  const UA = userAgent ||
-    "Mozilla/5.0 (Linux; Android 12; M2102J20SG) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.0.0 Mobile Safari/537.36";
+  // [FIX Djamel] — fall back to the configured FCAOption.userAgent so
+  // the validation request matches the persona FCA uses for everything
+  // else (desktop). The old hard-coded mobile Android UA looked
+  // suspicious back-to-back with desktop login traffic from the same IP.
+  const UA = userAgent
+    || (global.config && global.config.FCAOption && global.config.FCAOption.userAgent)
+    || "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
   const DEAD_SIGNALS = [
     'id="login_form"',

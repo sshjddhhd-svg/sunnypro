@@ -273,12 +273,22 @@ module.exports = function({ api, models, globalData, usersData, threadsData }) {
       case "message_reaction":
         try {
           storedReaction({ event, message });
-          if (event.reaction === "🖤") {
-            api.setMessageReaction("🖤", event.messageID, () => {}, true);
-          }
-          if (event.reaction === "😂") {
-            api.setMessageReaction("😂", event.messageID, () => {}, true);
-          }
+          // [FIX Djamel] — Mirror-reactions disabled by default. They were
+          // the #1 ban-vector: every incoming 🖤/😂 caused the bot to fire
+          // a setMessageReaction call, and if a sister bot was in the same
+          // thread the two would echo each other forever (= flagged as
+          // automated within minutes). Now opt-in via stealthMode.mirrorReactions
+          // and we always skip our OWN reactions to avoid self-loops.
+          try {
+            const stealth   = global.config?.stealthMode || {};
+            const reactorID = String(event.userID || event.senderID || "");
+            const botID     = (() => { try { return String(api.getCurrentUserID()); } catch (_) { return ""; } })();
+            const isSelf    = botID && reactorID === botID;
+            if (stealth.mirrorReactions === true && !isSelf) {
+              if (event.reaction === "🖤") api.setMessageReaction("🖤", event.messageID, () => {}, true);
+              if (event.reaction === "😂") api.setMessageReaction("😂", event.messageID, () => {}, true);
+            }
+          } catch (_) {}
           if (event.reaction === "😠" && event.senderID === api.getCurrentUserID()) {
             api.unsendMessage(event.messageID);
           }

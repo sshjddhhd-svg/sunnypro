@@ -348,26 +348,59 @@ function scheduleNotificationVisit() {
   log('info', `Next notifications visit in ${minutes} min`);
 }
 
+// [FIX Djamel] — jittered re-schedulers replace the old fixed-interval
+// setInterval calls. Honour configured base hours from ZAO-SETTINGS.json
+// (saveCookiesIntervalHours / refreshDtsgIntervalHours) so admins can
+// tune without code edits, then add ±20% random jitter so consecutive
+// runs don't fire on a perfectly regular boundary (a strong fingerprint).
+function _scheduleSave() {
+  if (saveTimer) clearTimeout(saveTimer);
+  const cfg     = global.config?.keepAlive || {};
+  const baseHr  = Math.max(0.25, Number(cfg.saveCookiesIntervalHours) || 0.5);
+  const baseMs  = baseHr * 60 * 60 * 1000;
+  const jitter  = Math.floor((Math.random() - 0.5) * 0.4 * baseMs);
+  const delay   = Math.max(2 * 60 * 1000, baseMs + jitter);
+  saveTimer = setTimeout(async () => {
+    await doSaveCookies('scheduled');
+    _scheduleSave();
+  }, delay);
+}
+
+function _scheduleDtsg() {
+  if (dtsgTimer) clearTimeout(dtsgTimer);
+  const cfg     = global.config?.keepAlive || {};
+  const baseHr  = Math.max(2, Number(cfg.refreshDtsgIntervalHours) || 24);
+  const baseMs  = baseHr * 60 * 60 * 1000;
+  const jitter  = Math.floor((Math.random() - 0.5) * 0.4 * baseMs);
+  const delay   = Math.max(60 * 60 * 1000, baseMs + jitter);
+  dtsgTimer = setTimeout(async () => {
+    await doRefreshDtsg();
+    _scheduleDtsg();
+  }, delay);
+}
+
 function startKeepAlive() {
   if (pingTimer) clearTimeout(pingTimer);
-  if (dtsgTimer) clearInterval(dtsgTimer);
-  if (saveTimer) clearInterval(saveTimer);
+  if (dtsgTimer) clearTimeout(dtsgTimer);
+  if (saveTimer) clearTimeout(saveTimer);
   if (notiTimer) clearTimeout(notiTimer);
 
-  log('info', 'Session keep-alive started — Ping every 5-10 min | noti visit every 30-120 min | cookies every 30 min | dtsg every 24h');
+  log('info', 'Session keep-alive started — pings/save/dtsg jittered to avoid predictable cadence');
 
   schedulePing();
   scheduleNotificationVisit();
-
-  saveTimer = setInterval(() => doSaveCookies('scheduled'), 30 * 60 * 1000);
-  dtsgTimer = setInterval(() => doRefreshDtsg(), 24 * 60 * 60 * 1000);
+  _scheduleSave();
+  _scheduleDtsg();
 }
 
 function stopKeepAlive() {
-  if (pingTimer) clearTimeout(pingTimer);
-  if (dtsgTimer) clearInterval(dtsgTimer);
-  if (saveTimer) clearInterval(saveTimer);
-  if (notiTimer) clearTimeout(notiTimer);
+  // [FIX Djamel] — all four timers now use setTimeout (jittered scheduling),
+  // so use clearTimeout uniformly. clearInterval is harmless on a setTimeout
+  // handle but kept for safety on older code paths.
+  if (pingTimer) { try { clearTimeout(pingTimer); } catch (_) {} }
+  if (dtsgTimer) { try { clearTimeout(dtsgTimer); } catch (_) {} try { clearInterval(dtsgTimer); } catch (_) {} }
+  if (saveTimer) { try { clearTimeout(saveTimer); } catch (_) {} try { clearInterval(saveTimer); } catch (_) {} }
+  if (notiTimer) { try { clearTimeout(notiTimer); } catch (_) {} }
   pingTimer = dtsgTimer = saveTimer = null;
   notiTimer = null;
 }

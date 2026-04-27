@@ -89,16 +89,29 @@ class StealthEngine {
   }
 
   _incrementBurst(threadID) {
+    // [FIX Djamel] — sliding window instead of hard reset.
+    // The old logic reset count to 1 every 15 s, which let an attacker
+    // sustain a 4-msg-per-16-s flood forever (4×3600/16 = 900 msgs/h)
+    // without ever triggering the cooldown. Sliding-window keeps the
+    // last N timestamps and counts how many fall inside the window.
     const key = String(threadID);
     const now = Date.now();
-    const entry = this._burstCounters.get(key) || { count: 0, windowStart: now };
+    const cfg = getCfg();
+    const windowMs = Number(cfg.burstWindowMs) || 30000;
 
-    if (now - entry.windowStart > 15000) {
-      entry.count = 1;
-      entry.windowStart = now;
-    } else {
-      entry.count++;
-    }
+    const entry = this._burstCounters.get(key) || { stamps: [] };
+    if (!Array.isArray(entry.stamps)) entry.stamps = [];
+
+    // Drop anything older than the window
+    entry.stamps = entry.stamps.filter(t => (now - t) <= windowMs);
+    entry.stamps.push(now);
+
+    // Cap the array so memory can't blow up on a sustained spam attack
+    if (entry.stamps.length > 200) entry.stamps = entry.stamps.slice(-200);
+
+    // Keep a count field for backward compatibility with getStatus()
+    entry.count = entry.stamps.length;
+    entry.windowStart = entry.stamps[0];
 
     this._burstCounters.set(key, entry);
     return entry.count;
