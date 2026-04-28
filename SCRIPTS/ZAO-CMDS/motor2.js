@@ -19,9 +19,11 @@ function saveState() {
     const toSave = {};
     for (const [tid, d] of Object.entries(global.motorData2 || {})) {
       toSave[tid] = {
-        status:  d.status,
-        message: d.message,
-        time:    d.time
+        status:      d.status,
+        message:     d.message,
+        time:        d.time,
+        randomTime:  d.randomTime  || false,
+        randomRange: d.randomRange || null
       };
     }
     fs.writeFileSync(MOTOR2_FILE, JSON.stringify(toSave, null, 2), "utf8");
@@ -78,10 +80,12 @@ module.exports.onLoad = function ({ api }) {
   const saved = loadState();
   for (const [tid, d] of Object.entries(saved)) {
     global.motorData2[tid] = {
-      status:   d.status  || false,
-      message:  d.message || null,
-      time:     d.time    || null,
-      interval: null
+      status:      d.status      || false,
+      message:     d.message     || null,
+      time:        d.time        || null,
+      randomTime:  d.randomTime  || false,
+      randomRange: d.randomRange || null,
+      interval:    null
     };
     if (d.status && d.message && d.time) {
       startInterval(api, tid);
@@ -114,7 +118,7 @@ module.exports.run = async function ({ api, event, args, permssion }) {
   }
 
   if (!global.motorData2[threadID]) {
-    global.motorData2[threadID] = { status: false, message: null, time: null, interval: null };
+    global.motorData2[threadID] = { status: false, message: null, time: null, randomTime: false, randomRange: null, interval: null };
   }
   const data = global.motorData2[threadID];
 
@@ -128,13 +132,25 @@ module.exports.run = async function ({ api, event, args, permssion }) {
 
   if (args[0] === "وقت") {
     const input = args[1];
-    if (!input) return api.sendMessage("⚠️ حدد الوقت.\nمثال: محرك2 وقت 30s", threadID, messageID);
+    if (!input) return api.sendMessage("⚠️ حدد الوقت.\nمثال: محرك2 وقت 30s\n🎲 محرك2 وقت r — وقت عشوائي بين 12s و 50s", threadID, messageID);
+
+    if (String(input).trim().toLowerCase() === "r") {
+      data.randomTime  = true;
+      data.randomRange = { min: 12000, max: 50000 };
+      data.time        = 31000;
+      saveState();
+      return api.sendMessage("🎲 تم تفعيل الوقت العشوائي للمحرك الذكي\nكل رسالة سترسل بفاصل عشوائي بين 12s و 50s", threadID, messageID);
+    }
+
     let ms = 0;
     if (input.endsWith("s"))      ms = parseFloat(input) * 1000;
     else if (input.endsWith("m")) ms = parseFloat(input) * 60 * 1000;
-    else return api.sendMessage("⚠️ استخدم s للثواني أو m للدقائق.", threadID, messageID);
+    else return api.sendMessage("⚠️ استخدم s للثواني أو m للدقائق.\n🎲 أو r للعشوائي", threadID, messageID);
     if (ms < 5000) return api.sendMessage("⚠️ الحد الأدنى 5 ثواني.", threadID, messageID);
-    data.time = ms;
+
+    data.time        = ms;
+    data.randomTime  = false;
+    data.randomRange = null;
     saveState();
     return api.sendMessage(`✅ تم حفظ الوقت: ${input}`, threadID, messageID);
   }
@@ -169,11 +185,14 @@ module.exports.run = async function ({ api, event, args, permssion }) {
 
   if (args[0] === "حالة") {
     const active = data.status === true;
+    const timeStr = data.randomTime
+      ? `🎲 عشوائي ${(data.randomRange?.min || 12000) / 1000}s - ${(data.randomRange?.max || 50000) / 1000}s`
+      : (data.time ? data.time / 1000 + "s" : "غير محدد");
     return api.sendMessage(
       `📊 حالة المحرك الذكي (هذه المجموعة)\n\n` +
       `الحالة  : ${active ? "✅ مفعّل" : "🔴 موقوف"}\n` +
       `الرسالة : ${data.message || "غير محددة"}\n` +
-      `الوقت   : ${data.time ? data.time / 1000 + "s" : "غير محدد"}`,
+      `الوقت   : ${timeStr}`,
       threadID, messageID
     );
   }

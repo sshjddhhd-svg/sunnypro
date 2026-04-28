@@ -1,10 +1,4 @@
-modules = ["nodejs-20", "web"]
-[agent]
-expertMode = true
-stack = "BEST_EFFORT_FALLBACK"
-
-[nix]
-channel = "stable-25_05"
+modules = ["nodejs-20"]
 
 [workflows]
 runButton = "Project"
@@ -34,6 +28,5 @@ outputType = "webview"
 localPort = 5000
 externalPort = 80
 
-[deployment]
-deploymentTarget = "vm"
-run = ["node", "Main.js"]
+[agent]
+expertMode = true

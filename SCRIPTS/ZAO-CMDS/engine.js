@@ -57,16 +57,28 @@ module.exports.run = async function ({ api, event, args, permssion }) {
   // ── وقت المحرك ──
   else if (args[0] === "وقت") {
     const input = args[1];
-    if (!input) return api.sendMessage("⚠️ حدد الوقت.\nمثال: محرك وقت 30s أو محرك وقت 0.5m", threadID, messageID);
+    if (!input) return api.sendMessage(
+      "⚠️ حدد الوقت.\nمثال: محرك وقت 30s أو محرك وقت 0.5m\n🎲 محرك وقت r — وقت عشوائي بين 12s و 50s",
+      threadID, messageID
+    );
+
+    if (String(input).trim().toLowerCase() === "r") {
+      data.randomTime  = true;
+      data.randomRange = { min: 12000, max: 50000 };
+      data.time        = 31000;
+      return api.sendMessage("🎲 تم تفعيل الوقت العشوائي للمحرك\nكل رسالة سترسل بفاصل عشوائي بين 12s و 50s", threadID, messageID);
+    }
 
     let ms = 0;
     if (input.endsWith("s")) ms = parseFloat(input) * 1000;
     else if (input.endsWith("m")) ms = parseFloat(input) * 60 * 1000;
-    else return api.sendMessage("⚠️ صيغة الوقت غير صحيحة.\nاستخدم s للثواني أو m للدقائق.\nمثال: 30s أو 0.5m", threadID, messageID);
+    else return api.sendMessage("⚠️ صيغة الوقت غير صحيحة.\nاستخدم s للثواني أو m للدقائق.\nمثال: 30s أو 0.5m\n🎲 أو r للعشوائي", threadID, messageID);
 
     if (ms < 5000) return api.sendMessage("⚠️ الحد الأدنى للوقت هو 5 ثواني.", threadID, messageID);
 
-    data.time = ms;
+    data.time        = ms;
+    data.randomTime  = false;
+    data.randomRange = null;
     return api.sendMessage(`✅ تم حفظ وقت المحرك: ${input}`, threadID, messageID);
   }
 

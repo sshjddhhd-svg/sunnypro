@@ -111,8 +111,19 @@ function scheduleMotorLoop({ api, threadID, getData, onDisable }) {
     const data = getData();
     const shouldSend = typeof data.shouldSend === "function" ? data.shouldSend : null;
 
-    const base = Math.max(5000, Number(data.time) || 0);
-    const delay = backoffMs > 0 ? backoffMs : pickJitter(base);
+    let delay;
+    if (backoffMs > 0) {
+      delay = backoffMs;
+    } else if (data.randomTime && data.randomRange &&
+               Number.isFinite(data.randomRange.min) && Number.isFinite(data.randomRange.max) &&
+               data.randomRange.max >= data.randomRange.min) {
+      const lo = Math.max(1000, data.randomRange.min);
+      const hi = Math.max(lo, data.randomRange.max);
+      delay = lo + Math.floor(Math.random() * (hi - lo + 1));
+    } else {
+      const base = Math.max(5000, Number(data.time) || 0);
+      delay = pickJitter(base);
+    }
 
     pendingTimer = setTimeout(async () => {
       pendingTimer = null;

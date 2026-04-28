@@ -1,30 +1,4 @@
-const fs = require("fs-extra");
-const path = require("path");
-
-const LOCKS_FILE = path.join(__dirname, "../../data/nm-locks.json");
-
-function loadLocks() {
-  try {
-    fs.ensureDirSync(path.dirname(LOCKS_FILE));
-    if (fs.existsSync(LOCKS_FILE)) {
-      const raw = fs.readFileSync(LOCKS_FILE, "utf8");
-      const obj = JSON.parse(raw);
-      const map = new Map();
-      for (const [k, v] of Object.entries(obj)) map.set(k, v);
-      return map;
-    }
-  } catch (_) {}
-  return new Map();
-}
-
-function saveLocks(locksMap) {
-  try {
-    fs.ensureDirSync(path.dirname(LOCKS_FILE));
-    const obj = {};
-    for (const [k, v] of locksMap.entries()) obj[k] = v;
-    fs.writeFileSync(LOCKS_FILE, JSON.stringify(obj, null, 2), "utf8");
-  } catch (_) {}
-}
+const { loadLocks, saveLocks } = require("../../includes/nameLocks");
 
 function setTitle(api, name, threadID) {
   return new Promise((resolve, reject) => {

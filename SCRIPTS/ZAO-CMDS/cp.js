@@ -3,9 +3,12 @@
  * @debugger Djamel — Fixed handleEvent crash: senderID.toString() on undefined
  *   for log:* events. Added type guard and optional-chain safety on ADMINBOT.
  */
+const { getLock, setLock, clearLock, getLocks } = require("../../includes/nameLocks");
+const NickLocks = require("../../includes/nicknameLocks");
+
 module.exports.config = {
   name: "التحكم",
-  version: "1.1.0",
+  version: "1.2.0",
   hasPermssion: 2,
   credits: "Saint",
   description: "إدارة الغروبات وطلبات المراسلة",
@@ -26,31 +29,44 @@ module.exports.onLoad = () => {
   global.lastActivity = global.lastActivity || {};
 };
 
+function fmtMotorTime(d) {
+  if (!d) return "—";
+  if (d.randomTime && d.randomRange) {
+    return `🎲 ${(d.randomRange.min || 12000) / 1000}s-${(d.randomRange.max || 50000) / 1000}s`;
+  }
+  return d.time ? d.time / 1000 + "s" : "—";
+}
+
 function buildGroupMenu(selected, tid, statusMsg) {
   const m1 = global.motorData[tid];
   const m2 = global.motorData2[tid];
+  const lockedName = getLock(tid);
+  const nickLock   = NickLocks.getLock(tid);
   return (
     (statusMsg ? statusMsg + "\n\n" : "")
     + `👥 ${selected.name}\n🆔 ${tid}\n`
+    + (lockedName ? `🔒 اسم مقفول: "${lockedName}"\n` : "")
+    + (nickLock   ? `🔒 كنية مقفولة (${nickLock.scope === "bot" ? "بوت" : "الجميع"}): "${nickLock.nickname}"\n` : "")
     + `━━━━━━━━━━━━━━━\n`
     + `📍 المحرك العادي: ${m1?.status ? "🟢 شغّال" : "⚫ متوقف"}\n`
-    + `   📝 "${m1?.message || "لم تُضبط"}" · ⏱ ${m1?.time ? m1.time / 1000 + "s" : "—"}\n\n`
+    + `   📝 "${m1?.message || "لم تُضبط"}" · ⏱ ${fmtMotorTime(m1)}\n\n`
     + `📍 المحرك الذكي: ${m2?.status ? "🟢 شغّال" : "⚫ متوقف"}\n`
-    + `   📝 "${m2?.message || "لم تُضبط"}" · ⏱ ${m2?.time ? m2.time / 1000 + "s" : "—"}\n`
+    + `   📝 "${m2?.message || "لم تُضبط"}" · ⏱ ${fmtMotorTime(m2)}\n`
     + `━━━━━━━━━━━━━━━\n`
     + "1 - تفعيل المحرك العادي\n"
     + "2 - إيقاف المحرك العادي\n"
     + "3 - ضبط رسالة المحرك العادي\n"
-    + "4 - ضبط وقت المحرك العادي\n"
+    + "4 - ضبط وقت المحرك العادي (s/m أو r للعشوائي)\n"
     + "5 - تفعيل المحرك الذكي\n"
     + "6 - إيقاف المحرك الذكي\n"
     + "7 - ضبط رسالة المحرك الذكي\n"
-    + "8 - ضبط وقت المحرك الذكي\n"
+    + "8 - ضبط وقت المحرك الذكي (s/m أو r للعشوائي)\n"
     + "9 - إرسال رسالة للغروب\n"
     + "10 - إخراج البوت من الغروب\n"
-    + "11 - تغيير اسم الغروب\n"
-    + "12 - تغيير لقب البوت (nickname)\n"
-    + "13 - تغيير لقب عضو (بالرد/منشن)\n"
+    + `11 - ${lockedName ? "تغيير/إيقاف قفل اسم الغروب 🔒" : "قفل اسم الغروب 🔒"}\n`
+    + `12 - ${nickLock?.scope === "bot" ? "تغيير/إيقاف قفل كنية البوت 🔒" : "قفل كنية البوت 🔒"}\n`
+    + "13 - تغيير لقب عضو (بالرد/منشن) — مرة واحدة\n"
+    + `14 - ${nickLock?.scope === "all" ? "تغيير/إيقاف قفل كنية الجميع 🔒" : "قفل كنية الجميع 🔒"}\n`
     + "━━━━━━━━━━━━━━━\n↩️ رد بالرقم (أو اكتب اغلاق للخروج)"
   );
 }
@@ -374,7 +390,7 @@ module.exports.handleEvent = async function ({ api, event }) {
       });
 
     } else if (input === "4") {
-      api.sendMessage(`⏱️ أرسل الوقت للمحرك العادي (مثال: 30s أو 2m):`, threadID, (err, info) => {
+      api.sendMessage(`⏱️ أرسل الوقت للمحرك العادي (مثال: 30s أو 2m)\n🎲 أو اكتب r لوقت عشوائي بين 12s و 50s:`, threadID, (err, info) => {
         if (!err) global.chatsSession[senderID] = { step: "motor_set_time", selected, motorType: 1, botMessageID: info.messageID };
       });
 
@@ -398,7 +414,7 @@ module.exports.handleEvent = async function ({ api, event }) {
       });
 
     } else if (input === "8") {
-      api.sendMessage(`⏱️ أرسل الوقت للمحرك الذكي (مثال: 30s أو 2m):`, threadID, (err, info) => {
+      api.sendMessage(`⏱️ أرسل الوقت للمحرك الذكي (مثال: 30s أو 2m)\n🎲 أو اكتب r لوقت عشوائي بين 12s و 50s:`, threadID, (err, info) => {
         if (!err) global.chatsSession[senderID] = { step: "motor_set_time", selected, motorType: 2, botMessageID: info.messageID };
       });
 
@@ -413,22 +429,39 @@ module.exports.handleEvent = async function ({ api, event }) {
       });
 
     } else if (input === "11") {
-      api.sendMessage(`✏️ أرسل الاسم الجديد للغروب "${selected.name}":`, threadID, (err, info) => {
+      const cur = getLock(tid);
+      const prompt = cur
+        ? `🔒 الاسم مقفول حالياً على: "${cur}"\n\n✏️ أرسل اسماً جديداً لاستبدال القفل\n🛑 أو اكتب: ايقاف — لإلغاء القفل`
+        : `🔒 سيتم قفل اسم الغروب وحمايته من التغيير.\n\n✏️ أرسل الاسم الجديد للغروب "${selected.name}":`;
+      api.sendMessage(prompt, threadID, (err, info) => {
         if (!err) global.chatsSession[senderID] = { step: "group_set_name", selected, botMessageID: info.messageID };
       });
 
     } else if (input === "12") {
-      api.sendMessage(`✏️ أرسل اللقب الجديد للبوت في "${selected.name}":`, threadID, (err, info) => {
-        if (!err) global.chatsSession[senderID] = { step: "group_set_bot_nick", selected, botMessageID: info.messageID };
+      const cur = NickLocks.getLock(tid);
+      const prompt = (cur && cur.scope === "bot")
+        ? `🔒 كنية البوت مقفولة حالياً على: "${cur.nickname}"\n\n✏️ أرسل كنية جديدة لاستبدال القفل\n🛑 أو اكتب: ايقاف — لإلغاء القفل`
+        : `🔒 سيتم قفل كنية البوت فقط وحمايتها.\n⚡ أي تغيير سيُعاد تلقائياً\n\n✏️ أرسل الكنية الجديدة للبوت في "${selected.name}":`;
+      api.sendMessage(prompt, threadID, (err, info) => {
+        if (!err) global.chatsSession[senderID] = { step: "group_lock_bot_nick", selected, botMessageID: info.messageID };
       });
 
     } else if (input === "13") {
-      api.sendMessage(`✏️ اعمل منشن للعضو أو رد على رسالته مع اللقب الجديد:`, threadID, (err, info) => {
+      api.sendMessage(`✏️ اعمل منشن للعضو أو رد على رسالته مع اللقب الجديد (تغيير لمرة واحدة):`, threadID, (err, info) => {
         if (!err) global.chatsSession[senderID] = { step: "group_set_user_nick", selected, botMessageID: info.messageID };
       });
 
+    } else if (input === "14") {
+      const cur = NickLocks.getLock(tid);
+      const prompt = (cur && cur.scope === "all")
+        ? `🔒 كنية الجميع مقفولة حالياً على: "${cur.nickname}"\n\n✏️ أرسل كنية جديدة لاستبدال القفل\n🛑 أو اكتب: ايقاف — لإلغاء القفل`
+        : `🔒 سيتم قفل كنيات جميع أعضاء الغروب وحمايتها.\n⏱ معدل التطبيق: كل 0.5s\n⚡ أي تغيير سيُعاد تلقائياً\n\n✏️ أرسل الكنية الجديدة لجميع الأعضاء في "${selected.name}":`;
+      api.sendMessage(prompt, threadID, (err, info) => {
+        if (!err) global.chatsSession[senderID] = { step: "group_lock_all_nick", selected, botMessageID: info.messageID };
+      });
+
     } else {
-      _send("⚠️ اختار رقماً من 1 إلى 13.");
+      _send("⚠️ اختار رقماً من 1 إلى 14.");
     }
   }
 
@@ -447,13 +480,47 @@ module.exports.handleEvent = async function ({ api, event }) {
   // ─── ضبط وقت المحرك ──────────────────────────────────────────────────────
   else if (step === "motor_set_time") {
     const { selected, motorType } = session;
-    const ms = parseTime(input);
-    if (!ms || ms < 5000) return api.sendMessage("❌ وقت غير صحيح. مثال: 30s أو 2m (الحد الأدنى 5s)", threadID);
     const store = motorType === 1 ? global.motorData : global.motorData2;
-    if (!store[selected.threadID]) store[selected.threadID] = { status: false, message: null, time: null, interval: null };
-    store[selected.threadID].time = ms;
-    if (motorType === 1 && typeof global._saveMotorState === "function") { try { global._saveMotorState(); } catch (_) {} }
-    api.sendMessage(`✅ تم ضبط الوقت في "${selected.name}": ${input}`, threadID);
+    if (!store[selected.threadID]) store[selected.threadID] = { status: false, message: null, time: null, randomTime: false, randomRange: null, interval: null };
+    const target = store[selected.threadID];
+
+    const isRandom = String(input).trim().toLowerCase() === "r";
+    if (isRandom) {
+      target.randomTime  = true;
+      target.randomRange = { min: 12000, max: 50000 };
+      target.time        = 31000;
+      api.sendMessage(`🎲 تم تفعيل الوقت العشوائي في "${selected.name}"\nكل رسالة سترسل بفاصل عشوائي بين 12s و 50s`, threadID);
+    } else {
+      const ms = parseTime(input);
+      if (!ms || ms < 5000) return api.sendMessage("❌ وقت غير صحيح. مثال: 30s أو 2m (الحد الأدنى 5s)\n🎲 أو اكتب r للعشوائي", threadID);
+      target.time        = ms;
+      target.randomTime  = false;
+      target.randomRange = null;
+      api.sendMessage(`✅ تم ضبط الوقت في "${selected.name}": ${input}`, threadID);
+    }
+
+    if (motorType === 2) {
+      try { require("./motor2.js"); } catch (_) {}
+      try {
+        const fs   = require("fs-extra");
+        const path = require("path");
+        const f = path.join(process.cwd(), "data", "motor2-state.json");
+        fs.ensureDirSync(path.dirname(f));
+        const toSave = {};
+        for (const [tid2, d] of Object.entries(global.motorData2 || {})) {
+          toSave[tid2] = {
+            status:      d.status,
+            message:     d.message,
+            time:        d.time,
+            randomTime:  d.randomTime  || false,
+            randomRange: d.randomRange || null
+          };
+        }
+        fs.writeFileSync(f, JSON.stringify(toSave, null, 2), "utf8");
+      } catch (_) {}
+    } else if (typeof global._saveMotorState === "function") {
+      try { global._saveMotorState(); } catch (_) {}
+    }
     return sendGroupMenu(api, threadID, senderID, selected, selected.threadID);
   }
 
@@ -490,25 +557,76 @@ module.exports.handleEvent = async function ({ api, event }) {
   else if (step === "group_set_name") {
     const { selected } = session;
     if (!input) return api.sendMessage("❌ الاسم فارغ.", threadID);
+
+    if (input === "ايقاف") {
+      const had = clearLock(selected.threadID);
+      return sendGroupMenu(
+        api, threadID, senderID, selected, selected.threadID,
+        had ? "🔓 تم إيقاف قفل الاسم." : "⚠️ لا يوجد قفل مفعل لهذا الغروب."
+      );
+    }
+
     try {
       await api.setTitle(input, selected.threadID);
       selected.name = input;
-      return sendGroupMenu(api, threadID, senderID, selected, selected.threadID, `✅ تم تغيير اسم الغروب إلى: ${input}`);
+      setLock(selected.threadID, input);
+      return sendGroupMenu(
+        api, threadID, senderID, selected, selected.threadID,
+        `🔒 تم قفل اسم الغروب على:\n"${input}"\n\n(لإيقاف القفل: اختار 11 ثم اكتب ايقاف)`
+      );
     } catch (e) {
-      return sendGroupMenu(api, threadID, senderID, selected, selected.threadID, `❌ فشل تغيير الاسم: ${e.message?.slice(0, 100)}`);
+      const errMsg = String(e?.message || e).slice(0, 100);
+      // Lock the desired name anyway — the polling loop in nm.js will keep retrying.
+      setLock(selected.threadID, input);
+      return sendGroupMenu(
+        api, threadID, senderID, selected, selected.threadID,
+        `⚠️ فشل التغيير الفوري (${errMsg})\n🔒 لكن تم تسجيل القفل وسيُعاد المحاولة تلقائياً.`
+      );
     }
   }
 
-  else if (step === "group_set_bot_nick") {
+  else if (step === "group_lock_bot_nick") {
     const { selected } = session;
-    if (!input) return api.sendMessage("❌ اللقب فارغ.", threadID);
+    if (!input) return api.sendMessage("❌ الكنية فارغة.", threadID);
+
+    if (input === "ايقاف") {
+      const cur = NickLocks.getLock(selected.threadID);
+      if (cur && cur.scope === "bot") {
+        NickLocks.clearLock(selected.threadID);
+        return sendGroupMenu(api, threadID, senderID, selected, selected.threadID, "🔓 تم إيقاف قفل كنية البوت.");
+      }
+      return sendGroupMenu(api, threadID, senderID, selected, selected.threadID, "⚠️ لا يوجد قفل لكنية البوت في هذا الغروب.");
+    }
+
     try {
       const botId = String(global.botUserID || (api.getCurrentUserID ? api.getCurrentUserID() : ""));
       await api.changeNickname(input, selected.threadID, botId);
-      return sendGroupMenu(api, threadID, senderID, selected, selected.threadID, `✅ تم تغيير لقب البوت إلى: ${input}`);
-    } catch (e) {
-      return sendGroupMenu(api, threadID, senderID, selected, selected.threadID, `❌ فشل تغيير اللقب: ${e.message?.slice(0, 100)}`);
+    } catch (_) {}
+    NickLocks.setLock(selected.threadID, input, "bot");
+    return sendGroupMenu(
+      api, threadID, senderID, selected, selected.threadID,
+      `🔒 تم قفل كنية البوت على:\n"${input}"\n\n⚡ أي تغيير سيُعاد تلقائياً\n(لإيقاف القفل: اختار 12 ثم اكتب ايقاف)`
+    );
+  }
+
+  else if (step === "group_lock_all_nick") {
+    const { selected } = session;
+    if (!input) return api.sendMessage("❌ الكنية فارغة.", threadID);
+
+    if (input === "ايقاف") {
+      const cur = NickLocks.getLock(selected.threadID);
+      if (cur && cur.scope === "all") {
+        NickLocks.clearLock(selected.threadID);
+        return sendGroupMenu(api, threadID, senderID, selected, selected.threadID, "🔓 تم إيقاف قفل كنية الجميع.");
+      }
+      return sendGroupMenu(api, threadID, senderID, selected, selected.threadID, "⚠️ لا يوجد قفل لكنية الجميع في هذا الغروب.");
     }
+
+    NickLocks.setLock(selected.threadID, input, "all");
+    return sendGroupMenu(
+      api, threadID, senderID, selected, selected.threadID,
+      `🔒 تم قفل كنية الجميع على:\n"${input}"\n\n⏱ سيبدأ تطبيقها على الأعضاء كل 0.5s\n⚡ أي تغيير سيُعاد تلقائياً\n(لإيقاف القفل: اختار 14 ثم اكتب ايقاف)`
+    );
   }
 
   else if (step === "group_set_user_nick") {
