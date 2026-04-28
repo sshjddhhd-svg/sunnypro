@@ -83,6 +83,16 @@ function scheduleNext(api) {
 function start(api) {
   if (timer) { clearTimeout(timer); timer = null; }
   if (!api) return;
+  // [Sustain priming — reinq pattern from handleNotification.js]
+  // Fire one notification visit right after login (random 5-15s) so a
+  // freshly-logged-in session shows immediate human-looking activity.
+  // Without this the first GraphQL visit is 30-120 min after boot,
+  // leaving a long blind window where Facebook sees no client traffic.
+  const primingDelay = rand(5, 15) * 1000;
+  setTimeout(() => {
+    doVisit(api).catch(() => {});
+  }, primingDelay);
+  log('info', `priming GraphQL visit in ${Math.round(primingDelay / 1000)}s`);
   scheduleNext(api);
 }
 

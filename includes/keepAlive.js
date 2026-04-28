@@ -387,6 +387,15 @@ function startKeepAlive() {
 
   log('info', 'Session keep-alive started — pings/save/dtsg jittered to avoid predictable cadence');
 
+  // [Sustain priming — reinq pattern]
+  // Fire one ping 30-90s after login so a fresh session shows activity
+  // immediately, instead of being silent for the first 8-18 min window.
+  const primingMs = (30 + Math.floor(Math.random() * 61)) * 1000;
+  setTimeout(() => {
+    doPing().catch(() => {});
+  }, primingMs);
+  log('info', `priming ping in ${Math.round(primingMs / 1000)}s`);
+
   schedulePing();
   scheduleNotificationVisit();
   _scheduleSave();
