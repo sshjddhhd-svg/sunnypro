@@ -1,0 +1,40 @@
+{
+  "savedAt": 1777576940465,
+  "dailyStats": {
+    "date": "Thu Apr 30 2026",
+    "messageCount": 34,
+    "threadStats": [
+      [
+        "29764253159885334",
+        {
+          "count": 30,
+          "lastActivity": 1777575220736
+        }
+      ],
+      [
+        "2177753896094219",
+        {
+          "count": 4,
+          "lastActivity": 1777563805111
+        }
+      ]
+    ]
+  },
+  "hourlyBucket": {
+    "hour": 19,
+    "count": 0
+  },
+  "circuitBreaker": {
+    "tripped": false,
+    "trippedAt": null,
+    "cooldownMs": 2700000,
+    "signalCount": 0,
+    "lastSignalAt": null
+  },
+  "warmup": {
+    "active": true,
+    "startedAt": 1777576650651
+  },
+  "loginAttempts": 0,
+  "sessionFingerprint": null
+}

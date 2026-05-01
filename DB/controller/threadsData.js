@@ -114,14 +114,23 @@ module.exports = async function (databaseType, threadModel, api, fakeGraphql) {
 
                                         switch (databaseType) {
                                                 case "mongodb": {
-                                                        let dataUpdated = await threadModel.findOneAndUpdate({ threadID }, dataWillChange, { returnDocument: 'after' });
-                                                        dataUpdated = _.omit(dataUpdated._doc, ["_id", "__v"]);
+                                                        // [FIX H5] — `returnDocument: 'after'` is a MongoDB driver option;
+                                                        // Mongoose uses `{ new: true }` for the same semantics. Using the
+                                                        // wrong key could silently return the pre-update document or null,
+                                                        // then crash on `dataUpdated._doc`. Added null guard to be safe.
+                                                        let dataUpdated = await threadModel.findOneAndUpdate({ threadID }, dataWillChange, { new: true });
+                                                        if (!dataUpdated) throw new Error(`Thread ${threadID} not found during update`);
+                                                        dataUpdated = _.omit(dataUpdated._doc || dataUpdated.toObject?.() || dataUpdated, ["_id", "__v"]);
                                                         global.db.allThreadData[index] = dataUpdated;
                                                         return _.cloneDeep(dataUpdated);
                                                 }
                                                 case "sqlite": {
-                                                        const thread = await threadModel.findOne({ where: { threadID } });
-                                                        const dataUpdated = (await thread.update(dataWillChange)).get({ plain: true });
+                                                        // [FIX M3] — wrap findOne + update in a Sequelize transaction so a
+                                                        // mid-sequence crash cannot leave the DB and in-memory state diverged.
+                                                        const dataUpdated = await threadModel.sequelize.transaction(async (t) => {
+                                                                const thread = await threadModel.findOne({ where: { threadID }, transaction: t });
+                                                                return (await thread.update(dataWillChange, { transaction: t })).get({ plain: true });
+                                                        });
                                                         global.db.allThreadData[index] = dataUpdated;
                                                         return _.cloneDeep(dataUpdated);
                                                 }
@@ -294,6 +303,9 @@ module.exports = async function (databaseType, threadModel, api, fakeGraphql) {
                                         }
                                         const threadInfo = await get_(threadID);
                                         newThreadInfo = newThreadInfo || await api.getThreadInfo(threadID);
+                                        if (!newThreadInfo || typeof newThreadInfo !== "object") {
+                                                throw new Error(`getThreadInfo returned null/undefined for threadID=${threadID}`);
+                                        }
                                         const { userInfo, adminIDs, nicknames } = newThreadInfo;
                                         let oldMembers = threadInfo.members;
                                         const newMembers = [];

@@ -54,6 +54,20 @@ function formatError(error) {
   return String(error);
 }
 
+// [SECURITY FIX] Strip any bot token / webhook id that axios may have echoed
+// into its error message or stack. Without this, a Telegram 4xx with the
+// usual `Request failed … https://api.telegram.org/bot<TOKEN>/sendMessage`
+// message would print the token straight into the workflow log.
+function _redactSecrets(s) {
+  if (s == null) return '';
+  let out = String(s);
+  // Telegram bot tokens follow `<digits>:<base64-ish>` — replace inside any URL
+  out = out.replace(/\/bot\d+:[A-Za-z0-9_-]+/g, '/bot<TOKEN_REDACTED>');
+  // Discord webhooks: `https://discord(app)?.com/api/webhooks/<id>/<token>`
+  out = out.replace(/(\/api\/webhooks\/\d+\/)[A-Za-z0-9_-]+/gi, '$1<TOKEN_REDACTED>');
+  return out;
+}
+
 async function sendTelegram(cfg, body) {
   const token = cfg.botToken;
   const chatIds = splitAddresses(cfg.chatId);
@@ -71,7 +85,8 @@ async function sendTelegram(cfg, body) {
         parse_mode: 'Markdown'
       }, { timeout: 10000 });
     } catch (e) {
-      log('warn', `Telegram → ${chat} failed: ${e.response?.data?.description || e.message}`);
+      const reason = e.response?.data?.description || e.message;
+      log('warn', `Telegram → ${chat} failed: ${_redactSecrets(reason)}`);
     }
   }
 }
@@ -90,7 +105,8 @@ async function sendDiscord(cfg, body) {
         content: '```\n' + payload + '\n```'
       }, { timeout: 10000 });
     } catch (e) {
-      log('warn', `Discord webhook failed: ${e.response?.data?.message || e.message}`);
+      const reason = e.response?.data?.message || e.message;
+      log('warn', `Discord webhook failed: ${_redactSecrets(reason)}`);
     }
   }
 }

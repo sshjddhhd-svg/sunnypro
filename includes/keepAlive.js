@@ -35,9 +35,21 @@ function getRandomMs(minMin, maxMin) {
 }
 
 function getCookieStr(api) {
-  const appState = api.getAppState();
-  if (!appState || !appState.length) return null;
-  return appState.map(c => `${c.key}=${c.value}`).join('; ');
+  // [FIX] During relogin / tier-switch the api object can throw from
+  // getAppState() (internal state torn down). A throw here used to crash
+  // the keep-alive cycle and leave the bot un-pinged until the next
+  // restart. Defensive guard returns null and lets the caller no-op.
+  try {
+    if (!api || typeof api.getAppState !== 'function') return null;
+    const appState = api.getAppState();
+    if (!Array.isArray(appState) || !appState.length) return null;
+    return appState
+      .filter(c => c && c.key && c.value)
+      .map(c => `${c.key}=${c.value}`)
+      .join('; ');
+  } catch (_) {
+    return null;
+  }
 }
 
 const MODERN_USER_AGENTS = [
@@ -51,7 +63,21 @@ const MODERN_USER_AGENTS = [
   'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
 ];
 
-function getUserAgent() {
+// mbasic.facebook.com is a mobile-only site and will redirect desktop UAs to
+// its login page even with a perfectly valid session cookie. Always pair the
+// mbasic endpoints with a mobile UA to avoid false-positive "session expired"
+// warnings.
+const MOBILE_USER_AGENTS = [
+  'Mozilla/5.0 (Linux; Android 13; SM-S908B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
+  'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36',
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1'
+];
+
+function getUserAgent(forEndpointLabel) {
+  // Force mobile UA for mbasic — desktop UAs are auto-bounced to login.
+  if (typeof forEndpointLabel === 'string' && forEndpointLabel.startsWith('mbasic')) {
+    return MOBILE_USER_AGENTS[Math.floor(Math.random() * MOBILE_USER_AGENTS.length)];
+  }
   if (global.config?.FCAOption?.userAgent && !global.config?.stealthMode?.rotateUserAgentOnReconnect) {
     return global.config.FCAOption.userAgent;
   }
@@ -59,16 +85,6 @@ function getUserAgent() {
 }
 
 const PING_ENDPOINTS = [
-  {
-    url: 'https://mbasic.facebook.com/',
-    label: 'mbasic',
-    referer: null
-  },
-  {
-    url: 'https://mbasic.facebook.com/home.php',
-    label: 'mbasic-home',
-    referer: 'https://mbasic.facebook.com/'
-  },
   {
     url: 'https://www.facebook.com/home.php',
     label: 'www-home',
@@ -83,8 +99,29 @@ const PING_ENDPOINTS = [
     url: 'https://www.facebook.com/notifications',
     label: 'www-notifs',
     referer: 'https://www.facebook.com/'
+  },
+  {
+    url: 'https://mbasic.facebook.com/',
+    label: 'mbasic',
+    referer: null
+  },
+  {
+    url: 'https://mbasic.facebook.com/home.php',
+    label: 'mbasic-home',
+    referer: 'https://mbasic.facebook.com/'
   }
 ];
+
+// Reliable fallback that has never produced a false "expired" signal in
+// practice — desktop www.facebook.com/home.php with a desktop UA. Used when
+// the random primary endpoint reports a login page so we don't immediately
+// alarm the operator.
+const FALLBACK_ENDPOINT = PING_ENDPOINTS[0];
+
+// Treat the session as alive (regardless of any HTML-based check) when the
+// MQTT listener has received traffic within this many milliseconds. The
+// listener is the ground truth — if it's flowing, the cookie is good.
+const MQTT_ALIVE_WINDOW_MS = 10 * 60 * 1000;
 
 let _lastEndpointIndex = -1;
 
@@ -142,6 +179,12 @@ function isLoginPage(html, responseUrl) {
   );
 }
 
+function isMqttRecentlyAlive() {
+  const ts = Number(global.lastMqttActivity) || 0;
+  if (!ts) return false;
+  return (Date.now() - ts) < MQTT_ALIVE_WINDOW_MS;
+}
+
 async function doPing() {
   try {
     const api = global._botApi;
@@ -150,9 +193,10 @@ async function doPing() {
     const cookieStr = getCookieStr(api);
     if (!cookieStr) return;
 
-    const UA       = getUserAgent();
     const endpoint = pickEndpoint();
+    const UA       = getUserAgent(endpoint.label);
     let success    = false;
+    let primaryWasLoginPage = false;
 
     try {
       const r    = await httpGet(endpoint.url, cookieStr, UA, endpoint.referer);
@@ -160,7 +204,8 @@ async function doPing() {
       const resUrl = String(r.request?.res?.responseUrl || r.config?.url || '');
 
       if (isLoginPage(html, resUrl)) {
-        log('warn', `Ping ${endpoint.label} → login page — session may have expired!`);
+        primaryWasLoginPage = true;
+        // Quietly fall through to fallback before logging anything alarming.
       } else {
         success = true;
         log('info', `Ping ${endpoint.label} ✓ — session alive`);
@@ -170,14 +215,25 @@ async function doPing() {
     }
 
     if (!success) {
-      const fallback = PING_ENDPOINTS[0];
+      const fallback = FALLBACK_ENDPOINT;
       try {
-        const r2    = await httpGet(fallback.url, cookieStr, getUserAgent(), null);
-        const html2 = String(r2.data || '');
+        const r2     = await httpGet(fallback.url, cookieStr, getUserAgent(fallback.label), fallback.referer);
+        const html2  = String(r2.data || '');
         const resUrl2 = String(r2.request?.res?.responseUrl || '');
 
         if (isLoginPage(html2, resUrl2)) {
-          log('warn', 'Fallback ping → login page — session expired!');
+          // Both endpoints returned login HTML. Before crying wolf, consult
+          // MQTT — if the listener is actively receiving traffic, the cookie
+          // is fine and only the HTML probe was bounced (common with mbasic
+          // or geo redirects). Otherwise, escalate.
+          if (isMqttRecentlyAlive()) {
+            log('info', `Ping probes bounced (${endpoint.label}, ${fallback.label}) — MQTT still alive, ignoring`);
+            success = true; // treat as alive for cookie-save purposes
+          } else if (primaryWasLoginPage) {
+            log('warn', `Ping ${endpoint.label} & fallback ${fallback.label} → login page; MQTT idle — session may have expired`);
+          } else {
+            log('warn', `Fallback ping ${fallback.label} → login page — session may have expired`);
+          }
         } else {
           success = true;
           log('info', `Fallback ping ${fallback.label} ✓`);
@@ -217,9 +273,19 @@ async function doSaveCookies(source) {
     const tmpPath = statePath + '.tmp';
     await fs.writeFile(tmpPath, newData, 'utf-8');
     await fs.move(tmpPath, statePath, { overwrite: true });
-    await fs.writeFile(altPath, newData, 'utf-8');
+    const altTmp = altPath + '.tmp';
+    await fs.writeFile(altTmp, newData, 'utf-8');
+    await fs.move(altTmp, altPath, { overwrite: true });
 
     log('info', `Cookies saved to ZAO-STATE.json & alt.json${source ? ` (${source})` : ''} ✓`);
+
+    // [PROTECT] Cookie snapshot ring — capture a validated copy so we can
+    // restore from a known-good backup if the live file ever turns corrupt.
+    try {
+      const snap = require('./cookieSnapshot');
+      const r = snap.snapshot(appState, statePath);
+      if (r.ok) log('info', `Snapshot saved → ${path.basename(r.file)} ✓`);
+    } catch (_) {}
   } catch (e) {
     log('warn', `Failed to save cookies: ${e.message || e}`);
   } finally {

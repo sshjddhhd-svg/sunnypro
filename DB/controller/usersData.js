@@ -116,14 +116,19 @@ module.exports = async function (databaseType, userModel, api, fakeGraphql) {
 
                                         switch (databaseType) {
                                                 case "mongodb": {
-                                                        let dataUpdated = await userModel.findOneAndUpdate({ userID }, dataWillChange, { returnDocument: 'after' });
-                                                        dataUpdated = _.omit(dataUpdated._doc, ["_id", "__v"]);
+                                                        // [FIX H5] — use Mongoose's `{ new: true }` + null guard (see threadsData.js)
+                                                        let dataUpdated = await userModel.findOneAndUpdate({ userID }, dataWillChange, { new: true });
+                                                        if (!dataUpdated) throw new Error(`User ${userID} not found during update`);
+                                                        dataUpdated = _.omit(dataUpdated._doc || dataUpdated.toObject?.() || dataUpdated, ["_id", "__v"]);
                                                         global.db.allUserData[index] = dataUpdated;
                                                         return _.cloneDeep(dataUpdated);
                                                 }
                                                 case "sqlite": {
-                                                        const user = await userModel.findOne({ where: { userID } });
-                                                        const dataUpdated = (await user.update(dataWillChange)).get({ plain: true });
+                                                        // [FIX M3] — Sequelize transaction (see threadsData.js)
+                                                        const dataUpdated = await userModel.sequelize.transaction(async (t) => {
+                                                                const user = await userModel.findOne({ where: { userID }, transaction: t });
+                                                                return (await user.update(dataWillChange, { transaction: t })).get({ plain: true });
+                                                        });
                                                         global.db.allUserData[index] = dataUpdated;
                                                         return _.cloneDeep(dataUpdated);
                                                 }
@@ -388,7 +393,7 @@ module.exports = async function (databaseType, userModel, api, fakeGraphql) {
                                                 userData = fakeGraphql(query, userData);
 
                                 if (path)
-                                        if (!["string", "array"].includes(typeof path))
+                                        if (!["string", "object"].includes(typeof path))
                                                 throw new Error(`The second argument (path) must be a string or array, not ${typeof path}`);
                                         else
                                                 if (typeof path === "string")

@@ -101,14 +101,19 @@ module.exports = async function (databaseType, globalModel, fakeGraphql) {
 
                                         switch (databaseType) {
                                                 case "mongodb": {
-                                                        let dataUpdated = await globalModel.findOneAndUpdate({ key }, dataWillChange, { returnDocument: 'after' });
-                                                        dataUpdated = _.omit(dataUpdated._doc, ["_id", "__v"]);
+                                                        // [FIX H5] — use Mongoose's `{ new: true }` + null guard (see threadsData.js)
+                                                        let dataUpdated = await globalModel.findOneAndUpdate({ key }, dataWillChange, { new: true });
+                                                        if (!dataUpdated) throw new Error(`GlobalData key "${key}" not found during update`);
+                                                        dataUpdated = _.omit(dataUpdated._doc || dataUpdated.toObject?.() || dataUpdated, ["_id", "__v"]);
                                                         global.db.allGlobalData[index] = dataUpdated;
                                                         return _.cloneDeep(dataUpdated);
                                                 }
                                                 case "sqlite": {
-                                                        const getData = await globalModel.findOne({ where: { key } });
-                                                        const dataUpdated = (await getData.update(dataWillChange)).get({ plain: true });
+                                                        // [FIX M3] — Sequelize transaction (see threadsData.js)
+                                                        const dataUpdated = await globalModel.sequelize.transaction(async (t) => {
+                                                                const getData = await globalModel.findOne({ where: { key }, transaction: t });
+                                                                return (await getData.update(dataWillChange, { transaction: t })).get({ plain: true });
+                                                        });
                                                         global.db.allGlobalData[index] = dataUpdated;
                                                         return _.cloneDeep(dataUpdated);
                                                 }
@@ -261,7 +266,7 @@ module.exports = async function (databaseType, globalModel, fakeGraphql) {
                                         const createData = {};
                                         if (defaultValue) {
                                                 if (path)
-                                                        if (!["string", "array"].includes(typeof path))
+                                                        if (!["string", "object"].includes(typeof path))
                                                                 throw new Error(`The second argument (path) must be a string or an array, not a ${typeof path}`);
                                                         else
                                                                 if (typeof path === "string")
@@ -284,7 +289,7 @@ module.exports = async function (databaseType, globalModel, fakeGraphql) {
                                                 dataReturn = fakeGraphql(query, dataReturn);
 
                                 if (path)
-                                        if (!["string", "array"].includes(typeof path))
+                                        if (!["string", "object"].includes(typeof path))
                                                 throw new Error(`The second argument (path) must be a string or an array, not a ${typeof path}`);
                                         else
                                                 if (typeof path === "string")

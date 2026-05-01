@@ -2,8 +2,29 @@ const pendingThreadRequests = new Set();
 const threadRequestCooldown = new Map();
 const THREAD_COOLDOWN_MS = 30000;
 
+// [FIX] Periodic prune of the cooldown map. Without this, every brand-new
+// thread the bot ever sees gets a permanent entry. Over weeks of operation
+// in a busy bot pool this can grow to tens of thousands of stale entries.
+// Entries older than 5× the cooldown window are guaranteed irrelevant.
+const _COOLDOWN_PRUNE_INTERVAL_MS = 10 * 60 * 1000;   // every 10 min
+const _COOLDOWN_STALE_AGE_MS      = THREAD_COOLDOWN_MS * 5;
+let _cooldownPruneTimer = null;
+function _ensureCooldownPruner() {
+  if (_cooldownPruneTimer) return;
+  _cooldownPruneTimer = setInterval(() => {
+    try {
+      const cutoff = Date.now() - _COOLDOWN_STALE_AGE_MS;
+      for (const [tid, ts] of threadRequestCooldown.entries()) {
+        if (ts < cutoff) threadRequestCooldown.delete(tid);
+      }
+    } catch (_) {}
+  }, _COOLDOWN_PRUNE_INTERVAL_MS);
+  if (typeof _cooldownPruneTimer.unref === 'function') _cooldownPruneTimer.unref();
+}
+
 module.exports = function ({ Users, Threads, Currencies }) {
   const logger = require("../../utils/log.js");
+  _ensureCooldownPruner();
   return async function ({ event }) {
     const { allUserID, allCurrenciesID, allThreadID, userName, threadInfo } = global.data;
     const { autoCreateDB } = global.config;
@@ -56,7 +77,8 @@ module.exports = function ({ Users, Threads, Currencies }) {
           }
           logger(global.getText('handleCreateDatabase', 'newThread', threadID), '[ DATABASE ]');
         } catch (err) {
-          allThreadID.splice(allThreadID.indexOf(threadID), 1);
+          const _idx = allThreadID.indexOf(threadID);
+          if (_idx !== -1) allThreadID.splice(_idx, 1);
           threadRequestCooldown.delete(threadID);
           console.log('[DB] خطأ في جلب معلومات المجموعة:', err.message || err);
         } finally {
@@ -70,10 +92,30 @@ module.exports = function ({ Users, Threads, Currencies }) {
         allUserID.push(senderID);
         try {
           const infoUsers = await Users.getInfo(senderID);
-          await Users.createData(senderID, { name: infoUsers.name, data: {} });
-          userName.set(senderID, infoUsers.name);
+          // [FIX Djamel] — Users.getInfo can return null/undefined or an
+          // object missing `.name` on transient FB API failures (rate limit,
+          // permission). Previously `infoUsers.name` then threw and the catch
+          // silently swallowed it, leaving senderID permanently shadow-cached
+          // in allUserID with NO matching DB row — every later message would
+          // skip the create branch, fall through to the `!userName.has`
+          // branch, and `setData` would silently no-op forever (user has no
+          // currency row, no name, profile commands return blank, etc.).
+          // Fall back to a placeholder name so the row is always created;
+          // a later message will refresh the real name via the
+          // `!userName.has(senderID)` branch below.
+          const realName = (infoUsers && typeof infoUsers.name === 'string' && infoUsers.name)
+            ? infoUsers.name
+            : `User_${senderID}`;
+          await Users.createData(senderID, { name: realName, data: {} });
+          userName.set(senderID, realName);
           logger(global.getText('handleCreateDatabase', 'newUser', senderID), '[ DATABASE ]');
-        } catch (e) {}
+        } catch (e) {
+          // [FIX Djamel] — if createData itself failed (DB issue, unique
+          // conflict from a concurrent insert) we MUST roll the cache push
+          // back, otherwise the user stays shadow-cached forever.
+          const _idx = allUserID.indexOf(senderID);
+          if (_idx !== -1) allUserID.splice(_idx, 1);
+        }
       } else if (!userName.has(senderID)) {
         // User exists in DB but name is absent from the in-memory cache
         // (e.g. partial startup load). Fetch and cache the name only —
@@ -81,6 +123,11 @@ module.exports = function ({ Users, Threads, Currencies }) {
         // single message and silently loop forever.
         try {
           const infoUsers = await Users.getInfo(senderID);
+          // Guard: getInfo can return null/undefined on rate limits or FB
+          // permission errors. Without this check, infoUsers.name throws
+          // a TypeError that is silently swallowed by the catch block,
+          // leaving the user permanently without a resolved name.
+          if (!infoUsers || typeof infoUsers.name !== 'string' || !infoUsers.name) return;
           userName.set(senderID, infoUsers.name);
           await Users.setData(senderID, { name: infoUsers.name });
         } catch (e) {}

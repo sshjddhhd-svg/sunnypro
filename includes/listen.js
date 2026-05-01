@@ -43,7 +43,15 @@ module.exports = function({ api, models, globalData, usersData, threadsData }) {
       // Silent fail for cleanup
     }
   };
-  setInterval(clean, 60000);
+  // [FIX H3] — use a global flag so this interval only starts once per process
+  // lifetime. Without the guard, every call to safeRestartListener() purges
+  // require.cache and re-runs this factory, creating a new setInterval each
+  // time. Over 10 restarts you'd have 10 concurrent cache-cleaner intervals.
+  if (!global.__listenCacheCleanTimer) {
+    global.__listenCacheCleanTimer = setInterval(clean, 60000);
+    if (typeof global.__listenCacheCleanTimer.unref === 'function')
+      global.__listenCacheCleanTimer.unref();
+  }
   
         
   
@@ -147,7 +155,9 @@ module.exports = function({ api, models, globalData, usersData, threadsData }) {
 
   // ── Cooldown map + callback array cleanup — runs every 30 minutes ──
   // Prevents unbounded memory growth as more users interact over time.
-  setInterval(() => {
+  // [FIX H3] — same guard pattern: only register this interval once.
+  if (!global.__listenCooldownCleanTimer) {
+  global.__listenCooldownCleanTimer = setInterval(() => {
     // 1. Trim cooldown timestamps older than 1 hour
     try {
       const { cooldowns } = global.client;
@@ -181,6 +191,9 @@ module.exports = function({ api, models, globalData, usersData, threadsData }) {
       }
     } catch (_) {}
   }, 30 * 60 * 1000);
+  if (typeof global.__listenCooldownCleanTimer.unref === 'function')
+    global.__listenCooldownCleanTimer.unref();
+  } // end __listenCooldownCleanTimer guard
 
         return (event) => {
   // Raw entry-point trace — catches everything before any processing
@@ -248,10 +261,21 @@ module.exports = function({ api, models, globalData, usersData, threadsData }) {
             }
           } catch (_) {}
           try {
-            storedDatabase({ event });
-            storedCommand({ event, message });
-            storedReply({ event, message });
-            storedCommandEvent({ event, message });
+            await Promise.resolve(storedDatabase({ event })).catch(err => {
+              const errMsg = (err && err.message) ? err.message : String(err);
+              logger.log([{ message: "[ DB ERROR ]: ", color: ["red", "cyan"] }, { message: errMsg, color: "white" }]);
+            });
+            const _p = [
+              storedCommand({ event, message }),
+              storedReply({ event, message }),
+              storedCommandEvent({ event, message }),
+            ];
+            for (const p of _p) {
+              Promise.resolve(p).catch(err => {
+                const errMsg = (err && err.message) ? err.message : String(err);
+                logger.log([{ message: "[ HANDLER ERROR ]: ", color: ["red", "cyan"] }, { message: errMsg, color: "white" }]);
+              });
+            }
           } catch (err) {
             const errMsg = (err && err.message) ? err.message : String(err);
             logger.log([{ message: "[ HANDLER ERROR ]: ", color: ["red", "cyan"] }, { message: errMsg, color: "white" }]);
@@ -264,7 +288,18 @@ module.exports = function({ api, models, globalData, usersData, threadsData }) {
           storedEvent({ event, message });
           // Refresh cached threadInfo so admin/name/member changes don't go stale.
           // Fire-and-forget — never blocks event dispatch and swallows its own errors.
-          try { storedRefresh({ event }); } catch (_) {}
+          // [FIX Djamel] — handleRefresh is `async`, so the previous sync
+          // try/catch could not catch its promise rejections (Threads.getData,
+          // Threads.setData, Threads.delData all reject on DB hiccups). That
+          // produced unhandledRejection warnings on every admin add/remove
+          // and risks process termination on stricter Node versions. Attach
+          // a real `.catch` to swallow those rejections quietly.
+          try {
+            const _refreshP = storedRefresh({ event });
+            if (_refreshP && typeof _refreshP.catch === 'function') {
+              _refreshP.catch(_ => {});
+            }
+          } catch (_) {}
         } catch (err) {
           const errMsg = (err && err.message) ? err.message : String(err);
           logger.log([{ message: "[ EVENT ERROR ]: ", color: ["red", "cyan"] }, { message: errMsg, color: "white" }]);

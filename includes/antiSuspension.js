@@ -7,7 +7,22 @@
  *
  * Credits: NeoKEX — https://github.com/NeoKEX
  * @debugger Djamel — Fixed _getUtils() missing module bug, patched user-agents require
+ *                  — Added cross-restart state persistence so daily/hourly counters
+ *                    and circuit-breaker trips survive watchdog restarts (the bot
+ *                    used to forget every limit and warmup window on every reboot,
+ *                    which was the single biggest stealth regression).
  */
+
+const _fs   = require('fs');
+const _path = require('path');
+const _atomic = (() => {
+    try { return require('../utils/atomicWrite').atomicWriteFileSync; }
+    catch (_) { return _fs.writeFileSync.bind(_fs); }
+})();
+const STATE_FILE = _path.join(process.cwd(), 'data', 'anti-suspension-state.json');
+// Debounce window for disk writes — protects against IO storms when the bot
+// is sending hundreds of messages a minute. Worst-case data loss: 5 seconds.
+const SAVE_DEBOUNCE_MS = 5000;
 
 const SUSPENSION_SIGNALS = [
     'checkpoint',
@@ -123,11 +138,126 @@ class AntiSuspension {
 
         this._dailyResetInterval = setInterval(() => this._resetDailyStatsIfNeeded(), 60 * 1000);
         this._hourlyResetInterval = setInterval(() => this._resetHourlyBucketIfNeeded(), 30 * 1000);
-        
-        // Cleanup intervals on process exit to prevent memory leaks
-        process.on('exit', () => this._clearIntervals());
-        process.on('SIGINT', () => this._clearIntervals());
-        process.on('SIGTERM', () => this._clearIntervals());
+
+        // [ADDED Djamel] — disk-state persistence
+        this._saveTimer = null;
+        this._dirty     = false;
+        this._loadState();
+        // Safety-net periodic flush in case the debounce timer is starved by event loop pressure
+        this._persistInterval = setInterval(() => { if (this._dirty) this._flushState(); }, 30 * 1000);
+
+        // Cleanup intervals + flush state on process exit so the next boot
+        // resumes the same warmup / counters / circuit-breaker window.
+        process.on('exit', () => { this._flushState(); this._clearIntervals(); });
+        process.on('SIGINT', () => { this._flushState(); this._clearIntervals(); });
+        process.on('SIGTERM', () => { this._flushState(); this._clearIntervals(); });
+    }
+
+    // ── State persistence helpers ───────────────────────────────────
+    _loadState() {
+        try {
+            if (!_fs.existsSync(STATE_FILE)) return;
+            const raw = _fs.readFileSync(STATE_FILE, 'utf-8').trim();
+            if (!raw) return;
+            const s = JSON.parse(raw);
+            const today = new Date().toDateString();
+
+            // Daily counters — only restore if it's still the same calendar day,
+            // otherwise let the natural daily reset kick in.
+            if (s.dailyStats && s.dailyStats.date === today) {
+                this.dailyStats.date         = s.dailyStats.date;
+                this.dailyStats.messageCount = Number(s.dailyStats.messageCount) || 0;
+                if (Array.isArray(s.dailyStats.threadStats)) {
+                    for (const [tid, ts] of s.dailyStats.threadStats) {
+                        this.dailyStats.threadStats.set(String(tid), ts || { count: 0 });
+                    }
+                }
+            }
+
+            // Hourly bucket — restore only if same hour
+            const currentHour = new Date().getHours();
+            if (s.hourlyBucket && s.hourlyBucket.hour === currentHour) {
+                this.hourlyBucket.count = Number(s.hourlyBucket.count) || 0;
+                this.hourlyBucket.hour  = s.hourlyBucket.hour;
+            }
+
+            // Circuit breaker — if it was tripped and the cooldown is still active,
+            // restore the trip so a quick restart can't bypass the protection.
+            if (s.circuitBreaker && s.circuitBreaker.tripped && s.circuitBreaker.trippedAt) {
+                const cb = this.suspensionCircuitBreaker;
+                const elapsed = Date.now() - Number(s.circuitBreaker.trippedAt);
+                const cooldown = Number(s.circuitBreaker.cooldownMs) || cb.cooldownMs;
+                if (elapsed < cooldown) {
+                    cb.tripped       = true;
+                    cb.trippedAt     = Number(s.circuitBreaker.trippedAt);
+                    cb.cooldownMs    = cooldown;
+                    cb.signalCount   = Number(s.circuitBreaker.signalCount) || cb.maxSignalsBeforeTrip;
+                    cb.lastSignalAt  = Number(s.circuitBreaker.lastSignalAt) || null;
+                }
+            }
+
+            // Warmup — restore only if it hasn't already finished
+            if (s.warmup && s.warmup.active && s.warmup.startedAt) {
+                const elapsed = Date.now() - Number(s.warmup.startedAt);
+                if (elapsed < this.warmup.durationMs) {
+                    this.warmup.active    = true;
+                    this.warmup.startedAt = Number(s.warmup.startedAt);
+                    setTimeout(() => { this.warmup.active = false; this._markDirty(); },
+                               this.warmup.durationMs - elapsed);
+                }
+            }
+
+            // Login attempts + session fingerprint
+            if (Number.isFinite(s.loginAttempts)) this.loginAttempts = s.loginAttempts;
+            if (s.sessionFingerprint && typeof s.sessionFingerprint === 'object') {
+                this.sessionFingerprint = s.sessionFingerprint;
+            }
+        } catch (_) { /* corrupt state file — ignore and keep defaults */ }
+    }
+
+    _markDirty() {
+        this._dirty = true;
+        if (this._saveTimer) return;
+        this._saveTimer = setTimeout(() => {
+            this._saveTimer = null;
+            this._flushState();
+        }, SAVE_DEBOUNCE_MS);
+    }
+
+    _flushState() {
+        if (this._saveTimer) { clearTimeout(this._saveTimer); this._saveTimer = null; }
+        this._dirty = false;
+        try {
+            const dir = _path.dirname(STATE_FILE);
+            if (!_fs.existsSync(dir)) _fs.mkdirSync(dir, { recursive: true });
+            const cb = this.suspensionCircuitBreaker;
+            const out = {
+                savedAt: Date.now(),
+                dailyStats: {
+                    date:         this.dailyStats.date,
+                    messageCount: this.dailyStats.messageCount,
+                    threadStats:  Array.from(this.dailyStats.threadStats.entries())
+                },
+                hourlyBucket: {
+                    hour:  this.hourlyBucket.hour,
+                    count: this.hourlyBucket.count
+                },
+                circuitBreaker: {
+                    tripped:       cb.tripped,
+                    trippedAt:     cb.trippedAt,
+                    cooldownMs:    cb.cooldownMs,
+                    signalCount:   cb.signalCount,
+                    lastSignalAt:  cb.lastSignalAt
+                },
+                warmup: {
+                    active:    this.warmup.active,
+                    startedAt: this.warmup.startedAt
+                },
+                loginAttempts: this.loginAttempts,
+                sessionFingerprint: this.sessionFingerprint
+            };
+            _atomic(STATE_FILE, JSON.stringify(out, null, 2), 'utf-8');
+        } catch (_) { /* best-effort */ }
     }
 
     _resetDailyStatsIfNeeded() {
@@ -136,6 +266,7 @@ class AntiSuspension {
             this.dailyStats.date = today;
             this.dailyStats.messageCount = 0;
             this.dailyStats.threadStats.clear();
+            this._markDirty && this._markDirty();
         }
     }
 
@@ -144,6 +275,7 @@ class AntiSuspension {
         if (this.hourlyBucket.hour !== currentHour) {
             this.hourlyBucket.hour = currentHour;
             this.hourlyBucket.count = 0;
+            this._markDirty && this._markDirty();
         }
     }
 
@@ -155,6 +287,10 @@ class AntiSuspension {
         if (this._hourlyResetInterval) {
             clearInterval(this._hourlyResetInterval);
             this._hourlyResetInterval = null;
+        }
+        if (this._persistInterval) {
+            clearInterval(this._persistInterval);
+            this._persistInterval = null;
         }
     }
 
@@ -168,6 +304,7 @@ class AntiSuspension {
             ts.lastActivity = Date.now();
             this.dailyStats.threadStats.set(String(threadID), ts);
         }
+        this._markDirty && this._markDirty();
     }
 
     isDailyLimitReached() {
@@ -199,14 +336,17 @@ class AntiSuspension {
     enableWarmup() {
         this.warmup.active = true;
         this.warmup.startedAt = Date.now();
+        this._markDirty && this._markDirty();
         setTimeout(() => {
             this.warmup.active = false;
+            this._markDirty && this._markDirty();
         }, this.warmup.durationMs);
     }
 
     lockSessionFingerprint(ua, secChUa, platform, locale, timezone) {
         if (!this.sessionFingerprint) {
             this.sessionFingerprint = { ua, secChUa, platform, locale, timezone, lockedAt: Date.now() };
+            this._markDirty && this._markDirty();
         }
         return this.sessionFingerprint;
     }
@@ -238,8 +378,12 @@ class AntiSuspension {
                 utils && utils.warn && utils.warn("AntiSuspension",
                     `Circuit breaker TRIPPED after ${cb.signalCount} suspension signals. ` +
                     `Pausing all activity for ${cb.cooldownMs / 60000} minutes.`);
+                // Trip survives restart — flush immediately, no debounce.
+                this._flushState && this._flushState();
+                return;
             }
         }
+        this._markDirty && this._markDirty();
     }
 
     _getUtils() {
@@ -284,6 +428,7 @@ class AntiSuspension {
             cb.tripped = false;
             cb.signalCount = 0;
             cb.trippedAt = null;
+            this._markDirty && this._markDirty();
             return false;
         }
         return true;
@@ -305,12 +450,14 @@ class AntiSuspension {
         utils && utils.warn && utils.warn("AntiSuspension",
             `Circuit breaker manually tripped: ${reason || 'manual'}. ` +
             `Cooldown: ${(cb.cooldownMs / 60000).toFixed(1)} min`);
+        this._flushState && this._flushState();
     }
 
     resetCircuitBreaker() {
         this.suspensionCircuitBreaker.tripped = false;
         this.suspensionCircuitBreaker.signalCount = 0;
         this.suspensionCircuitBreaker.trippedAt = null;
+        this._flushState && this._flushState();
     }
 
     async simulateTyping(threadID, messageLength = 50) {
@@ -399,6 +546,7 @@ class AntiSuspension {
     trackLoginAttempt() {
         this.loginAttempts++;
         const isLocked = this.loginAttempts >= this.maxLoginAttempts;
+        this._markDirty && this._markDirty();
         return {
             attempt: this.loginAttempts,
             isLocked,
@@ -409,6 +557,7 @@ class AntiSuspension {
 
     resetLoginAttempts() {
         this.loginAttempts = 0;
+        this._markDirty && this._markDirty();
     }
 
     checkAccountHealth(lastError) {

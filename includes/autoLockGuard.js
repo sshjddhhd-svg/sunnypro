@@ -137,10 +137,14 @@ function record(senderID) {
 function setLock(value, reason) {
   const v = value === true;
   global.lockBot = v;
+  // [FIX] Always cancel any pending auto-unlock when the lock state is
+  // changed manually. Even though the timer's own guard (`_lockedAt > 0`)
+  // currently prevents an erroneous unlock, leaving a stale handle alive
+  // wastes a slot and races with future _scheduleUnlock() calls.
+  if (_unlockTimer) { try { clearTimeout(_unlockTimer); } catch (_) {} _unlockTimer = null; }
   if (!v) {
     _attempts.length = 0;
     _lockedAt = 0;
-    if (_unlockTimer) { try { clearTimeout(_unlockTimer); } catch (_) {} _unlockTimer = null; }
     _log(`Manual UNLOCK${reason ? ` (${reason})` : ''} — bot is open again.`, 'green');
   } else {
     _lockedAt = 0;          // 0 because this is a manual lock, not ours

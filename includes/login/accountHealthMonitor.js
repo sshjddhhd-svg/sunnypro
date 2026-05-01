@@ -88,6 +88,7 @@ const SEND_BLOCKED_PATTERNS = [
 // ── State ─────────────────────────────────────────────────────────────────
 let _started          = false;
 let _checkTimer       = null;
+let _statusBroadcastTimer = null;   // [FIX] track so _stop() can clear it
 let _lastSwitch       = 0;
 let _sendFailTimes    = [];   // timestamps of recent send failures
 let _lastCookieScan   = { result: "pending", ts: null };
@@ -298,8 +299,14 @@ function start(api) {
   // [ADDED Djamel] — Periodic account health status broadcast to admins
   // Every 60 minutes, sends a brief status report so admins know the account is alive.
   const STATUS_BROADCAST_MS = 60 * 60 * 1000;
-  setInterval(() => {
+  if (_statusBroadcastTimer) { try { clearInterval(_statusBroadcastTimer); } catch (_) {} }
+  _statusBroadcastTimer = setInterval(() => {
     try {
+      // [FIX] Skip the broadcast while a relogin is in flight — the api
+      // reference is mid-swap and any send call here just floods the
+      // health-monitor's own send-failure window with garbage failures.
+      if (global.isRelogining) return;
+
       const now     = Date.now();
       const cutoff  = now - SEND_FAIL_WINDOW_MS;
       const fails   = _sendFailTimes.filter(t => t > cutoff).length;
@@ -313,7 +320,9 @@ function start(api) {
         : "unknown";
 
       const admins = global.config?.ADMINBOT || [];
-      const botApi = api;
+      // [FIX] Always use the live api reference — the original captured
+      // `api` would be stale after a tier switch.
+      const botApi = global._botApi || api;
       if (!botApi || !admins.length) return;
 
       const msg =
@@ -327,10 +336,14 @@ function start(api) {
       for (const adminID of admins) {
         const id = String(adminID).trim();
         if (!id) continue;
-        botApi.sendMessage(msg, id).catch(() => {});
+        try {
+          const p = botApi.sendMessage(msg, id);
+          if (p && typeof p.catch === 'function') p.catch(() => {});
+        } catch (_) {}
       }
     } catch (_) {}
   }, STATUS_BROADCAST_MS);
+  if (typeof _statusBroadcastTimer.unref === 'function') _statusBroadcastTimer.unref();
 
   // Cleanup on process exit
   process.once("exit",    _stop);
@@ -344,6 +357,12 @@ function _stop() {
     try { clearTimeout(_checkTimer); } catch (_) {}
     try { clearInterval(_checkTimer); } catch (_) {}
     _checkTimer = null;
+  }
+  // [FIX] Also clear the periodic status broadcast — without this it
+  // kept ticking after stop() and held the event loop open.
+  if (_statusBroadcastTimer) {
+    try { clearInterval(_statusBroadcastTimer); } catch (_) {}
+    _statusBroadcastTimer = null;
   }
   _started = false;
 }

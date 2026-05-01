@@ -32,7 +32,7 @@ module.exports = function ({ api, models, Users, Threads, Currencies, globalData
           const react = handleNeedExec.languages || {};
           if (!react.hasOwnProperty(global.config.language)) return '';
           var lang = handleNeedExec.languages[global.config.language][value[0]] || '';
-          for (var i = value.length; i > 0; i--) {
+          for (var i = value.length - 1; i > 0; i--) {
             lang = lang.replace(new RegExp('%' + i, 'g'), value[i]);
           }
           return lang;

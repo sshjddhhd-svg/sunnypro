@@ -50,7 +50,7 @@ module.exports = async function (api) {
         /*log.err("MONGODB", getText("indexController", "connectMongoDBError"), err);*/
          logger(`Error when trying connect the DB:\n${err.message}`, 'DATABASE');
 
-        process.exit();
+        process.exit(1);
       }
       break;
     }
@@ -66,7 +66,7 @@ module.exports = async function (api) {
 
 logger.log([
   {
-    message: "[ mongoDB ]: ",
+    message: "[ SQLite ]: ",
     color: ["red", "cyan"],
   },
   {
@@ -82,16 +82,16 @@ logger.log([
 
 logger.log([
   {
-    message: "[ GoatDB ]: ",
+    message: "[ SQLite ]: ",
     color: ["red", "cyan"],
   },
   {
-    message: `cant connect db for ${err.stack}`,
+    message: `cant connect db: ${err.message || err}`,
     color: "white",
   },
 ]);
 
-        process.exit();
+        process.exit(1);
       }
       break;
     }

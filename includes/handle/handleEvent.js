@@ -10,6 +10,10 @@
 module.exports = function ({ api, models, Users, Threads, Currencies, globalData, usersData, threadsData, message }) {
   const logger = require("../../utils/log.js");
   const moment = require("moment");
+  // [PROTECT] sandbox event handlers with a 15s wall-clock timeout so a
+  // misbehaving handleEvent in any command can't freeze the listener.
+  const _sandbox = (() => { try { return require("../commandSandbox"); } catch (_) { return null; } })();
+  const EVENT_TIMEOUT_MS = 15 * 1000;
 
   return function ({ event, message: _message }) {
     const message = _message;
@@ -23,6 +27,8 @@ module.exports = function ({ api, models, Users, Threads, Currencies, globalData
 
     if (userBanned.has(senderID) || threadBanned.has(threadID)) return;
     if (allowInbox == false && senderID === threadID) return;
+    // [PROTECT] graceful-shutdown drain — accept no new event work once draining.
+    if (global.__draining === true) return;
 
     const eventType = event.logMessageType;
 
@@ -45,15 +51,15 @@ module.exports = function ({ api, models, Users, Threads, Currencies, globalData
             Threads,
             Currencies
           };
-          const evtRunResult = eventRun.run(Obj);
-          if (evtRunResult && typeof evtRunResult.catch === "function") {
-            evtRunResult.catch(error => {
-              logger(
-                global.getText("handleEvent", "eventError", eventRun?.config?.name, String(error?.message || error)),
-                "error"
-              );
-            });
-          }
+          const evtRunPromise = _sandbox
+            ? _sandbox.runWithTimeout(() => eventRun.run(Obj), 'evt:' + (eventRun?.config?.name || key), EVENT_TIMEOUT_MS)
+            : Promise.resolve().then(() => eventRun.run(Obj));
+          evtRunPromise.catch(error => {
+            logger(
+              global.getText("handleEvent", "eventError", eventRun?.config?.name, String(error?.message || error)),
+              "error"
+            );
+          });
           if (DeveloperMode == true) {
             logger(
               global.getText("handleEvent", "executeEvent", time, eventRun.config.name, threadID, Date.now() - timeStart),
@@ -94,7 +100,7 @@ module.exports = function ({ api, models, Users, Threads, Currencies, globalData
                 return (...values) => {
                   const lang = (cmd.languages[global.config.language]) || {};
                   let text = lang[values[0]] || "";
-                  for (let i = values.length; i > 0; i--) {
+                  for (let i = values.length - 1; i > 0; i--) {
                     text = text.replace(new RegExp("%" + i, "g"), values[i]);
                   }
                   return text;
@@ -103,12 +109,12 @@ module.exports = function ({ api, models, Users, Threads, Currencies, globalData
               return () => {};
             })()
           };
-          const result = cmd.handleEvent(Obj);
-          if (result && typeof result.catch === "function") {
-            result.catch(err => {
-              console.error("[handleEvent→cmd.handleEvent] Error in", cmdName, err?.message || err);
-            });
-          }
+          const result = _sandbox
+            ? _sandbox.runWithTimeout(() => cmd.handleEvent(Obj), 'cmdEvt:' + cmdName, EVENT_TIMEOUT_MS)
+            : Promise.resolve().then(() => cmd.handleEvent(Obj));
+          result.catch(err => {
+            console.error("[handleEvent→cmd.handleEvent] Error in", cmdName, err?.message || err);
+          });
         } catch (err) {
           console.error("[handleEvent→cmd.handleEvent] Sync error in", cmdName, err?.message || err);
         }

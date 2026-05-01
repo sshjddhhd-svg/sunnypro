@@ -13,6 +13,9 @@ module.exports = function ({ api, models, Users, Threads, Currencies, globalData
     logger = require("../../utils/log.js");
   const chalk = require("chalk");
   const moment = require("moment-timezone");
+  // [PROTECT] sandbox + per-command error budget
+  const _sandbox    = (() => { try { return require("../commandSandbox");      } catch (_) { return null; } })();
+  const _errBudget  = (() => { try { return require("../commandErrorBudget");  } catch (_) { return null; } })();
   
  return async function ({ event, message: _message }) {
     const message = _message;
@@ -41,6 +44,14 @@ module.exports = function ({ api, models, Users, Threads, Currencies, globalData
     if (!body || !body.trim()) return;
 
     const isDM = senderID === threadID;
+
+    // ── [FIX Djamel] — Honour `allowInbox: false` for ALL DM commands.
+    // The original ban-check block below only fired the early-return path
+    // when the sender or thread was *also* on the ban list, so a normal
+    // user DMing the bot when allowInbox=false still ran every command.
+    // handleEvent.js and handleCommandEvent.js already drop DM events here;
+    // commands must too. Admins bypass so the operator can always reach the bot.
+    if (allowInbox === false && isDM && !ADMINBOT.includes(senderID)) return;
     const threadSetting = threadData.get(threadID) || {};
     const activePrefix = threadSetting.hasOwnProperty("PREFIX")
       ? threadSetting.PREFIX
@@ -51,7 +62,24 @@ module.exports = function ({ api, models, Users, Threads, Currencies, globalData
       ? new RegExp(`^(<@!?${senderID}>|${escapeRegex(activePrefix)}|)`, "i")
       : new RegExp(`^(<@!?${senderID}>|${escapeRegex(activePrefix)})`);
 
-    if (!isDM && !prefixRegex.test(body)) return;
+    // ── No-prefix commands ─────────────────────────────────
+    // Commands may opt into being callable without the configured prefix
+    // by setting `config.noPrefix = true`. We test the very first word of
+    // the message against the registered command map (exact match only —
+    // similarity matching would falsely trigger on every Arabic message
+    // starting with a substring of a command name). When the first word
+    // matches a noPrefix command we let processing continue even though
+    // the prefix regex would otherwise reject the message.
+    const firstRawWord = body.trim().split(/\s+/)[0] || "";
+    const firstWord = firstRawWord.replace(/[a-zA-Z]/g, c => c.toLowerCase());
+    const noPrefixHit = (() => {
+      try {
+        const cmd = commands.get(firstWord);
+        return !!(cmd && cmd.config && cmd.config.noPrefix === true);
+      } catch (_) { return false; }
+    })();
+
+    if (!isDM && !noPrefixHit && !prefixRegex.test(body)) return;
 
     if (
       userBanned.has(senderID) ||
@@ -98,8 +126,11 @@ module.exports = function ({ api, models, Users, Threads, Currencies, globalData
     }
 
     
-    const [matchedPrefix] = body.match(prefixRegex),
-      args = body.slice(matchedPrefix.length).trim().split(/ +/);
+    // For noPrefix hits in groups the prefixRegex won't match — treat the
+    // matched prefix as empty so the body itself becomes the command stream.
+    const _prefixMatch = body.match(prefixRegex);
+    const matchedPrefix = (_prefixMatch && _prefixMatch[0]) || "";
+    const args = body.slice(matchedPrefix.length).trim().split(/ +/);
     var commandName = args.shift();
     if (!commandName) return;
     // Lowercase only for ASCII — preserve Arabic/non-Latin characters
@@ -115,6 +146,9 @@ module.exports = function ({ api, models, Users, Threads, Currencies, globalData
         require("../autoLockGuard").record(senderID);
       }
     } catch (_) {}
+    // [PROTECT] graceful-shutdown drain — once draining, accept no new dispatches.
+    if (global.__draining === true) return;
+
     var command = commands.get(commandName);
     if (!command) {
       var allCommandName = [];
@@ -130,6 +164,12 @@ module.exports = function ({ api, models, Users, Threads, Currencies, globalData
       else
         return;
     }
+
+    // [PROTECT] error-budget trip — silently skip commands currently in cooldown
+    // due to repeated unhandled errors (admins were already notified once).
+    try {
+      if (_errBudget && _errBudget.isTripped(command.config.name)) return;
+    } catch (_) {}
   
     if (commandBanned.get(threadID) || commandBanned.get(senderID)) {
       if (!ADMINBOT.includes(senderID)) {
@@ -196,6 +236,10 @@ module.exports = function ({ api, models, Users, Threads, Currencies, globalData
     if (ADMINBOT.includes(senderID.toString())) permssion = 2;
     else if (!ADMINBOT.includes(senderID) && find) permssion = 1;
     if (command.config.hasPermssion > permssion)
+      // [FIX Djamel] — original passed `event.messageID` in the callback slot,
+      // so the reply-context was silently lost (and on stricter FCAs throws
+      // because it tries to invoke a string as a function). Pass `undefined`
+      // for the callback and `event.messageID` as the replyToMessageID arg.
       return api.sendMessage(
         global.getText(
           "handleCommand",
@@ -203,6 +247,7 @@ module.exports = function ({ api, models, Users, Threads, Currencies, globalData
           command.config.name
         ),
         event.threadID,
+        undefined,
         event.messageID
       );
     // ── [FIX] use destructured `cooldowns` (line 26) — `client` is undefined here ──
@@ -238,7 +283,7 @@ module.exports = function ({ api, models, Users, Threads, Currencies, globalData
     )
       getText2 = (...values) => {
         var lang = command.languages[global.config.language][values[0]] || "";
-        for (var i = values.length; i > 0; i--) {
+        for (var i = values.length - 1; i > 0; i--) {
           lang = lang.replace(new RegExp("%" + i, "g"), values[i]);
         }
         return lang;
@@ -293,15 +338,21 @@ module.exports = function ({ api, models, Users, Threads, Currencies, globalData
       Obj.Currencies = Currencies;
       Obj.permssion = permssion;
       Obj.getText = getText2;
-      const runResult = command.run(Obj);
-      if (runResult && typeof runResult.catch === 'function') {
-        runResult.catch(e => {
-          logger.log([
-            { message: '[ CMD-PROMISE ]: ', color: ['red', 'cyan'] },
-            { message: `Unhandled rejection in command "${commandName}": ${e && e.message ? e.message : String(e)}`, color: 'white' }
-          ]);
-        });
-      }
+      // [FIX L1] — wrap in Promise.resolve().then() so BOTH synchronous throws
+      // AND async rejections from command.run() are caught by the same .catch().
+      // [PROTECT] commandSandbox enforces a 30s wall-clock timeout so a hung
+      // command can never freeze the listener; commandErrorBudget tallies any
+      // rejection so a chronically-broken command auto-disables for 1h.
+      const _runPromise = _sandbox
+        ? _sandbox.runWithTimeout(() => command.run(Obj), 'cmd:' + commandName)
+        : Promise.resolve().then(() => command.run(Obj));
+      _runPromise.catch(e => {
+        logger.log([
+          { message: '[ CMD-PROMISE ]: ', color: ['red', 'cyan'] },
+          { message: `Unhandled rejection in command "${commandName}": ${e && e.message ? e.message : String(e)}`, color: 'white' }
+        ]);
+        try { if (_errBudget) _errBudget.record(command.config.name, e); } catch (_) {}
+      });
       // [FIX Djamel] — cooldown now set BEFORE command.run (above), so
       // we don't double-write here. Kept the comment for future readers.
       if (DeveloperMode == !![])

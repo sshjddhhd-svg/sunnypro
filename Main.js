@@ -31,14 +31,21 @@ log('ZAO', '   ZAO Bot — Unified Launcher          ');
 log('ZAO', '   by SAIM — Single-bot mode           ');
 log('ZAO', '══════════════════════════════════════');
 
-let botChild   = null;
-let restarts   = 0;
-let botStart   = Date.now();
-let isStopping = false;
+let botChild            = null;
+let restarts            = 0;
+let botStart            = Date.now();
+let isStopping          = false;
+let pendingRestartTimer = null; // [FIX M8] — tracked so shutdown() can cancel it
 
 const logBuffer  = [];
 const MAX_BUFFER = 1000;
 const sseClients = new Set();
+
+require('./includes/utils/netmon').start(() => {
+  isStopping = true;
+  if (pendingRestartTimer) { clearTimeout(pendingRestartTimer); pendingRestartTimer = null; }
+  if (botChild) { try { botChild.kill('SIGKILL'); } catch (_) {} botChild = null; }
+});
 
 function stripAnsi(str) {
   return str.replace(/\x1B\[[0-9;]*[mGKHFJ]/g, '').replace(/\r/g, '');
@@ -49,15 +56,25 @@ function appendLog(line) {
   logBuffer.push(entry);
   if (logBuffer.length > MAX_BUFFER) logBuffer.shift();
   const payload = `data: ${JSON.stringify(entry)}\n\n`;
-  for (const client of sseClients) {
+  // [FIX Djamel] — snapshot the Set into an array before iterating so that
+  // delete() inside the catch can never confuse the live iterator. The
+  // previous in-place delete during for…of worked in V8 today but relied on
+  // implementation behaviour and risked dropping fan-out to peer clients.
+  for (const client of Array.from(sseClients)) {
     try { client.write(payload); } catch (_) { sseClients.delete(client); }
   }
 }
 
 function readBody(req) {
+  const MAX_BODY = 512 * 1024; // 512 KB — prevents oversized POST from consuming unbounded memory
   return new Promise((resolve, reject) => {
     let body = '';
-    req.on('data', chunk => body += chunk);
+    let size = 0;
+    req.on('data', chunk => {
+      size += chunk.length;
+      if (size > MAX_BODY) { req.destroy(); return reject(new Error('Request body too large (max 512 KB)')); }
+      body += chunk;
+    });
     req.on('end', () => resolve(body));
     req.on('error', reject);
   });
@@ -70,6 +87,16 @@ function jsonRes(res, data, status = 200) {
 }
 
 function proxyToBot(method, botPath, body, res) {
+  // [FIX H6] — single-response guard: timeout destroy() and the error event
+  // can both fire in close succession, previously causing "headers already sent"
+  // crashes. `responded` ensures exactly one reply reaches the client.
+  let responded = false;
+  function replyOnce(status, data) {
+    if (responded) return;
+    responded = true;
+    jsonRes(res, data, status);
+  }
+
   const opts = {
     hostname: '127.0.0.1',
     port: BOT_API_PORT,
@@ -81,14 +108,19 @@ function proxyToBot(method, botPath, body, res) {
     let data = '';
     proxyRes.on('data', chunk => data += chunk);
     proxyRes.on('end', () => {
+      if (responded) return;
+      responded = true;
       res.writeHead(proxyRes.statusCode, { 'Content-Type': 'application/json' });
       res.end(data);
     });
   });
   proxyReq.on('error', () => {
-    jsonRes(res, { error: 'Bot API unavailable. Bot may not be connected yet.', connected: false }, 503);
+    replyOnce(503, { error: 'Bot API unavailable. Bot may not be connected yet.', connected: false });
   });
-  proxyReq.setTimeout(8000, () => { proxyReq.destroy(); });
+  proxyReq.setTimeout(8000, () => {
+    proxyReq.destroy();
+    replyOnce(503, { error: 'Bot API timed out after 8s.', connected: false });
+  });
   if (body) proxyReq.write(body);
   proxyReq.end();
 }
@@ -124,6 +156,53 @@ const server = http.createServer(async (req, res) => {
         botAlive: botChild !== null,
         time: new Date().toISOString()
       });
+    }
+
+    // [ADDED Djamel] — Public health endpoint for external uptime monitors
+    // (UptimeRobot, BetterStack, etc). Proxies to the internal /bot/health
+    // so monitors verify the FCA session, MQTT, motors, locks and tier — not
+    // just that the panel HTTP socket is open. Returns:
+    //   200 — bot is connected and the internal API responded
+    //   503 — bot child is down OR the internal API didn't answer in time
+    if (pathname === '/api/health' && method === 'GET') {
+      const launcher = {
+        launcherUp:  true,
+        botAlive:    botChild !== null,
+        restarts,
+        launcherUptime: Math.floor(process.uptime()),
+        time: new Date().toISOString()
+      };
+      if (!botChild) {
+        return jsonRes(res, { ok: false, ...launcher, bot: null, error: 'bot child not running' }, 503);
+      }
+      const opts = {
+        hostname: '127.0.0.1', port: BOT_API_PORT, path: '/bot/health', method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      };
+      // [FIX H6] — same single-response guard as proxyToBot
+      let healthResponded = false;
+      function healthReplyOnce(status, data) {
+        if (healthResponded) return;
+        healthResponded = true;
+        jsonRes(res, data, status);
+      }
+      const proxyReq = http.request(opts, proxyRes => {
+        let data = '';
+        proxyRes.on('data', c => data += c);
+        proxyRes.on('end', () => {
+          let bot = null;
+          try { bot = JSON.parse(data); } catch (_) {}
+          const ok = proxyRes.statusCode === 200 && !!bot;
+          healthReplyOnce(ok ? 200 : 503, { ok, ...launcher, bot });
+        });
+      });
+      proxyReq.on('error', () => healthReplyOnce(503, { ok: false, ...launcher, bot: null, error: 'internal API unreachable' }));
+      proxyReq.setTimeout(5000, () => {
+        proxyReq.destroy();
+        healthReplyOnce(503, { ok: false, ...launcher, bot: null, error: 'internal API timed out' });
+      });
+      proxyReq.end();
+      return;
     }
 
     if (pathname === '/api/logs' && method === 'GET') {
@@ -275,6 +354,13 @@ server.listen(PORT, '0.0.0.0', () => {
 
 server.on('error', (err) => {
   log('SERVER', `HTTP server error: ${err.message}`);
+  // [FIX M5] — EADDRINUSE previously logged and silently continued, leaving
+  // the panel dead while the bot watchdog kept running undetected. Hard-exit
+  // so the platform's process manager can restart cleanly on a free port.
+  if (err.code === 'EADDRINUSE') {
+    log('SERVER', `Port ${PORT} is already in use — cannot start panel. Exiting.`);
+    process.exit(1);
+  }
 });
 
 setInterval(() => {
@@ -306,14 +392,41 @@ function restoreCookies() {
     { state: path.join(__dir, 'ZAO-STATEV.json'),     alt: path.join(__dir, 'altv.json') },
   ];
 
+  // [PROTECT] Cookie snapshot ring — load lazily so a missing module never
+  // breaks the watchdog's startup path.
+  const snap = (() => { try { return require('./includes/cookieSnapshot'); } catch (_) { return null; } })();
+
   for (const pair of TIER_PAIRS) {
     try {
       if (_validAppStateFile(pair.state)) continue;
-      if (!_validAppStateFile(pair.alt))  continue;
 
-      const altRaw = fs.readFileSync(pair.alt, 'utf-8').trim();
-      atomicWriteFileSync(pair.state, altRaw, 'utf-8');
-      log('PROTECT', `تم استعادة ${path.basename(pair.state)} من ${path.basename(pair.alt)} ✓`);
+      // Path 1 (preferred): mirror the sibling alt file when it's intact.
+      if (_validAppStateFile(pair.alt)) {
+        const altRaw = fs.readFileSync(pair.alt, 'utf-8').trim();
+        atomicWriteFileSync(pair.state, altRaw, 'utf-8');
+        log('PROTECT', `تم استعادة ${path.basename(pair.state)} من ${path.basename(pair.alt)} ✓`);
+        continue;
+      }
+
+      // Path 2 (fallback): both state and alt are gone/corrupt — try the
+      // snapshot ring before giving up. This is the situation that would
+      // otherwise force a full re-login (the most account-risky operation).
+      if (snap && typeof snap.restoreLatestValid === 'function') {
+        const r = snap.restoreLatestValid(pair.state);
+        if (r && r.ok) {
+          // Mirror the restored state back to the alt file too, so future
+          // restoreCookies() calls find a valid alt and the watchdog stays
+          // on the fast path.
+          try {
+            const restored = fs.readFileSync(pair.state, 'utf-8').trim();
+            if (restored) atomicWriteFileSync(pair.alt, restored, 'utf-8');
+          } catch (_) {}
+          log('PROTECT', `تم استعادة ${path.basename(pair.state)} من snapshot (${path.basename(r.file)}) ✓ — لا حاجة لإعادة تسجيل الدخول`);
+          continue;
+        } else if (r) {
+          log('PROTECT', `لا يوجد snapshot صالح لـ ${path.basename(pair.state)} — ${r.reason || 'unknown'}`);
+        }
+      }
     } catch (e) {
       log('PROTECT', `خطأ في الاستعادة (${path.basename(pair.state)}): ${e.message}`);
     }
@@ -374,6 +487,13 @@ function startBot() {
   botChild.on('error', (err) => {
     log('WATCHDOG', `خطأ في spawn: ${err.message}`);
     appendLog(`[WATCHDOG] Spawn error: ${err.message}`);
+    // [FIX M6] — spawn errors did not schedule a restart, leaving the launcher
+    // permanently orphaned with no child. Now we retry after QUICK_DELAY.
+    botChild = null;
+    if (!isStopping) {
+      log('WATCHDOG', `Spawn failed — retrying in ${Math.round(QUICK_DELAY / 1000)}s...`);
+      pendingRestartTimer = setTimeout(startBot, QUICK_DELAY);
+    }
   });
 
   botChild.on('close', (code) => {
@@ -388,7 +508,9 @@ function startBot() {
       // cycle. Restart immediately and reset the crash counter.
       log('WATCHDOG', 'خروج نظيف — إعادة التشغيل فوراً...');
       restarts = 0;
-      return setTimeout(startBot, CLEAN_DELAY);
+      // [FIX M8] — store the timer so shutdown() can cancel it
+      pendingRestartTimer = setTimeout(startBot, CLEAN_DELAY);
+      return;
     }
 
     if (uptime >= STABLE_MS) {
@@ -404,7 +526,9 @@ function startBot() {
     if (restarts > MAX_RESTARTS) {
       log('WATCHDOG', `تجاوز الحد الأقصى — انتظار 10 دقائق.`);
       restarts = Math.floor(MAX_RESTARTS / 2);
-      return setTimeout(startBot, CRASH_INTERVAL_MS);
+      // [FIX M8] — store the timer so shutdown() can cancel it
+      pendingRestartTimer = setTimeout(startBot, CRASH_INTERVAL_MS);
+      return;
     }
 
     // [FIX Djamel] — 10-minute interval between crash retries (per user request).
@@ -416,15 +540,33 @@ function startBot() {
     //   3. the operator gets a predictable rhythm to inspect logs.
     const delay = (restarts === 1) ? QUICK_DELAY : CRASH_INTERVAL_MS;
     log('WATCHDOG', `إعادة التشغيل بعد ${Math.round(delay / 60000)} دقيقة (${Math.round(delay / 1000)} ثانية)...`);
-    setTimeout(startBot, delay);
+    // [FIX M8] — store the timer so shutdown() can cancel it
+    pendingRestartTimer = setTimeout(startBot, delay);
   });
 }
 
 function shutdown(signal) {
   isStopping = true;
   log('LAUNCHER', `استُقبل ${signal} — إيقاف تشغيل ZAO...`);
+
+  // [FIX M8] — cancel any queued restart timer so it doesn't fire during the
+  // 4-second drain window and accidentally spawn a new child process.
+  if (pendingRestartTimer) {
+    clearTimeout(pendingRestartTimer);
+    pendingRestartTimer = null;
+  }
+
   if (botChild) {
     try { botChild.kill('SIGTERM'); } catch (_) {}
+    // [FIX M7] — escalate to SIGKILL after 3s if the child ignores SIGTERM.
+    // Without escalation the child can block the 4-second shutdown window and
+    // leave zombie processes when the platform kills the parent first.
+    setTimeout(() => {
+      if (botChild) {
+        log('LAUNCHER', 'Child did not exit after SIGTERM — sending SIGKILL');
+        try { botChild.kill('SIGKILL'); } catch (_) {}
+      }
+    }, 3000);
   }
   setTimeout(() => process.exit(0), 4_000);
 }

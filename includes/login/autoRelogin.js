@@ -101,6 +101,12 @@ function saveState(stateFile, altFile, appState) {
     if (altFile && fs.existsSync(path.dirname(altFile))) {
       atomicWriteFileSync(altFile, data, "utf-8");
     }
+    // [PROTECT] Cookie snapshot ring — fresh login = great moment to capture
+    // a known-good snapshot for the watchdog's restore path.
+    try {
+      const snap = require("../cookieSnapshot");
+      snap.snapshot(appState, stateFile);
+    } catch (_) {}
   } catch (_) {}
 }
 
@@ -188,6 +194,18 @@ async function forceTierSwitch(api, reason) {
     log("warn", "forceTierSwitch: re-login already in progress — skipping.");
     return false;
   }
+
+  // [PROTECT] Network-Probe — before burning a tier slot, confirm Facebook is
+  // actually reachable. A transient DNS/network blip on Replit otherwise
+  // triggers a real tier walk, which compounds risk on the account pool.
+  try {
+    const probe = require("../networkProbe");
+    const reachable = await probe.isFacebookReachable({ ttlMs: 30 * 1000 });
+    if (!reachable) {
+      log("warn", "forceTierSwitch: skipped — edge-mqtt.facebook.com unreachable (network blip). Will retry when network recovers.");
+      return false;
+    }
+  } catch (_) {}
 
   // Resolve which tier we're on right now
   const activeTier = global.activeAccountTier || 1;
@@ -308,6 +326,18 @@ async function autoRelogin(api, reason) {
     log("warn", `Cooldown active. Next attempt in ${waitSec}s.`);
     return false;
   }
+
+  // [PROTECT] Network-Probe — confirm Facebook is reachable before attempting
+  // a re-login. Saves a wasted attempt (and its rate-limit cost) when the
+  // session "death" was actually a transient network failure on the host.
+  try {
+    const probe = require("../networkProbe");
+    const reachable = await probe.isFacebookReachable({ ttlMs: 30 * 1000 });
+    if (!reachable) {
+      log("warn", `autoRelogin: skipped — Facebook edge unreachable. Will retry after cooldown. (reason was: ${reason || 'unknown'})`);
+      return false;
+    }
+  } catch (_) {}
 
   // Sync current tier index from global state
   const activeTier = global.activeAccountTier || 1;

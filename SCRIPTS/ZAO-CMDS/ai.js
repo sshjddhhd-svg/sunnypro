@@ -1,17 +1,18 @@
 const axios = require("axios");
 
-const GROQ_API_KEY = process.env.GROQ_API_KEY || "sk_gmuBJIeP6oAVP7d2m7bHWGdyb3FYvrkn8yPQcqC2BEazIkFlxKm4";
-const GROQ_MODEL = "openai/gpt-oss-120b";
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "k-or-v1-b5c8180843bb2f2ea7fa5e456e9a1503a7f6299ea617f7f6023fe645f358122c";
+const OPENROUTER_MODEL = "openai/gpt-4o";
 
 module.exports.config = {
   name: "زاو",
   version: "2.0.0",
   hasPermssion: 0,
   credits: "لحواك كحبة تسرقني نك مك",
-  description: "محادثة مع Groq AI",
+  description: "محادثة مع OpenRouter AI",
   commandCategory: "ذكاء اصطناعي",
   usages: "زاو [رسالتك]",
-  cooldowns: 3
+  cooldowns: 3,
+  noPrefix: true
 };
 
 module.exports.languages = {
@@ -19,8 +20,54 @@ module.exports.languages = {
   "en": {}
 };
 
+// [FIX Djamel] — bound the in-memory chat history. The original code never
+// pruned global.zaoHistory: every replying user accumulated up to 20
+// messages forever, plus every dormant user kept their entry on the heap
+// for the lifetime of the process. On a busy bot that's a slow leak that
+// also widens the GC pause. We now:
+//   • cap the number of tracked users (LRU-evict by lastTouched)
+//   • drop sessions whose last activity is older than the TTL
+const ZAO_HISTORY_MAX_USERS = 500;
+const ZAO_HISTORY_TTL_MS    = 6 * 60 * 60 * 1000;   // 6 hours
+const ZAO_HISTORY_SWEEP_MS  = 30 * 60 * 1000;       // sweep every 30 min
+
+function _sweepZaoHistory() {
+  try {
+    const h = global.zaoHistory;
+    if (!h) return;
+    const now = Date.now();
+    const ids = Object.keys(h);
+    // 1) drop expired sessions
+    for (const id of ids) {
+      const s = h[id];
+      if (!s || !s.lastTouched || (now - s.lastTouched) > ZAO_HISTORY_TTL_MS) {
+        delete h[id];
+      }
+    }
+    // 2) cap by LRU if we're still over budget
+    const remaining = Object.keys(h);
+    if (remaining.length > ZAO_HISTORY_MAX_USERS) {
+      remaining
+        .map(id => ({ id, t: h[id].lastTouched || 0 }))
+        .sort((a, b) => a.t - b.t)                       // oldest first
+        .slice(0, remaining.length - ZAO_HISTORY_MAX_USERS)
+        .forEach(({ id }) => { delete h[id]; });
+    }
+  } catch (_) { /* best-effort cleanup */ }
+}
+
 module.exports.onLoad = () => {
-  global.zaoHistory = global.zaoHistory || {};
+  // [FIX H4] — use Object.create(null) instead of {} so the history store has
+  // no inherited properties (no __proto__, constructor, etc.). This eliminates
+  // the prototype-pollution risk that existed when senderID was used as a key
+  // on a plain object, since any key including "__proto__" is now just data.
+  global.zaoHistory = global.zaoHistory || Object.create(null);
+  if (!global.__zaoHistorySweeper) {
+    global.__zaoHistorySweeper = setInterval(_sweepZaoHistory, ZAO_HISTORY_SWEEP_MS);
+    if (typeof global.__zaoHistorySweeper.unref === 'function') {
+      global.__zaoHistorySweeper.unref();
+    }
+  }
 };
 
 const SYSTEM_PROMPT = `##  Identity 
@@ -115,7 +162,7 @@ const SYSTEM_PROMPT = `##  Identity
 
 `;
 
-async function askGroq(history) {
+async function askAI(history) {
   const messages = [
     { role: "system", content: SYSTEM_PROMPT },
     ...history.map(msg => ({
@@ -125,9 +172,9 @@ async function askGroq(history) {
   ];
 
   const res = await axios.post(
-    "https://api.groq.com/openai/v1/chat/completions",
+    "https://openrouter.ai/api/v1/chat/completions",
     {
-      model: GROQ_MODEL,
+      model: OPENROUTER_MODEL,
       messages: messages,
       max_tokens: 512,
       temperature: 0.9
@@ -135,12 +182,14 @@ async function askGroq(history) {
     {
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${GROQ_API_KEY}`
+        "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+        "HTTP-Referer": "https://zaobot.replit.app",
+        "X-OpenRouter-Title": "ZAO Bot"
       }
     }
   );
 
-  const raw = res.data.choices?.[0]?.message?.content || "مش لاقي رد";
+  const raw = res.data.choices?.[0]?.message?.content || "خويا سير تقود";
   return raw.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
 }
 
@@ -154,12 +203,14 @@ module.exports.handleEvent = async function ({ api, event }) {
   const session = global.zaoHistory[senderID];
   if (messageReply.messageID !== session.lastBotMessageID) return;
 
+  session.lastTouched = Date.now();
   session.history.push({ role: "user", content: body.trim() });
   if (session.history.length > 20) session.history = session.history.slice(-20);
 
   try {
-    const reply = await askGroq(session.history);
+    const reply = await askAI(session.history);
     session.history.push({ role: "assistant", content: reply });
+    session.lastTouched = Date.now();
 
     api.sendMessage(reply, threadID, (err, info) => {
       if (!err) session.lastBotMessageID = info.messageID;
@@ -177,16 +228,18 @@ module.exports.run = async function ({ api, event, args }) {
   if (!userMsg) return api.sendMessage("شني", threadID, messageID);
 
   if (!global.zaoHistory[senderID]) {
-    global.zaoHistory[senderID] = { history: [], lastBotMessageID: null };
+    global.zaoHistory[senderID] = { history: [], lastBotMessageID: null, lastTouched: Date.now() };
   }
 
   const session = global.zaoHistory[senderID];
+  session.lastTouched = Date.now();
   session.history.push({ role: "user", content: userMsg });
   if (session.history.length > 20) session.history = session.history.slice(-20);
 
   try {
-    const reply = await askGroq(session.history);
+    const reply = await askAI(session.history);
     session.history.push({ role: "assistant", content: reply });
+    session.lastTouched = Date.now();
 
     api.sendMessage(reply, threadID, (err, info) => {
       if (!err) session.lastBotMessageID = info.messageID;

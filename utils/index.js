@@ -51,18 +51,14 @@ module.exports.downloadFile = async function (url, path) {
 };
 
 module.exports.getContent = async function(url) {
-        try {
-                const axios = require("axios");
-
-                const response = await axios({
-                        method: 'GET',
-                        url
-                });
-
-                const data = response;
-
-                return data;
-        } catch (e) { return console.log(e); };
+        // [FIX M11] — previously caught errors were swallowed via `return console.log(e)`,
+        // which causes callers to receive `undefined` instead of a rejected promise.
+        // Any caller that did `const result = await getContent(url); result.data.foo`
+        // would crash with "Cannot read property of undefined" rather than seeing the
+        // real network error. Re-throw so callers can handle failures properly.
+        const axios = require("axios");
+        const response = await axios({ method: 'GET', url });
+        return response;
 }
 
 module.exports.randomString = function (length) {

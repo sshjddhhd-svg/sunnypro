@@ -24,7 +24,7 @@ module.exports = function ({ api, models, Users, Threads, Currencies, globalData
         getText2 = (...values) => {
           const lang = cmd.languages[global.config.language] || {};
           var text = lang[values[0]] || '';
-          for (var i = values.length; i > 0; i--) {
+          for (var i = values.length - 1; i > 0; i--) {
             text = text.replace(new RegExp('%' + i, 'g'), values[i]);
           }
           return text;

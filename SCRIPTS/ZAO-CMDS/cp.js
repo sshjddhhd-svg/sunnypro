@@ -8,7 +8,7 @@ const NickLocks = require("../../includes/nicknameLocks");
 
 module.exports.config = {
   name: "التحكم",
-  version: "1.2.0",
+  version: "1.3.0",
   hasPermssion: 2,
   credits: "Saint",
   description: "إدارة الغروبات وطلبات المراسلة",
@@ -16,6 +16,49 @@ module.exports.config = {
   usages: "",
   cooldowns: 5
 };
+
+// [FIX] Always reach for the live api so tier-swaps don't strand calls
+// against a stale handle (mirrors the helper used in nicknames.js / nm.js).
+function _live(api) { return global._botApi || api; }
+
+// [FIX] This FCA (@neoaz07/nkxfca) does NOT expose api.setTitle — the
+// group-name MQTT call is api.gcname(newName, threadID, callback). Wrap
+// it as a Promise so callers can `await` cleanly, the same way nm.js does.
+function gcnameP(api, newName, threadID) {
+  const live = _live(api);
+  return new Promise((resolve, reject) => {
+    if (!live || typeof live.gcname !== "function") {
+      return reject(new Error("api.gcname unavailable"));
+    }
+    try {
+      const r = live.gcname(newName, threadID, (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+      if (r && typeof r.then === "function") r.then(resolve, reject);
+    } catch (e) {
+      reject(e);
+    }
+  });
+}
+
+function changeNicknameP(api, nickname, threadID, userID) {
+  const live = _live(api);
+  return new Promise((resolve, reject) => {
+    if (!live || typeof live.changeNickname !== "function") {
+      return reject(new Error("api.changeNickname unavailable"));
+    }
+    try {
+      const r = live.changeNickname(nickname, threadID, userID, (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+      if (r && typeof r.then === "function") r.then(resolve, reject);
+    } catch (e) {
+      reject(e);
+    }
+  });
+}
 
 module.exports.languages = {
   "vi": {},
@@ -37,21 +80,54 @@ function fmtMotorTime(d) {
   return d.time ? d.time / 1000 + "s" : "—";
 }
 
+function _fmtRelTime(ts) {
+  if (!ts) return "—";
+  const diff = Date.now() - ts;
+  const future = diff < 0;
+  const abs = Math.abs(diff);
+  const s = Math.floor(abs / 1000);
+  const m = Math.floor(s / 60);
+  const h = Math.floor(m / 60);
+  let str;
+  if (s < 60)      str = `${s}ث`;
+  else if (m < 60) str = `${m}د ${s % 60}ث`;
+  else              str = `${h}س ${m % 60}د`;
+  return future ? `خلال ${str}` : `منذ ${str}`;
+}
+
 function buildGroupMenu(selected, tid, statusMsg) {
   const m1 = global.motorData[tid];
   const m2 = global.motorData2[tid];
   const lockedName = getLock(tid);
   const nickLock   = NickLocks.getLock(tid);
+
+  let m1Stats = null, m2Stats = null;
+  try {
+    const { getLoopStats } = require("../../includes/motorSafeSend");
+    if (m1?.status) m1Stats = getLoopStats(tid);
+    if (m2?.status) m2Stats = getLoopStats(tid);
+  } catch (_) {}
+
+  function motorLine(d, stats) {
+    if (!d?.status) return `   📝 "${d?.message || "لم تُضبط"}" · ⏱ ${fmtMotorTime(d)}\n`;
+    const last = stats ? _fmtRelTime(stats.lastSentAt) : "—";
+    const next = stats ? _fmtRelTime(stats.nextSendAt)  : "—";
+    return (
+      `   📝 "${(d.message || "لم تُضبط").slice(0, 22)}" · ⏱ ${fmtMotorTime(d)}\n`
+      + `   آخر إرسال: ${last}  |  التالي: ${next}\n`
+    );
+  }
+
   return (
     (statusMsg ? statusMsg + "\n\n" : "")
     + `👥 ${selected.name}\n🆔 ${tid}\n`
-    + (lockedName ? `🔒 اسم مقفول: "${lockedName}"\n` : "")
+    + (lockedName ? `🔒 اسم مقفول: "${lockedName.name}"\n` : "")
     + (nickLock   ? `🔒 كنية مقفولة (${nickLock.scope === "bot" ? "بوت" : "الجميع"}): "${nickLock.nickname}"\n` : "")
     + `━━━━━━━━━━━━━━━\n`
     + `📍 المحرك العادي: ${m1?.status ? "🟢 شغّال" : "⚫ متوقف"}\n`
-    + `   📝 "${m1?.message || "لم تُضبط"}" · ⏱ ${fmtMotorTime(m1)}\n\n`
-    + `📍 المحرك الذكي: ${m2?.status ? "🟢 شغّال" : "⚫ متوقف"}\n`
-    + `   📝 "${m2?.message || "لم تُضبط"}" · ⏱ ${fmtMotorTime(m2)}\n`
+    + motorLine(m1, m1Stats)
+    + `\n📍 المحرك الذكي: ${m2?.status ? "🟢 شغّال" : "⚫ متوقف"}\n`
+    + motorLine(m2, m2Stats)
     + `━━━━━━━━━━━━━━━\n`
     + "1 - تفعيل المحرك العادي\n"
     + "2 - إيقاف المحرك العادي\n"
@@ -168,6 +244,23 @@ function parseTime(input) {
   if (input.endsWith("s")) ms = parseFloat(input) * 1000;
   else if (input.endsWith("m")) ms = parseFloat(input) * 60 * 1000;
   return ms;
+}
+
+function _parseRandomRange(rangeStr) {
+  if (!rangeStr || !rangeStr.trim()) return { min: 12000, max: 50000 };
+  const m = String(rangeStr).trim().match(/^([0-9.]+)(s|m)?-([0-9.]+)(s|m)?$/i);
+  if (!m) return null;
+  const toMs = (v, u) => {
+    const n = parseFloat(v);
+    if (isNaN(n) || n <= 0) return null;
+    return u && u.toLowerCase() === "m" ? Math.round(n * 60000) : Math.round(n * 1000);
+  };
+  const minMs = toMs(m[1], m[2]);
+  const maxMs = toMs(m[3], m[4]);
+  if (!minMs || !maxMs) return null;
+  if (minMs < 5000)    return null;
+  if (maxMs <= minMs)  return null;
+  return { min: minMs, max: maxMs };
 }
 
 // ─── handleEvent ──────────────────────────────────────────────────────────────
@@ -390,7 +483,7 @@ module.exports.handleEvent = async function ({ api, event }) {
       });
 
     } else if (input === "4") {
-      api.sendMessage(`⏱️ أرسل الوقت للمحرك العادي (مثال: 30s أو 2m)\n🎲 أو اكتب r لوقت عشوائي بين 12s و 50s:`, threadID, (err, info) => {
+      api.sendMessage(`⏱️ أرسل الوقت للمحرك العادي:\nمثال: 30s أو 2m\n🎲 عشوائي: r  |  r 15-30  |  r 20s-2m`, threadID, (err, info) => {
         if (!err) global.chatsSession[senderID] = { step: "motor_set_time", selected, motorType: 1, botMessageID: info.messageID };
       });
 
@@ -414,7 +507,7 @@ module.exports.handleEvent = async function ({ api, event }) {
       });
 
     } else if (input === "8") {
-      api.sendMessage(`⏱️ أرسل الوقت للمحرك الذكي (مثال: 30s أو 2m)\n🎲 أو اكتب r لوقت عشوائي بين 12s و 50s:`, threadID, (err, info) => {
+      api.sendMessage(`⏱️ أرسل الوقت للمحرك الذكي:\nمثال: 30s أو 2m\n🎲 عشوائي: r  |  r 15-30  |  r 20s-2m`, threadID, (err, info) => {
         if (!err) global.chatsSession[senderID] = { step: "motor_set_time", selected, motorType: 2, botMessageID: info.messageID };
       });
 
@@ -431,7 +524,7 @@ module.exports.handleEvent = async function ({ api, event }) {
     } else if (input === "11") {
       const cur = getLock(tid);
       const prompt = cur
-        ? `🔒 الاسم مقفول حالياً على: "${cur}"\n\n✏️ أرسل اسماً جديداً لاستبدال القفل\n🛑 أو اكتب: ايقاف — لإلغاء القفل`
+        ? `🔒 الاسم مقفول حالياً على: "${cur.name}"\n\n✏️ أرسل اسماً جديداً لاستبدال القفل\n🛑 أو اكتب: ايقاف — لإلغاء القفل`
         : `🔒 سيتم قفل اسم الغروب وحمايته من التغيير.\n\n✏️ أرسل الاسم الجديد للغروب "${selected.name}":`;
       api.sendMessage(prompt, threadID, (err, info) => {
         if (!err) global.chatsSession[senderID] = { step: "group_set_name", selected, botMessageID: info.messageID };
@@ -484,19 +577,28 @@ module.exports.handleEvent = async function ({ api, event }) {
     if (!store[selected.threadID]) store[selected.threadID] = { status: false, message: null, time: null, randomTime: false, randomRange: null, interval: null };
     const target = store[selected.threadID];
 
-    const isRandom = String(input).trim().toLowerCase() === "r";
-    if (isRandom) {
+    const rawInput = String(input).trim();
+    if (rawInput.toLowerCase().startsWith("r")) {
+      const rangeStr = rawInput.slice(1).trim(); // "" or "15-30" or "20s-2m"
+      const range = _parseRandomRange(rangeStr);
+      if (!range) return api.sendMessage(
+        `❌ صيغة النطاق غير صحيحة.\nأمثلة: r  |  r 15-30  |  r 20s-2m\n(الحد الأدنى 5s، والقيمة الكبرى يجب أن تتجاوز الصغرى)`,
+        threadID
+      );
       target.randomTime  = true;
-      target.randomRange = { min: 12000, max: 50000 };
-      target.time        = 31000;
-      api.sendMessage(`🎲 تم تفعيل الوقت العشوائي في "${selected.name}"\nكل رسالة سترسل بفاصل عشوائي بين 12s و 50s`, threadID);
+      target.randomRange = range;
+      target.time        = Math.round((range.min + range.max) / 2);
+      api.sendMessage(
+        `🎲 تم تفعيل الوقت العشوائي في "${selected.name}"\nالنطاق: ${range.min/1000}s — ${range.max/1000}s`,
+        threadID
+      );
     } else {
-      const ms = parseTime(input);
-      if (!ms || ms < 5000) return api.sendMessage("❌ وقت غير صحيح. مثال: 30s أو 2m (الحد الأدنى 5s)\n🎲 أو اكتب r للعشوائي", threadID);
+      const ms = parseTime(rawInput);
+      if (!ms || ms < 5000) return api.sendMessage("❌ وقت غير صحيح. مثال: 30s أو 2m (الحد الأدنى 5s)\n🎲 أو اكتب r أو r 15-30 للعشوائي", threadID);
       target.time        = ms;
       target.randomTime  = false;
       target.randomRange = null;
-      api.sendMessage(`✅ تم ضبط الوقت في "${selected.name}": ${input}`, threadID);
+      api.sendMessage(`✅ تم ضبط الوقت في "${selected.name}": ${rawInput}`, threadID);
     }
 
     if (motorType === 2) {
@@ -567,7 +669,9 @@ module.exports.handleEvent = async function ({ api, event }) {
     }
 
     try {
-      await api.setTitle(input, selected.threadID);
+      // [FIX] Was `api.setTitle` — that method doesn't exist in this FCA.
+      // The MQTT group-name change is exposed as `api.gcname`.
+      await gcnameP(api, input, selected.threadID);
       selected.name = input;
       setLock(selected.threadID, input);
       return sendGroupMenu(
@@ -599,9 +703,18 @@ module.exports.handleEvent = async function ({ api, event }) {
     }
 
     try {
-      const botId = String(global.botUserID || (api.getCurrentUserID ? api.getCurrentUserID() : ""));
-      await api.changeNickname(input, selected.threadID, botId);
+      const live = _live(api);
+      const botId = String(
+        global.botUserID ||
+        (live && live.getCurrentUserID ? live.getCurrentUserID() : "") ||
+        (api && api.getCurrentUserID ? api.getCurrentUserID() : "")
+      );
+      // [FIX] Route through wrapper so we use the live api after tier swaps
+      // and fall back gracefully if changeNickname binding is missing.
+      await changeNicknameP(api, input, selected.threadID, botId);
     } catch (_) {}
+    // The 500ms sweep loop in nicknames.js (شارك global.nicknameLocks) سيلتقط
+    // هذا القفل تلقائياً ويعيد التطبيق على البوت بعد تسجيله هنا.
     NickLocks.setLock(selected.threadID, input, "bot");
     return sendGroupMenu(
       api, threadID, senderID, selected, selected.threadID,
@@ -636,10 +749,12 @@ module.exports.handleEvent = async function ({ api, event }) {
     else if (event.mentions && Object.keys(event.mentions).length > 0) targetId = String(Object.keys(event.mentions)[0]);
     if (!targetId) return api.sendMessage("⚠️ لازم رد على رسالة العضو أو اعمل منشن.", threadID);
     try {
-      await api.changeNickname(input, selected.threadID, targetId);
+      // [FIX] Use the wrapper so the call hits the live api (post tier-swap)
+      // and surfaces a real error message if the FCA binding is missing.
+      await changeNicknameP(api, input, selected.threadID, targetId);
       return sendGroupMenu(api, threadID, senderID, selected, selected.threadID, `✅ تم تغيير لقب العضو.`);
     } catch (e) {
-      return sendGroupMenu(api, threadID, senderID, selected, selected.threadID, `❌ فشل تغيير لقب العضو: ${e.message?.slice(0, 100)}`);
+      return sendGroupMenu(api, threadID, senderID, selected, selected.threadID, `❌ فشل تغيير لقب العضو: ${String(e?.message || e).slice(0, 100)}`);
     }
   }
 };

@@ -85,11 +85,26 @@ module.exports = function modernizeNkxApi(api) {
     queue: []
   };
 
+  // Size caps prevent unbounded Map growth over long uptimes.
+  // When the limit is hit the oldest entries (first inserted) are evicted.
+  const CACHE_MAX_THREADS = 800;
+  const CACHE_MAX_USERS   = 2000;
+
   const cache = {
     threads: new Map(),
     users: new Map(),
     dirty: false
   };
+
+  function _evict(map, maxSize) {
+    if (map.size <= maxSize) return;
+    const excess = map.size - maxSize;
+    let i = 0;
+    for (const key of map.keys()) {
+      if (i++ >= excess) break;
+      map.delete(key);
+    }
+  }
 
   const cachePath = path.join(process.cwd(), cfg.sqliteCacheFile);
   try {
@@ -138,7 +153,19 @@ module.exports = function modernizeNkxApi(api) {
     ].some((k) => str.includes(k));
   }
 
+  // [FIX M2] — hard queue length cap. Under sustained sendMessage failures
+  // the pump() never drains, and each new command pushes another entry
+  // onto rateState.queue with no ceiling, growing without bound until the
+  // process is OOM-killed. Reject immediately when the queue is full so the
+  // caller (command runner) gets a real error instead of a silent memory leak.
+  const SEND_QUEUE_MAX = 500;
+
   async function enqueueSend(run) {
+    if (rateState.queue.length >= SEND_QUEUE_MAX) {
+      return Promise.reject(new Error(
+        `Send queue full (${SEND_QUEUE_MAX} items) — dropping message to prevent memory overflow`
+      ));
+    }
     return new Promise((resolve, reject) => {
       rateState.queue.push({ run, resolve, reject });
       pump();
@@ -238,6 +265,7 @@ module.exports = function modernizeNkxApi(api) {
       const p = Promise.resolve(original.getThreadInfo(threadID)).then((info) => {
         if (info) {
           cache.threads.set(key, info);
+          _evict(cache.threads, CACHE_MAX_THREADS);
           cache.dirty = true;
         }
         return info;
@@ -255,6 +283,7 @@ module.exports = function modernizeNkxApi(api) {
         const data = info && info[key] ? info[key] : null;
         if (data) {
           cache.users.set(key, data);
+          _evict(cache.users, CACHE_MAX_USERS);
           cache.dirty = true;
         }
         return info;

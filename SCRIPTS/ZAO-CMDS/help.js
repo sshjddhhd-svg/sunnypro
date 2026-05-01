@@ -32,13 +32,10 @@ module.exports.run = async function ({ api, event }) {
     } catch {}
   }
 
-  const now = new Date();
-  const time = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
-
-  const cmdList = names.map(n => `❈ - ${n}`).join("\n");
+  const cmdList = names.map(n => `❏ - ﹝${n}﹞`).join("\n\n");
 
   const msg =
-    `﹟Ꮓ'ɑ︩︪𝗈 🪙⃞⃪̸̷̶↴٫ - ${time} ⋆៸៸ ⨾𝐋'ı⃟̸̷⃪̶𝗌ȶ  ˖\n` +
+    `ꄥ⃪ | 𝗭'𝖆⃪̷͚𝛔̵̶ᬼ 𒍟 𝐂'o⃪ᬇm̸̷ɑ̶̶ທ̶͟d𝖘 🇷🇸ᬼ\n\n` +
     `${cmdList}`;
 
   return api.sendMessage(msg, threadID, messageID);

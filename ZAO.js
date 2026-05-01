@@ -199,10 +199,28 @@ global['GoatBot'] = {
 
 // ─── Load Sequelize + language file ──────────────────────────
 const { Sequelize, sequelize } = require('./includes/database');
-const langFile = readFileSync(
-  __dirname + '/languages/' + (global['config']['language'] || 'en') + '.lang',
-  { encoding: 'utf-8' }
-).split(/\r?\n|\r/);
+// [FIX Djamel] — original called readFileSync with no try/catch, so a
+// missing or mistyped `language` value in ZAO-SETTINGS.json (e.g. "english"
+// instead of "en") crashed the entire process at boot with no useful log.
+// Now we fall back to en.lang and, if even that's gone, to an empty file
+// so the bot still starts (getText returns the diagnostic stub anyway).
+let langFile;
+try {
+  langFile = readFileSync(
+    __dirname + '/languages/' + (global['config']['language'] || 'en') + '.lang',
+    { encoding: 'utf-8' }
+  ).split(/\r?\n|\r/);
+} catch (e) {
+  logger.log([
+    { message: '[ LANG ]: ', color: ['red', 'cyan'] },
+    { message: `Could not load language "${global['config']['language']}" — falling back to en. (${e.message})`, color: 'yellow' }
+  ]);
+  try {
+    langFile = readFileSync(__dirname + '/languages/en.lang', { encoding: 'utf-8' }).split(/\r?\n|\r/);
+  } catch (_) {
+    langFile = [];
+  }
+}
 
 const langData = langFile.filter(line => line.indexOf('#') != 0 && line != '');
 
@@ -329,8 +347,16 @@ async function onBot({ models }) {
 
   // ── Load Commands ─────────────────────────────────────────
   (function () {
+    // [FIX Djamel] — defensive guard: if commandDisabled key is missing or
+    // not an array (e.g. operator deletes it via the panel), the original
+    // `.includes(f)` call threw a TypeError and aborted ALL command loading,
+    // booting the bot with zero commands. Coerce to [] so missing config
+    // is treated as "nothing disabled".
+    const _disabledCmds = Array.isArray(global['config']['commandDisabled'])
+      ? global['config']['commandDisabled']
+      : [];
     const cmdFiles = readdirSync(global['client']['mainPath'] + '/SCRIPTS/ZAO-CMDS')
-      .filter(f => f.endsWith('.js') && !global['config']['commandDisabled'].includes(f));
+      .filter(f => f.endsWith('.js') && !_disabledCmds.includes(f));
 
     for (const file of cmdFiles) {
       try {
@@ -435,8 +461,14 @@ async function onBot({ models }) {
 
   // ── Load Events ───────────────────────────────────────────
   (function () {
+    // [FIX Djamel] — same defensive guard as commandDisabled above. A
+    // missing/non-array eventDisabled key would crash the event loader and
+    // disable every event handler (joins, name changes, refresh, etc.).
+    const _disabledEvts = Array.isArray(global['config']['eventDisabled'])
+      ? global['config']['eventDisabled']
+      : [];
     const evtFiles = readdirSync(global['client']['mainPath'] + '/SCRIPTS/ZAO-EVTS')
-      .filter(f => f.endsWith('.js') && !global['config']['eventDisabled'].includes(f));
+      .filter(f => f.endsWith('.js') && !_disabledEvts.includes(f));
 
     for (const file of evtFiles) {
       try {
@@ -714,44 +746,44 @@ async function onBot({ models }) {
   //  Internal Panel API Server — port 3001 (localhost only)
   // ══════════════════════════════════════════════════════════
   // ── Motor state persistence helpers ──────────────────────────
-  const _motorFile = require('path').join(process.cwd(), 'data', 'motor-state.json');
-  function _saveMotorState() {
-    try {
-      require('fs-extra').ensureDirSync(require('path').dirname(_motorFile));
-      const out = {};
-      for (const [tid, d] of Object.entries(global['motorData'] || {})) {
-        out[tid] = { status: d.status, message: d.message, time: d.time };
-      }
-      atomicWriteFileSync(_motorFile, JSON.stringify(out, null, 2), 'utf8');
-    } catch (_) {}
-  }
-  // Expose _saveMotorState globally so the uncaughtException handler can call it
-  global['_saveMotorState'] = _saveMotorState;
+  // Delegates to includes/motorPersist so chat command (engine.js /
+  // motor2.js), panel REST endpoints, and graceful shutdown all share
+  // the SAME serialization shape. Old inline saves stripped
+  // randomTime/randomRange — random-interval mode came back as fixed
+  // after a restart. motorPersist preserves them.
+  const _motorPersist = require('./includes/motorPersist');
+  function _saveMotorState()  { try { _motorPersist.motor1.persistAll(global['motorData']  || {}); } catch (_) {} }
+  function _saveMotor2State() { try { _motorPersist.motor2.persistAll(global['motorData2'] || {}); } catch (_) {} }
+  global['_saveMotorState']  = _saveMotorState;
+  global['_saveMotor2State'] = _saveMotor2State;
 
-  // Restore persisted motor state and restart active intervals
+  // Restore persisted motor1 state and restart active intervals.
+  // (motor2 is restored by SCRIPTS/ZAO-CMDS/motor2.js's onLoad. engine.js
+  //  does the same for motor1 when it loads, but we also restart loops
+  //  here in case engine.js is hot-reloaded after the bot is already
+  //  connected — scheduleMotorLoop dedup guarantees one live loop per
+  //  thread either way.)
   try {
-    require('fs-extra').ensureDirSync(require('path').dirname(_motorFile));
-    if (require('fs').existsSync(_motorFile)) {
-      const _saved = JSON.parse(require('fs').readFileSync(_motorFile, 'utf8'));
-      global['motorData'] = global['motorData'] || {};
-      for (const [tid, d] of Object.entries(_saved)) {
-        global['motorData'][tid] = { status: d.status || false, message: d.message || null, time: d.time || null, interval: null };
-        if (d.status && d.message && d.time && d.time >= 5000) {
-          const _tid = tid;
-          try {
-            const { scheduleMotorLoop } = require('./includes/motorSafeSend');
-            scheduleMotorLoop({
-              api: _api,
-              threadID: _tid,
-              getData: () => global['motorData'][_tid],
-              onDisable: () => {
-                try { _saveMotorState(); } catch (_) {}
-              }
-            });
-            logger.log([{ message: '[ MOTOR ]: ', color: ['red', 'cyan'] }, { message: `Restored motor for ${_tid} (every ~${Math.round(d.time / 1000)}s with jitter/backoff)`, color: 'white' }]);
-          } catch (_e2) {
-            logger.log([{ message: '[ MOTOR ]: ', color: ['red', 'cyan'] }, { message: `Failed to restore motor for ${_tid}: ${_e2.message || _e2}`, color: 'yellow' }]);
-          }
+    const _saved = _motorPersist.motor1.loadAll();
+    global['motorData'] = global['motorData'] || {};
+    for (const [tid, d] of Object.entries(_saved)) {
+      global['motorData'][tid] = { ...d, interval: null };
+      if (d.status && d.message && d.time && d.time >= 5000) {
+        const _tid = tid;
+        try {
+          const { scheduleMotorLoop } = require('./includes/motorSafeSend');
+          scheduleMotorLoop({
+            api: _api,
+            threadID: _tid,
+            getData: () => global['motorData'][_tid],
+            onDisable: () => { try { _saveMotorState(); } catch (_) {} }
+          });
+          const _every = d.randomTime
+            ? `random ${(d.randomRange?.min || 12000) / 1000}-${(d.randomRange?.max || 50000) / 1000}s`
+            : `~${Math.round(d.time / 1000)}s`;
+          logger.log([{ message: '[ MOTOR ]: ', color: ['red', 'cyan'] }, { message: `Restored motor for ${_tid} (every ${_every} with jitter/backoff)`, color: 'white' }]);
+        } catch (_e2) {
+          logger.log([{ message: '[ MOTOR ]: ', color: ['red', 'cyan'] }, { message: `Failed to restore motor for ${_tid}: ${_e2.message || _e2}`, color: 'yellow' }]);
         }
       }
     }
@@ -765,9 +797,15 @@ async function onBot({ models }) {
     const _panelFs   = require('fs-extra');
 
     function _parseBody(req) {
+      const MAX_BODY = 512 * 1024; // [FIX L3] — 512 KB cap; oversized bodies buffered forever before
       return new Promise((resolve) => {
         let body = '';
-        req.on('data', chunk => body += chunk);
+        let size = 0;
+        req.on('data', chunk => {
+          size += chunk.length;
+          if (size > MAX_BODY) { req.destroy(); return resolve({}); }
+          body += chunk;
+        });
         req.on('end', () => {
           try { resolve(body ? JSON.parse(body) : {}); } catch (_) { resolve({}); }
         });
@@ -784,6 +822,17 @@ async function onBot({ models }) {
     function _reloadCommands() {
       const cmdDir = _panelPath.join(__dirname, 'SCRIPTS', 'ZAO-CMDS');
       const files  = _panelFs.readdirSync(cmdDir).filter(f => f.endsWith('.js'));
+
+      // [FIX H2] — call onUnload() on each currently-loaded command before
+      // wiping the Map. This lets commands clean up their own setIntervals,
+      // file watchers, or other resources they started in onLoad/run, so hot
+      // reload doesn't accumulate duplicate background activity over time.
+      for (const [, cmd] of global['client']['commands'].entries()) {
+        if (typeof cmd['onUnload'] === 'function') {
+          try { cmd['onUnload'](); } catch (_) {}
+        }
+      }
+
       for (const file of files) {
         const fp = _panelPath.join(cmdDir, file);
         try { delete require.cache[require.resolve(fp)]; } catch (_) {}
@@ -794,7 +843,9 @@ async function onBot({ models }) {
       global['client']['handleReaction']  = [];
 
       const loaded = [], errors = [];
-      const disabled = global['config']['commandDisabled'] || [];
+      const disabled = Array.isArray(global['config']['commandDisabled'])
+        ? global['config']['commandDisabled']
+        : [];
 
       for (const file of files) {
         if (disabled.includes(file)) continue;
@@ -811,9 +862,21 @@ async function onBot({ models }) {
       return { loaded, errors, total: global['client']['commands'].size };
     }
 
+    // [FIX L2] — the original check used three exact strings, but Node.js can
+    // present the loopback address in several forms depending on whether the
+    // OS/container resolves it as IPv4 or IPv6. Using a Set + regex covers all
+    // standard variants without accidentally allowing non-loopback addresses.
+    const _LOOPBACK_ADDRS = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1', 'localhost']);
+    function _isLoopback(addr) {
+      if (!addr) return false;
+      if (_LOOPBACK_ADDRS.has(addr)) return true;
+      // ::ffff:127.x.x.x — any IPv4-mapped loopback address
+      return /^::ffff:127\./.test(addr);
+    }
+
     const _panelServer = _panelHttp.createServer(async (req, res) => {
       const remote = req.socket.remoteAddress;
-      if (remote !== '127.0.0.1' && remote !== '::1' && remote !== '::ffff:127.0.0.1') {
+      if (!_isLoopback(remote)) {
         res.writeHead(403); return res.end('Forbidden');
       }
       const { method } = req;
@@ -835,6 +898,35 @@ async function onBot({ models }) {
         if (pathname === '/bot/reload-commands' && method === 'POST') {
           const result = _reloadCommands();
           return _json(res, { ok: true, ...result });
+        }
+
+        if (pathname === '/bot/mqtt-status' && method === 'GET') {
+          try {
+            const mqttHealth = require('./includes/mqttHealthCheck');
+            const status = typeof mqttHealth.getStatus === 'function'
+              ? mqttHealth.getStatus()
+              : {};
+            return _json(res, {
+              ok: true,
+              ...status,
+              listenerGen: typeof _listenerGen !== 'undefined' ? _listenerGen : null,
+              botID: global['botUserID'] || null
+            });
+          } catch (e) {
+            return _json(res, { error: e.message }, 500);
+          }
+        }
+
+        if (pathname === '/bot/restart-listener' && method === 'POST') {
+          if (!_api) return _json(res, { error: 'Bot not connected' }, 503);
+          if (typeof global['_restartListener'] !== 'function')
+            return _json(res, { error: 'Listener restart not wired yet — bot still initialising' }, 503);
+          try {
+            global['_restartListener']('manual-panel');
+            return _json(res, { ok: true, message: 'MQTT listener restart triggered' });
+          } catch (e) {
+            return _json(res, { error: e.message }, 500);
+          }
         }
 
         if (pathname === '/bot/groups' && method === 'GET') {
@@ -883,21 +975,31 @@ async function onBot({ models }) {
           const { threadID } = body;
           if (!threadID) return _json(res, { error: 'Missing threadID' }, 400);
           const tid = String(threadID);
+
+          function _motorView(d) {
+            if (!d) return { status: false, message: null, time: null, randomTime: false, randomRange: null };
+            return {
+              status:      !!d.status,
+              message:     d.message || null,
+              time:        d.time || null,
+              randomTime:  !!d.randomTime,
+              randomRange: d.randomRange || null
+            };
+          }
+
+          // [FIX] Read the lock from the file-backed nameLocks store that is
+          // actually enforced by the listener — not the dead `global.repeatName`.
+          let nameLock = { locked: false, name: null };
+          try {
+            const NL = require('./includes/nameLocks');
+            const entry = NL.getLock(tid);
+            if (entry) nameLock = { locked: true, name: entry.name || null };
+          } catch (_) {}
+
           return _json(res, {
-            motor: global['motorData']  && global['motorData'][tid]  ? {
-              status:  global['motorData'][tid].status,
-              message: global['motorData'][tid].message,
-              time:    global['motorData'][tid].time
-            } : { status: false, message: null, time: null },
-            motor2: global['motorData2'] && global['motorData2'][tid] ? {
-              status:  global['motorData2'][tid].status,
-              message: global['motorData2'][tid].message,
-              time:    global['motorData2'][tid].time
-            } : { status: false, message: null, time: null },
-            nameLock: {
-              locked: !!(global['repeatName'] && global['repeatName'][tid] && global['repeatName'][tid].status === true),
-              name:   global['repeatName'] && global['repeatName'][tid] ? (global['repeatName'][tid].name || null) : null
-            }
+            motor:    _motorView(global['motorData']  && global['motorData'][tid]),
+            motor2:   _motorView(global['motorData2'] && global['motorData2'][tid]),
+            nameLock
           });
         }
 
@@ -923,14 +1025,27 @@ async function onBot({ models }) {
         }
 
         if (pathname === '/bot/motor' && method === 'POST') {
-          const { threadID, action, message, time } = body;
+          const { threadID, action, message, time, randomTime, randomRange } = body;
           if (!threadID) return _json(res, { error: 'Missing threadID' }, 400);
           const tid = String(threadID);
           global['motorData'] = global['motorData'] || {};
           if (!global['motorData'][tid]) global['motorData'][tid] = { status: false, message: null, time: null, interval: null };
           const d = global['motorData'][tid];
           if (action === 'set-message') { d.message = message; _saveMotorState(); return _json(res, { ok: true }); }
-          if (action === 'set-time')    { d.time = parseInt(time); _saveMotorState(); return _json(res, { ok: true }); }
+          if (action === 'set-time') {
+            const fixed = parseInt(time);
+            if (!Number.isFinite(fixed) || fixed < 5000) return _json(res, { error: 'time must be ≥ 5000ms' }, 400);
+            d.time = fixed;
+            if (randomTime === true && randomRange && Number.isFinite(+randomRange.min) && Number.isFinite(+randomRange.max) && +randomRange.max > +randomRange.min) {
+              d.randomTime = true;
+              d.randomRange = { min: Math.max(5000, +randomRange.min), max: Math.max(5001, +randomRange.max) };
+            } else {
+              d.randomTime = false;
+              d.randomRange = null;
+            }
+            _saveMotorState();
+            return _json(res, { ok: true });
+          }
           if (action === 'activate') {
             if (d.status) return _json(res, { error: 'Already active' }, 400);
             if (!d.message) return _json(res, { error: 'No message set' }, 400);
@@ -961,28 +1076,28 @@ async function onBot({ models }) {
         }
 
         if (pathname === '/bot/motor2' && method === 'POST') {
-          const { threadID, action, message, time } = body;
+          const { threadID, action, message, time, randomTime, randomRange } = body;
           if (!threadID) return _json(res, { error: 'Missing threadID' }, 400);
           const tid = String(threadID);
           global['motorData2'] = global['motorData2'] || {};
           global['lastActivity'] = global['lastActivity'] || {};
           if (!global['motorData2'][tid]) global['motorData2'][tid] = { status: false, message: null, time: null, interval: null };
           const d = global['motorData2'][tid];
-          // Motor2 state is also managed by motor2.js command — sync save via its file
-          const _m2File = require('path').join(process.cwd(), 'data', 'motor2-state.json');
-          function _saveMotor2State() {
-            try {
-              const _panelFsX = require('fs-extra');
-              _panelFsX.ensureDirSync(require('path').dirname(_m2File));
-              const _out = {};
-              for (const [_tid, _d] of Object.entries(global['motorData2'] || {})) {
-                _out[_tid] = { status: _d.status, message: _d.message, time: _d.time };
-              }
-              atomicWriteFileSync(_m2File, JSON.stringify(_out, null, 2), 'utf8');
-            } catch (_) {}
-          }
           if (action === 'set-message') { d.message = message; _saveMotor2State(); return _json(res, { ok: true }); }
-          if (action === 'set-time')    { d.time = parseInt(time); _saveMotor2State(); return _json(res, { ok: true }); }
+          if (action === 'set-time') {
+            const fixed = parseInt(time);
+            if (!Number.isFinite(fixed) || fixed < 5000) return _json(res, { error: 'time must be ≥ 5000ms' }, 400);
+            d.time = fixed;
+            if (randomTime === true && randomRange && Number.isFinite(+randomRange.min) && Number.isFinite(+randomRange.max) && +randomRange.max > +randomRange.min) {
+              d.randomTime = true;
+              d.randomRange = { min: Math.max(5000, +randomRange.min), max: Math.max(5001, +randomRange.max) };
+            } else {
+              d.randomTime = false;
+              d.randomRange = null;
+            }
+            _saveMotor2State();
+            return _json(res, { ok: true });
+          }
           if (action === 'activate') {
             if (d.status) return _json(res, { error: 'Already active' }, 400);
             if (!d.message) return _json(res, { error: 'No message set' }, 400);
@@ -1036,19 +1151,44 @@ async function onBot({ models }) {
           const { threadID, action, name } = body;
           if (!threadID) return _json(res, { error: 'Missing threadID' }, 400);
           const tid = String(threadID);
-          global['repeatName'] = global['repeatName'] || {};
+
+          // [FIX] Use the file-backed nameLocks store that the chat listener
+          // actually watches (see SCRIPTS/ZAO-CMDS/nm.js). The previous
+          // `global.repeatName` write was dead — nothing read from it for
+          // enforcement, so the lock never survived a rename.
+          const NL = (() => { try { return require('./includes/nameLocks'); } catch (_) { return null; } })();
+          if (!NL) return _json(res, { error: 'nameLocks module unavailable' }, 500);
+
+          // [FIX] This FCA exposes api.gcname(name, threadID, cb), NOT setTitle.
+          function _renameGroup(newName) {
+            return new Promise((resolve, reject) => {
+              if (!_api || typeof _api.gcname !== 'function') return reject(new Error('api.gcname unavailable'));
+              try {
+                const r = _api.gcname(newName, tid, err => err ? reject(err) : resolve());
+                if (r && typeof r.then === 'function') r.then(resolve, reject);
+              } catch (e) { reject(e); }
+            });
+          }
+
           if (action === 'lock') {
-            if (!name) return _json(res, { error: 'Missing name' }, 400);
-            global['repeatName'][tid] = { name, status: true };
-            if (_api) { try { await _api.setTitle(name, tid); } catch (_) {} }
-            return _json(res, { ok: true });
+            if (!name || !String(name).trim()) return _json(res, { error: 'Missing name' }, 400);
+            const cleanName = String(name).trim();
+            try {
+              if (_api) await _renameGroup(cleanName);
+            } catch (e) {
+              return _json(res, { error: 'Rename failed: ' + (e.message || 'unknown') }, 502);
+            }
+            NL.setLock(tid, cleanName, null);
+            try { NL.flush && NL.flush(); } catch (_) {}
+            return _json(res, { ok: true, locked: true, name: cleanName });
           }
           if (action === 'unlock') {
-            if (global['repeatName'][tid]) global['repeatName'][tid].status = false;
-            return _json(res, { ok: true });
+            NL.clearLock(tid);
+            try { NL.flush && NL.flush(); } catch (_) {}
+            return _json(res, { ok: true, locked: false });
           }
-          const entry = global['repeatName'][tid];
-          return _json(res, { locked: !!(entry && entry.status === true), name: entry?.name || null });
+          const entry = NL.getLock(tid);
+          return _json(res, { locked: !!entry, name: entry?.name || null });
         }
 
         if (pathname === '/bot/delete-thread' && method === 'POST') {
@@ -1246,7 +1386,27 @@ async function onBot({ models }) {
   logger.log([{ message: '[ PROTECT ]: ', color: ['red', 'cyan'] }, { message: 'Human-Typing     ✓  محاكاة الطباعة البشرية قبل كل رد', color: 'white' }]);
   logger.log([{ message: '[ PROTECT ]: ', color: ['red', 'cyan'] }, { message: 'Keep-Alive       ✓  Ping مباشر لفيسبوك كل 8-18 دقيقة + تجديد fb_dtsg كل 48 ساعة', color: 'white' }]);
   logger.log([{ message: '[ PROTECT ]: ', color: ['red', 'cyan'] }, { message: 'Memory-Guard     ✓  clean restart if heap > 512 MB', color: 'white' }]);
-  logger.log([{ message: '[ PROTECT ]: ', color: ['red', 'cyan'] }, { message: 'Graceful-Exit    ✓  saves cookies on SIGTERM/SIGINT', color: 'white' }]);
+  logger.log([{ message: '[ PROTECT ]: ', color: ['red', 'cyan'] }, { message: 'Graceful-Exit    ✓  two-stage drain — stop dispatch → flush motors/locks → save cookies', color: 'white' }]);
+  // ─── New process-death prevention layers ──────────────────
+  // Started here so they appear under the PROTECTION SYSTEMS banner.
+  try { require('./includes/eventLoopGuard').start({ thresholdMs: 500, sustainMs: 30 * 1000, checkEveryMs: 5 * 1000 }); } catch (_) {}
+  try { require('./includes/diskGuard').start({ warnPct: 90, checkEveryMs: 30 * 60 * 1000 }); } catch (_) {}
+  try { require('./includes/networkProbe'); } catch (_) {} // lazy — used by autoRelogin on demand
+  try { require('./includes/commandSandbox'); } catch (_) {}
+  try { require('./includes/commandErrorBudget'); } catch (_) {}
+  // [PROTECT] Cookie snapshot ring — capture an initial snapshot from the
+  // freshly-loaded live state so the watchdog has a known-good restore point
+  // even if the bot dies before the first periodic save.
+  try {
+    const _snap = require('./includes/cookieSnapshot');
+    _snap.snapshotFile(join(process.cwd(), global['config']['APPSTATEPATH'] || 'ZAO-STATE.json'));
+  } catch (_) {}
+  logger.log([{ message: '[ PROTECT ]: ', color: ['red', 'cyan'] }, { message: 'Loop-Lag-Guard   ✓  perf_hooks p95 > 500ms for 30s → stack snapshot + clean recycle', color: 'white' }]);
+  logger.log([{ message: '[ PROTECT ]: ', color: ['red', 'cyan'] }, { message: 'Disk-Guard       ✓  rotate large logs + prune backups; emergency cleanup at 90% disk', color: 'white' }]);
+  logger.log([{ message: '[ PROTECT ]: ', color: ['red', 'cyan'] }, { message: 'Network-Probe    ✓  DNS+TCP edge-mqtt.facebook.com check before tier-switch (no wasted relogins)', color: 'white' }]);
+  logger.log([{ message: '[ PROTECT ]: ', color: ['red', 'cyan'] }, { message: 'Command-Sandbox  ✓  30s wall-clock timeout on every command.run / handleReply / handleEvent', color: 'white' }]);
+  logger.log([{ message: '[ PROTECT ]: ', color: ['red', 'cyan'] }, { message: 'Error-Budget     ✓  >5 errors / 10 min on the same command → auto-disable 1h + admin notify', color: 'white' }]);
+  logger.log([{ message: '[ PROTECT ]: ', color: ['red', 'cyan'] }, { message: 'Cookie-Snapshot  ✓  last 5 validated snapshots in backups/ — watchdog restores instead of re-logging in', color: 'white' }]);
   logger.log([{ message: '[ PROTECT ]: ', color: ['red', 'cyan'] }, { message: 'Listen-Error     ✓  instant listener restart + login_blocked/account_inactive/auth_error detection', color: 'white' }]);
   logger.log([{ message: '[ PROTECT ]: ', color: ['red', 'cyan'] }, { message: 'Error-Notify     ✓  Telegram / Discord webhook on session-kill or listen errors (opt-in)', color: 'white' }]);
   logger.log([{ message: '[ PROTECT ]: ', color: ['red', 'cyan'] }, { message: 'GraphQL-Visit    ✓  CometNotificationsDropdownQuery every 30-120 min — looks like a real client', color: 'white' }]);
@@ -1260,6 +1420,13 @@ async function onBot({ models }) {
   logger.log([{ message: '[ PROTECT ]: ', color: ['red', 'cyan'] }, { message: `Cookie-Refresh   ✓  forced credential re-login every ${global['config']['intervalGetNewCookieMinutes'] || 1440} min`, color: 'white' }]);
   console.log(grad2('━'.repeat(50), { interpolation: 'hsv' }));
 
+  // [FIX M10] — guard all self-rescheduling timer chains so they only start
+  // once per process lifetime. If onBot() were ever re-entered (e.g. via a
+  // reconnect path that doesn't fully restart the process), duplicate timer
+  // chains would accumulate silently, doubling network traffic and CPU load.
+  if (!global.__onBotTimersStarted) {
+  global.__onBotTimersStarted = true;
+
   // ─── 1. Auto-Ping — keep process alive, random 8-18 min ───────
   (function scheduleAutoPing() {
     const minMs = 8  * 60 * 1000;
@@ -1267,9 +1434,13 @@ async function onBot({ models }) {
     const delay = Math.floor(Math.random() * (maxMs - minMs + 1)) + minMs;
     setTimeout(async () => {
       try {
-        // [FIX Djamel] — was using port 3000 by default but Main.js uses 5000
+        // [FIX Djamel] — was using port 3000 by default but Main.js uses 5000.
+        // Also: prefer 127.0.0.1 over `localhost`. On hosts where localhost
+        // resolves to ::1 first while Main.js binds 0.0.0.0 (IPv4 only),
+        // every auto-ping silently failed with ECONNREFUSED, defeating the
+        // whole keep-alive on that path.
         const port = process.env.PORT || 5000;
-        await axios.get(`http://localhost:${port}/`, { timeout: 10000 });
+        await axios.get(`http://127.0.0.1:${port}/`, { timeout: 10000 });
         logger.log([
           { message: '[ AUTO-PING ]: ', color: ['red', 'cyan'] },
           { message: `Pinged keep-alive server (next in ${Math.round(delay / 60000)} min)`, color: 'white' }
@@ -1322,32 +1493,50 @@ async function onBot({ models }) {
   }, 2 * 60 * 60 * 1000);
 
   // ─── 4. Settings file watcher — hot-reload ZAO-SETTINGS.json ──
+  // [FIX Djamel] — Watch the PARENT DIRECTORY, not the file itself.
+  // The panel writes settings via tmp-file → atomic rename (the safe
+  // pattern). fs.watch on the FILE keeps the watch bound to the original
+  // inode, so after the very first save the watcher is silently dead and
+  // the bot stops hot-reloading config until restart. Watching the dir
+  // catches both `change` and `rename` events on the file we care about.
   (function watchSettings() {
-    const settingsPath = join(process.cwd(), 'ZAO-SETTINGS.json');
-    let debounceTimer  = null;
+    const SETTINGS_NAME = 'ZAO-SETTINGS.json';
+    const settingsPath  = join(process.cwd(), SETTINGS_NAME);
+    const parentDir     = process.cwd();
+    let debounceTimer   = null;
+    let lastMtimeMs     = 0;
+    try { lastMtimeMs = require('fs').statSync(settingsPath).mtimeMs || 0; } catch (_) {}
+
+    const reload = () => {
+      try {
+        // Skip spurious wakeups where mtime hasn't actually advanced.
+        const st = require('fs').statSync(settingsPath);
+        if (st.mtimeMs === lastMtimeMs) return;
+        lastMtimeMs = st.mtimeMs;
+
+        const fresh = JSON.parse(require('fs').readFileSync(settingsPath, 'utf-8'));
+        for (const key in fresh) global['config'][key] = fresh[key];
+        logger.log([
+          { message: '[ SETTINGS ]: ', color: ['red', 'cyan'] },
+          { message: 'ZAO-SETTINGS.json reloaded successfully.', color: 'white' }
+        ]);
+      } catch (e) {
+        logger.log([
+          { message: '[ SETTINGS ]: ', color: ['red', 'cyan'] },
+          { message: `Reload failed: ${e.message}`, color: 'white' }
+        ]);
+      }
+    };
+
     try {
-      require('fs').watch(settingsPath, (eventType) => {
-        if (eventType !== 'change') return;
+      require('fs').watch(parentDir, (eventType, filename) => {
+        if (filename !== SETTINGS_NAME) return;       // ignore unrelated files
         clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => {
-          try {
-            const fresh = JSON.parse(require('fs').readFileSync(settingsPath, 'utf-8'));
-            for (const key in fresh) global['config'][key] = fresh[key];
-            logger.log([
-              { message: '[ SETTINGS ]: ', color: ['red', 'cyan'] },
-              { message: 'ZAO-SETTINGS.json reloaded successfully.', color: 'white' }
-            ]);
-          } catch (e) {
-            logger.log([
-              { message: '[ SETTINGS ]: ', color: ['red', 'cyan'] },
-              { message: `Reload failed: ${e.message}`, color: 'white' }
-            ]);
-          }
-        }, 500);
+        debounceTimer = setTimeout(reload, 500);
       });
       logger.log([
         { message: '[ SETTINGS ]: ', color: ['red', 'cyan'] },
-        { message: 'Watching ZAO-SETTINGS.json for changes.', color: 'white' }
+        { message: 'Watching ZAO-SETTINGS.json (via parent dir, survives atomic rename) ✓', color: 'white' }
       ]);
     } catch (e) {
       logger.log([
@@ -1365,6 +1554,7 @@ async function onBot({ models }) {
     setTimeout(async () => {
       try {
         const appState  = _api.getAppState();
+        if (!Array.isArray(appState) || appState.length === 0) { scheduleNotifVisit(); return; }
         const cookieStr = appState.map(c => `${c.key}=${c.value}`).join('; ');
         await axios.get('https://www.facebook.com/?sk=notifications', {
           headers: {
@@ -1400,6 +1590,7 @@ async function onBot({ models }) {
       try {
         const checkLiveCookie = require('./includes/login/checkLiveCookie');
         const appState        = _api.getAppState();
+        if (!Array.isArray(appState) || appState.length === 0) { scheduleSessionCheck(); return; }
         const cookieStr       = appState.map(c => `${c.key}=${c.value}`).join('; ');
         const userAgent       = global['config']['FCAOption']?.userAgent;
         const isLive          = await checkLiveCookie(cookieStr, userAgent);
@@ -1456,51 +1647,68 @@ async function onBot({ models }) {
     }
   }, 15 * 60 * 1000);
 
-  // ─── 9. Graceful shutdown — save cookies on SIGTERM / SIGINT ──
-  // Ensures the watchdog always has fresh cookies to restore from.
-  function gracefulShutdown(signal) {
+  // ─── 9. Graceful shutdown — TWO-STAGE drain + save on SIGTERM/SIGINT ──
+  //
+  // Stage 1 (drain):
+  //   • Set global.__draining so handleCommand / handleReply / handleEvent
+  //     stop accepting new work immediately.
+  //   • Stop every motor loop so no new outbound sends are scheduled.
+  //   • Wait up to DRAIN_MAX_MS for in-flight sends/handlers to settle so
+  //     a motor mid-send doesn't race the cookie save and corrupt state.
+  //
+  // Stage 2 (persist):
+  //   • Flush nameLocks / nicknames / motor persistors / statePersist.
+  //   • Save cookies LAST so the file written to disk reflects the latest
+  //     in-memory state from the modules that just flushed.
+  //   • Close DB connections (SQLite WAL, Mongoose socket).
+  //   • exit(0) so the watchdog restarts with fresh state.
+  //
+  // The original single-stage handler saved cookies first; if a motor was
+  // still sending when SIGTERM arrived, the FCA could rotate cookies after
+  // our snapshot and the watchdog would restore from a stale state.
+  let _shutdownInProgress = false;
+  async function gracefulShutdown(signal) {
+    if (_shutdownInProgress) return;
+    _shutdownInProgress = true;
+    const DRAIN_MAX_MS  = 5 * 1000;
+    const DRAIN_POLL_MS = 200;
+
     logger.log([
       { message: '[ SHUTDOWN ]: ', color: ['red', 'cyan'] },
-      { message: `${signal} received — saving state before exit.`, color: 'white' }
+      { message: `${signal} received — Stage 1: draining dispatcher and motors.`, color: 'white' }
     ]);
-    // Save cookies
+
+    // ── Stage 1: stop accepting new work ──
+    global.__draining = true;
     try {
-      const appState     = _api.getAppState();
-      const appStatePath = join(process.cwd(), global['config']['APPSTATEPATH'] || 'ZAO-STATE.json');
-      atomicWriteFileSync(appStatePath, JSON.stringify(appState, null, 2), 'utf-8');
-      atomicWriteFileSync(join(process.cwd(), 'alt.json'), JSON.stringify(appState, null, 2), 'utf-8');
-      logger.log([
-        { message: '[ SHUTDOWN ]: ', color: ['red', 'cyan'] },
-        { message: 'Cookies saved successfully.', color: 'white' }
-      ]);
-    } catch (e) {
-      logger.log([
-        { message: '[ SHUTDOWN ]: ', color: ['red', 'cyan'] },
-        { message: `Could not save cookies: ${e.message}`, color: 'white' }
-      ]);
+      const _ms = require('./includes/motorSafeSend');
+      if (_ms && typeof _ms.stopAllMotorLoops === 'function') _ms.stopAllMotorLoops();
+    } catch (_) {}
+
+    // Wait for in-flight pending replies/reactions to be processed by their
+    // owning commands. We can't observe send-completion directly, but
+    // global.client.handleReply size shrinks as replies fire, and the
+    // listener is now refusing new dispatch — so a short poll window is
+    // enough to let already-scheduled sends finish their await chain.
+    const drainStart = Date.now();
+    while (Date.now() - drainStart < DRAIN_MAX_MS) {
+      await new Promise(r => setTimeout(r, DRAIN_POLL_MS));
+      // Heuristic done condition: nothing pending after the poll tick.
+      // We always honour the full DRAIN_MAX_MS for safety on busy bots.
     }
-    // Save motor1 state
-    try { _saveMotorState(); } catch (_) {}
-    // Save motor2 state
-    try {
-      const _m2File = require('path').join(process.cwd(), 'data', 'motor2-state.json');
-      require('fs-extra').ensureDirSync(require('path').dirname(_m2File));
-      const _m2Out = {};
-      for (const [_tid, _d] of Object.entries(global['motorData2'] || {})) {
-        _m2Out[_tid] = { status: _d.status, message: _d.message, time: _d.time };
-      }
-      atomicWriteFileSync(_m2File, JSON.stringify(_m2Out, null, 2), 'utf8');
-    } catch (_) {}
-    // Save nm locks
-    try {
-      const _nmFile = require('path').join(process.cwd(), 'data', 'nm-locks.json');
-      require('fs-extra').ensureDirSync(require('path').dirname(_nmFile));
-      const _nmOut = {};
-      if (global.nameLocks) {
-        for (const [k, v] of global.nameLocks.entries()) _nmOut[k] = v;
-      }
-      atomicWriteFileSync(_nmFile, JSON.stringify(_nmOut, null, 2), 'utf8');
-    } catch (_) {}
+
+    logger.log([
+      { message: '[ SHUTDOWN ]: ', color: ['red', 'cyan'] },
+      { message: `Stage 2: flushing locks/motors/state then saving cookies.`, color: 'white' }
+    ]);
+
+    // ── Stage 2a: flush all module-owned state ──
+    // Flush nm locks first — debounced writes settle onto disk.
+    try { require('./includes/nameLocks').flush(); } catch (_) {}
+    // Save motor1 + motor2 state via the shared persistor (preserves
+    // randomTime/randomRange — old inline saves dropped them).
+    try { _saveMotorState();  } catch (_) {}
+    try { _saveMotor2State(); } catch (_) {}
     // Save nicknames state
     try {
       const _nickFile = require('path').join(process.cwd(), 'data', 'nicknames-state.json');
@@ -1511,6 +1719,45 @@ async function onBot({ models }) {
     } catch (_) {}
     // Save reply/reaction callbacks
     try { require('./includes/login/statePersist').save(); } catch (_) {}
+
+    // ── Stage 2b: cookies LAST — reflects everything flushed above ──
+    try {
+      const appState     = _api.getAppState();
+      const appStatePath = join(process.cwd(), global['config']['APPSTATEPATH'] || 'ZAO-STATE.json');
+      atomicWriteFileSync(appStatePath, JSON.stringify(appState, null, 2), 'utf-8');
+      atomicWriteFileSync(join(process.cwd(), 'alt.json'), JSON.stringify(appState, null, 2), 'utf-8');
+      // [PROTECT] Cookie snapshot ring — capture on shutdown so the very
+      // last known-good state is always available to the watchdog on restart.
+      try {
+        const snap = require('./includes/cookieSnapshot');
+        snap.snapshot(appState, appStatePath);
+      } catch (_) {}
+      logger.log([
+        { message: '[ SHUTDOWN ]: ', color: ['red', 'cyan'] },
+        { message: 'Cookies saved successfully.', color: 'white' }
+      ]);
+    } catch (e) {
+      logger.log([
+        { message: '[ SHUTDOWN ]: ', color: ['red', 'cyan'] },
+        { message: `Could not save cookies: ${e.message}`, color: 'white' }
+      ]);
+    }
+
+    // [FIX M4] — close DB connections before exit so in-flight writes are
+    // flushed and file locks / WAL journals are released cleanly. Without this,
+    // SQLite's WAL is left open (data loss risk) and Mongoose keeps the TCP
+    // socket alive, which can prevent the process from actually terminating
+    // when the event loop still has pending I/O from those connections.
+    try {
+      const _dbType = global?.config?.data?.type;
+      if (_dbType === 'mongodb') {
+        const mongoose = require('mongoose');
+        mongoose.disconnect().catch(() => {});
+      } else if (_dbType === 'sqlite') {
+        const _seq = global?.db?.threadModel?.sequelize;
+        if (_seq && typeof _seq.close === 'function') _seq.close().catch(() => {});
+      }
+    } catch (_) {}
     logger.log([
       { message: '[ SHUTDOWN ]: ', color: ['red', 'cyan'] },
       { message: 'All state saved. Goodbye.', color: 'white' }
@@ -1518,8 +1765,8 @@ async function onBot({ models }) {
     process.exit(0);
   }
 
-  process.once('SIGTERM', () => gracefulShutdown('SIGTERM'));
-  process.once('SIGINT',  () => gracefulShutdown('SIGINT'));
+  process.once('SIGTERM', () => { gracefulShutdown('SIGTERM').catch(() => process.exit(0)); });
+  process.once('SIGINT',  () => { gracefulShutdown('SIGINT' ).catch(() => process.exit(0)); });
 
   // ─── 10. Global data cache cleanup — trims Maps every 2 h ──────
   // Prevents unbounded memory growth in global.data.userName /
@@ -1601,6 +1848,8 @@ async function onBot({ models }) {
       scheduleForcedCookieRefresh();
     }, intervalMs);
   }());
+
+  } // end global.__onBotTimersStarted guard
 }
 
 // ─── Connect to DB then launch ────────────────────────────────
@@ -1715,7 +1964,7 @@ process.on('uncaughtException', (err, origin) => {
   // Write to the files belonging to the ACTIVE tier so we never overwrite
   // a Tier-2/3 session with Tier-1 paths when running on a secondary account.
   try {
-    const currentApi = global['client'] && global['client']['api'];
+    const currentApi = (global['client'] && global['client']['api']) || global['_botApi'];
     if (currentApi && typeof currentApi.getAppState === 'function') {
       const appState = currentApi.getAppState();
       if (appState && Array.isArray(appState) && appState.length) {

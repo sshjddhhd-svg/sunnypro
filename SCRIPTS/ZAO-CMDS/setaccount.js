@@ -1,5 +1,6 @@
 const fs = require("fs-extra");
 const path = require("path");
+const { atomicWriteJsonSync } = require("../../utils/atomicWrite");
 
 module.exports = {
   config: {
@@ -52,7 +53,7 @@ module.exports = {
         const obj = JSON.parse(raw);
         obj.EMAIL    = "";
         obj.PASSWORD = "";
-        fs.writeFileSync(settingsPath, JSON.stringify(obj, null, 4), "utf-8");
+        atomicWriteJsonSync(settingsPath, obj, { spaces: 4 });
       } catch (e) {}
 
       try { api.unsendMessage(messageID); } catch (e) {}
@@ -83,7 +84,7 @@ module.exports = {
       const obj = JSON.parse(raw);
       obj.EMAIL    = email.trim();
       obj.PASSWORD = password.trim();
-      fs.writeFileSync(settingsPath, JSON.stringify(obj, null, 4), "utf-8");
+      atomicWriteJsonSync(settingsPath, obj, { spaces: 4 });
     } catch (e) {}
 
     return api.sendMessage(

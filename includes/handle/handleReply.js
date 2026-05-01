@@ -1,9 +1,14 @@
 module.exports = function ({ api, models, Users, Threads, Currencies, globalData, usersData, threadsData, message }) {
   const humanTyping = (() => { try { return require("../humanTyping"); } catch (_) { return null; } })();
+  // [PROTECT] sandbox + per-command error budget
+  const _sandbox   = (() => { try { return require("../commandSandbox");     } catch (_) { return null; } })();
+  const _errBudget = (() => { try { return require("../commandErrorBudget"); } catch (_) { return null; } })();
 
   return function ({ event, message: _message }) {
     const message = _message;
     if (!event.messageReply) return;
+    // [PROTECT] graceful-shutdown drain — accept no new replies once draining.
+    if (global.__draining === true) return;
     const { handleReply, commands } = global.client;
     const { messageID, threadID, messageReply } = event;
     if (!handleReply || handleReply.length === 0) return;
@@ -33,7 +38,7 @@ module.exports = function ({ api, models, Users, Threads, Currencies, globalData
           const reply = handleNeedExec.languages || {};
           if (!reply.hasOwnProperty(global.config.language)) return '';
           var lang = handleNeedExec.languages[global.config.language][value[0]] || '';
-          for (var i = value.length; i > 0; i--) {
+          for (var i = value.length - 1; i > 0; i--) {
             lang = lang.replace(new RegExp('%' + i, 'g'), value[i]);
           }
           return lang;
@@ -66,16 +71,21 @@ module.exports = function ({ api, models, Users, Threads, Currencies, globalData
         handleReply: indexOfMessage,
         getText: getText2
       };
-      const replyResult = handleNeedExec.handleReply(Obj);
-      if (replyResult && typeof replyResult.catch === 'function') {
-        replyResult.catch(error => {
-          console.error(
-            '[handleReply] Unhandled rejection in handleReply:',
-            indexOfMessage?.name,
-            error?.message || error
-          );
-        });
-      }
+      // [PROTECT] sandbox handleReply with a 30s wall-clock timeout and
+      // funnel any rejection into the per-command error budget so a chronically
+      // broken reply handler auto-disables for 1h.
+      const _name = indexOfMessage?.name || '<unknown>';
+      const _replyPromise = _sandbox
+        ? _sandbox.runWithTimeout(() => handleNeedExec.handleReply(Obj), 'reply:' + _name)
+        : Promise.resolve().then(() => handleNeedExec.handleReply(Obj));
+      _replyPromise.catch(error => {
+        console.error(
+          '[handleReply] Unhandled rejection in handleReply:',
+          _name,
+          error?.message || error
+        );
+        try { if (_errBudget) _errBudget.record(_name, error); } catch (_) {}
+      });
     } catch (error) {
       return api.sendMessage(global.getText('handleReply', 'executeError', error), threadID, messageID);
     }

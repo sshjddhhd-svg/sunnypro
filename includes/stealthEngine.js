@@ -53,6 +53,11 @@ function isNightMode() {
   return hour >= start || hour < end;
 }
 
+// Stale-entry eviction: any thread that had no burst activity within this
+// window (15 min) is safe to remove from the counter and jitter Maps.
+const _MAP_PRUNE_INTERVAL_MS = 5 * 60 * 1000;   // run prune every 5 min
+const _MAP_STALE_AGE_MS      = 15 * 60 * 1000;  // entries older than 15 min
+
 class StealthEngine {
   constructor() {
     this._burstCounters   = new Map();
@@ -60,6 +65,48 @@ class StealthEngine {
     this._threadJitter    = new Map();
     this._fingerprint     = null;
     this._lockFingerprint();
+    this._startPruner();
+  }
+
+  _startPruner() {
+    // [FIX M1] — store the handle on the instance so stop() can cancel it.
+    // Previously the timer was stored in a local `timer` variable that went
+    // out of scope immediately, making the interval impossible to cancel and
+    // causing it to outlive any engine instance that was replaced or disabled.
+    this._prunerTimer = setInterval(() => {
+      try {
+        const now    = Date.now();
+        const cutoff = now - _MAP_STALE_AGE_MS;
+        // Remove threads whose last burst stamp is older than the stale window
+        for (const [key, entry] of this._burstCounters.entries()) {
+          const lastStamp = Array.isArray(entry.stamps) && entry.stamps.length
+            ? entry.stamps[entry.stamps.length - 1]
+            : (entry.windowStart || 0);
+          if (lastStamp < cutoff) {
+            this._burstCounters.delete(key);
+            this._threadJitter.delete(key);
+          }
+        }
+        // Also evict expired cooldown entries that were never queried
+        for (const [key, until] of this._burstCooldowns.entries()) {
+          if (now >= until) this._burstCooldowns.delete(key);
+        }
+        // Evict jitter entries for threads not seen in burstCounters at all
+        for (const key of this._threadJitter.keys()) {
+          if (!this._burstCounters.has(key)) this._threadJitter.delete(key);
+        }
+      } catch (_) {}
+    }, _MAP_PRUNE_INTERVAL_MS);
+    // Don't hold the event loop open for this housekeeping timer
+    if (typeof this._prunerTimer.unref === 'function') this._prunerTimer.unref();
+  }
+
+  /** Stop all background timers — call this before discarding the engine instance. */
+  stop() {
+    if (this._prunerTimer) {
+      clearInterval(this._prunerTimer);
+      this._prunerTimer = null;
+    }
   }
 
   _lockFingerprint() {
@@ -159,10 +206,21 @@ class StealthEngine {
     if (!cfg.enabled || !cfg.randomizeReadReceipts) return;
     if (typeof api?.markAsRead !== 'function') return;
 
+    // [FIX L5] — track and cap the number of outstanding read-receipt
+    // setTimeout callbacks. During a message flood (e.g. a group spam burst),
+    // the previous code would queue hundreds of detached timeouts, each holding
+    // a closure over `api` and `threadID`, gradually consuming memory and GC
+    // time. Cap at 20 pending receipts and silently drop new ones beyond that.
+    if (!this._pendingReceipts) this._pendingReceipts = 0;
+    const MAX_PENDING_RECEIPTS = 20;
+    if (this._pendingReceipts >= MAX_PENDING_RECEIPTS) return;
+
     const baseDelay = cfg.readReceiptDelay || 1500;
     const delay     = baseDelay + Math.floor(Math.random() * baseDelay);
 
+    this._pendingReceipts++;
     setTimeout(() => {
+      this._pendingReceipts = Math.max(0, (this._pendingReceipts || 1) - 1);
       try {
         api.markAsRead(threadID, () => {});
       } catch (_) {}

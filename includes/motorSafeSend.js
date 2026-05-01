@@ -20,7 +20,10 @@ function shouldDisableOnThreadError(errStr) {
     s.includes("thread may not exist") ||
     s.includes("access may be restricted") ||
     s.includes("not a participant") ||
-    s.includes("not found")
+    // "not found" alone is far too broad — Facebook returns it for missing
+    // stickers, users, and temporary server errors that are totally transient.
+    // Only treat it as fatal when it clearly refers to the thread itself.
+    (s.includes("not found") && (s.includes("thread") || s.includes("conversation") || s.includes("inbox")))
   );
 }
 
@@ -28,7 +31,7 @@ function isRateLimited(errStr) {
   const s = String(errStr || "").toLowerCase();
   return (
     s.includes("too many requests") ||
-    s.includes("rate") && s.includes("limit") ||
+    (s.includes("rate") && s.includes("limit")) ||
     s.includes("temporarily blocked") ||
     s.includes("spam")
   );
@@ -68,7 +71,8 @@ async function preSendEvasion(threadID) {
 
 // Track active loops per thread so we can guarantee a single live loop
 // even after restarts/restored state (prevents duplicate-send → ban).
-const _activeLoops = new Map(); // threadID -> { stop }
+// Each entry: { stop, lastSentAt, nextSendAt }
+const _activeLoops = new Map();
 
 function scheduleMotorLoop({ api, threadID, getData, onDisable }) {
   // Hard guarantee: only ONE live loop per threadID at any time.
@@ -81,6 +85,9 @@ function scheduleMotorLoop({ api, threadID, getData, onDisable }) {
   let stopped = false;
   let backoffMs = 0;
   let pendingTimer = null;
+  let consecutiveErrors = 0;
+  let lastSentAt = null;
+  let nextSendAt = null;
 
   function clearPending() {
     if (pendingTimer) {
@@ -99,14 +106,17 @@ function scheduleMotorLoop({ api, threadID, getData, onDisable }) {
 
   function isStopped() {
     if (stopped) return true;
-    // Honor user-driven stop via state flags
     const d = getData();
     if (!d || d.status !== true || !d.message || !d.time) return true;
     return false;
   }
 
+  function _cleanupHandle() {
+    if (_activeLoops.get(threadID) === handle) _activeLoops.delete(threadID);
+  }
+
   async function tick() {
-    if (isStopped()) return;
+    if (isStopped()) { _cleanupHandle(); return; }
 
     const data = getData();
     const shouldSend = typeof data.shouldSend === "function" ? data.shouldSend : null;
@@ -125,11 +135,18 @@ function scheduleMotorLoop({ api, threadID, getData, onDisable }) {
       delay = pickJitter(base);
     }
 
+    // Record when the next send is expected so callers can display it.
+    nextSendAt = Date.now() + delay;
+    if (handle) handle.nextSendAt = nextSendAt;
+
     pendingTimer = setTimeout(async () => {
       pendingTimer = null;
-      if (isStopped()) return;
+      nextSendAt = null;
+      if (handle) handle.nextSendAt = null;
+      if (isStopped()) { _cleanupHandle(); return; }
 
       try {
+        // Always prefer the freshest API reference so reconnects are transparent.
         const botApi = global._botApi || api;
         if (!botApi) return;
 
@@ -151,9 +168,14 @@ function scheduleMotorLoop({ api, threadID, getData, onDisable }) {
           releaseSendSlot();
         }
 
+        // Successful send — record timing and reset error tracking.
+        lastSentAt = Date.now();
+        if (handle) handle.lastSentAt = lastSentAt;
         backoffMs = 0;
+        consecutiveErrors = 0;
       } catch (e) {
         const errStr = String(e && (e.message || e));
+        consecutiveErrors++;
 
         if (shouldDisableOnThreadError(errStr)) {
           stopped = true;
@@ -165,14 +187,24 @@ function scheduleMotorLoop({ api, threadID, getData, onDisable }) {
         }
 
         if (isRateLimited(errStr)) {
-          const next = backoffMs > 0 ? Math.min(backoffMs * 2, 30 * 60 * 1000) : 2 * 60 * 1000;
+          // Cap at 5 minutes so the motor never appears dead for too long.
+          const next = backoffMs > 0 ? Math.min(backoffMs * 2, 5 * 60 * 1000) : 2 * 60 * 1000;
           backoffMs = next;
         } else {
-          const next = backoffMs > 0 ? Math.min(backoffMs * 1.5, 10 * 60 * 1000) : 30 * 1000;
-          backoffMs = Math.floor(next + Math.random() * 5000);
+          // Generic error — cap at 3 minutes. If errors keep coming,
+          // reset backoff after 10 consecutive failures so the loop
+          // keeps retrying instead of silently waiting forever.
+          if (consecutiveErrors >= 10) {
+            backoffMs = 30 * 1000;
+            consecutiveErrors = 0;
+          } else {
+            const next = backoffMs > 0 ? Math.min(backoffMs * 1.5, 3 * 60 * 1000) : 30 * 1000;
+            backoffMs = Math.floor(next + Math.random() * 5000);
+          }
         }
       } finally {
         if (!isStopped()) tick();
+        else _cleanupHandle();
       }
     }, delay);
 
@@ -185,7 +217,9 @@ function scheduleMotorLoop({ api, threadID, getData, onDisable }) {
       stopped = true;
       clearPending();
       _activeLoops.delete(threadID);
-    }
+    },
+    lastSentAt: null,
+    nextSendAt: null
   };
   _activeLoops.set(threadID, handle);
 
@@ -209,4 +243,18 @@ function stopAllMotorLoops() {
   }
 }
 
-module.exports = { scheduleMotorLoop, stopMotorLoop, stopAllMotorLoops };
+// Returns true if a live loop is registered for the given threadID.
+// Used by the watchdog in engine.js / motor2.js.
+function isActiveLoop(threadID) {
+  return _activeLoops.has(String(threadID));
+}
+
+// Returns timing stats for a thread's loop, or null if no loop is active.
+// { lastSentAt: number|null, nextSendAt: number|null }
+function getLoopStats(threadID) {
+  const h = _activeLoops.get(String(threadID));
+  if (!h) return null;
+  return { lastSentAt: h.lastSentAt || null, nextSendAt: h.nextSendAt || null };
+}
+
+module.exports = { scheduleMotorLoop, stopMotorLoop, stopAllMotorLoops, isActiveLoop, getLoopStats };
