@@ -50,14 +50,23 @@ function createStore(filePath, opts = {}) {
   function _doWrite() {
     flushTimer = null;
     if (!dirty) return;
+    // Clear BEFORE the write so any set() that arrives during the synchronous
+    // atomicWriteJsonSync call will re-set dirty=true and schedule a new flush.
+    // If we cleared dirty AFTER the write, those concurrent changes would be
+    // lost until the next externally-triggered flush.
+    dirty = false;
     try {
       _ensureDir();
       const obj = {};
       for (const [k, v] of map.entries()) obj[k] = v;
       atomicWriteJsonSync(filePath, obj);
-      dirty = false;
     } catch (_) {
-      // swallow — will retry on next flush
+      // Write failed — restore dirty and schedule a retry (with back-off).
+      dirty = true;
+      if (!flushTimer) {
+        flushTimer = setTimeout(_doWrite, Math.max(debounceMs * 4, 200));
+        if (typeof flushTimer.unref === "function") flushTimer.unref();
+      }
     }
   }
 

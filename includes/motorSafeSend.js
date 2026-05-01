@@ -116,9 +116,17 @@ function scheduleMotorLoop({ api, threadID, getData, onDisable }) {
   }
 
   async function tick() {
+    // Outer guard: if anything before the inner try-catch throws (e.g. getData()
+    // returning null/undefined on a deleted thread, or isStopped() itself), we
+    // catch it here and reschedule rather than letting the Promise reject
+    // unhandled, which would silently kill the loop until the 60-s watchdog
+    // revives it.
+    try {
+
     if (isStopped()) { _cleanupHandle(); return; }
 
     const data = getData();
+    if (!data) { _cleanupHandle(); return; } // thread row was deleted
     const shouldSend = typeof data.shouldSend === "function" ? data.shouldSend : null;
 
     let delay;
@@ -136,14 +144,18 @@ function scheduleMotorLoop({ api, threadID, getData, onDisable }) {
     }
 
     // Record when the next send is expected so callers can display it.
+    // Also expose whether we're in backoff so status commands can show it.
     nextSendAt = Date.now() + delay;
-    if (handle) handle.nextSendAt = nextSendAt;
+    if (handle) {
+      handle.nextSendAt = nextSendAt;
+      handle.backoffMs  = backoffMs > 0 ? backoffMs : 0;
+    }
 
     pendingTimer = setTimeout(async () => {
       pendingTimer = null;
-      nextSendAt = null;
-      if (handle) handle.nextSendAt = null;
-      if (isStopped()) { _cleanupHandle(); return; }
+      // Keep nextSendAt visible until the send actually completes so that
+      // حالة / status always shows a meaningful timestamp instead of "—".
+      if (isStopped()) { nextSendAt = null; if (handle) handle.nextSendAt = null; _cleanupHandle(); return; }
 
       try {
         // Always prefer the freshest API reference so reconnects are transparent.
@@ -155,7 +167,11 @@ function scheduleMotorLoop({ api, threadID, getData, onDisable }) {
           return;
         }
 
-        await preSendEvasion(threadID);
+        // NOTE: preSendEvasion() is intentionally NOT called here.
+        // Motors are scheduled messages, not command responses — the full
+        // evasion sequence (which can add 2-6 minute "session breaks")
+        // would silently override the user-configured interval. The motors
+        // already have their own randomised timing; no extra delay needed.
 
         if (isStopped()) return;
 
@@ -168,7 +184,9 @@ function scheduleMotorLoop({ api, threadID, getData, onDisable }) {
           releaseSendSlot();
         }
 
-        // Successful send — record timing and reset error tracking.
+        // Successful send — clear the expected-send marker and record timing.
+        nextSendAt = null;
+        if (handle) handle.nextSendAt = null;
         lastSentAt = Date.now();
         if (handle) handle.lastSentAt = lastSentAt;
         backoffMs = 0;
@@ -210,6 +228,16 @@ function scheduleMotorLoop({ api, threadID, getData, onDisable }) {
 
     // Mirror the timer handle on data so legacy stop paths still work.
     try { const d = getData(); if (d) d.interval = pendingTimer; } catch (_) {}
+
+    } catch (_tickErr) {
+      // Outer safety net: unexpected sync throw before/after the inner try-catch.
+      // Reschedule with a short delay so the loop survives without hitting the
+      // watchdog's 60-second revival window.
+      if (!stopped) {
+        pendingTimer = setTimeout(tick, 15000);
+        try { const d = getData(); if (d) d.interval = pendingTimer; } catch (_) {}
+      }
+    }
   }
 
   const handle = {
@@ -219,7 +247,8 @@ function scheduleMotorLoop({ api, threadID, getData, onDisable }) {
       _activeLoops.delete(threadID);
     },
     lastSentAt: null,
-    nextSendAt: null
+    nextSendAt: null,
+    backoffMs:  0
   };
   _activeLoops.set(threadID, handle);
 
@@ -250,11 +279,15 @@ function isActiveLoop(threadID) {
 }
 
 // Returns timing stats for a thread's loop, or null if no loop is active.
-// { lastSentAt: number|null, nextSendAt: number|null }
+// { lastSentAt: number|null, nextSendAt: number|null, backoffMs: number }
 function getLoopStats(threadID) {
   const h = _activeLoops.get(String(threadID));
   if (!h) return null;
-  return { lastSentAt: h.lastSentAt || null, nextSendAt: h.nextSendAt || null };
+  return {
+    lastSentAt: h.lastSentAt || null,
+    nextSendAt: h.nextSendAt || null,
+    backoffMs:  h.backoffMs  || 0
+  };
 }
 
 module.exports = { scheduleMotorLoop, stopMotorLoop, stopAllMotorLoops, isActiveLoop, getLoopStats };

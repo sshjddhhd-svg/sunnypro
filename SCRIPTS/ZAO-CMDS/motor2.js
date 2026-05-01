@@ -247,12 +247,14 @@ module.exports.run = async function ({ api, event, args, permssion }) {
         ? `🎲 ${(d.randomRange.min||12000)/1000}s-${(d.randomRange.max||50000)/1000}s`
         : (d.time ? d.time/1000 + "s" : "—");
       const lastAct = (global.lastActivity || {})[tid];
-      const alive = stats ? "🟢" : "⚠️";
+      const inBackoff = stats && stats.backoffMs > 0;
+      const alive = !stats ? "⚠️" : inBackoff ? "🟡" : "🟢";
       const last  = stats ? _fmtRelTime(stats.lastSentAt) : "—";
       const next  = stats ? _fmtRelTime(stats.nextSendAt)  : "—";
       const actStr = lastAct ? _fmtRelTime(lastAct) : "لا نشاط";
       msg += `\n${alive} ${name.slice(0, 28)}\n`;
       msg += `   ⏱ كل ${tStr}  |  📝 "${(d.message || "").slice(0, 20)}"\n`;
+      if (inBackoff) msg += `   ⚠️ انتظار (backoff ${Math.round(stats.backoffMs/1000)}s)\n`;
       msg += `   آخر إرسال:  ${last}\n`;
       msg += `   التالي:     ${next}\n`;
       msg += `   آخر نشاط:  ${actStr}\n`;

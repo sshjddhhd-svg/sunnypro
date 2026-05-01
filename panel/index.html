@@ -297,6 +297,7 @@ select option{background:var(--bg3)}
       <div class="tab-panel active" id="tab-listener">
         <div class="log-controls">
           <input class="log-search" type="text" placeholder="🔍 Filter logs…" oninput="filterLogs(this.value)" id="log-filter"/>
+          <span id="log-count" style="font-size:11px;color:var(--sub);white-space:nowrap"></span>
           <button class="btn btn-ghost btn-sm" onclick="clearLogs()">🗑 Clear</button>
           <button class="btn btn-ghost btn-sm" onclick="toggleAutoScroll()" id="as-btn">⬇ Auto-scroll ON</button>
           <span class="badge badge-live" id="sse-badge">● LIVE</span>
@@ -420,6 +421,7 @@ select option{background:var(--bg3)}
               <button class="btn btn-danger btn-sm" onclick="motorAct('deactivate')">■ Stop</button>
               <button class="btn btn-ghost btn-sm" onclick="motorSet()">💾 Set</button>
             </div>
+            <div id="motor-loop-info" style="font-size:11px;color:var(--sub);margin-top:10px;display:none"></div>
           </div>
 
           <!-- Motor 2 -->
@@ -440,6 +442,7 @@ select option{background:var(--bg3)}
               <button class="btn btn-danger btn-sm" onclick="motor2Act('deactivate')">■ Stop</button>
               <button class="btn btn-ghost btn-sm" onclick="motor2Set()">💾 Set</button>
             </div>
+            <div id="motor2-loop-info" style="font-size:11px;color:var(--sub);margin-top:10px;display:none"></div>
           </div>
 
           <!-- Name Lock -->
@@ -485,9 +488,15 @@ select option{background:var(--bg3)}
 
       <!-- ── HEALTH ── -->
       <div class="tab-panel" id="tab-health">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
           <div class="card-title" style="margin:0"><span class="ti">💊</span> Bot Health Diagnostics</div>
-          <button class="btn btn-ghost btn-sm" onclick="loadHealth()">↺ Refresh</button>
+          <div style="display:flex;gap:8px;align-items:center">
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--sub);text-transform:none;letter-spacing:0;cursor:pointer;margin:0">
+              <input type="checkbox" id="health-auto-toggle" style="width:auto;accent-color:var(--c)" onchange="toggleHealthAuto()"/>
+              Auto-refresh
+            </label>
+            <button class="btn btn-ghost btn-sm" onclick="loadHealth()">↺ Refresh</button>
+          </div>
         </div>
         <div class="health-grid" id="health-grid">
           <div style="color:var(--sub);font-size:12px;grid-column:1/-1">Click Refresh to load health data…</div>
@@ -563,6 +572,19 @@ function pollStatus() {
       card.className = 'bot-status live';
       meta.innerHTML = `${d.commands} cmds · up ${fmtSeconds(d.uptime)}`;
       document.getElementById('stat-cmds').textContent = d.commands || '—';
+      // Global motor counts (available without selecting a group)
+      const m1 = d.motor1Active;
+      const m2 = d.motor2Active;
+      if (m1 !== undefined) {
+        const el = document.getElementById('stat-m1');
+        el.textContent = m1 > 0 ? m1 + ' active' : 'Off';
+        el.style.color = m1 > 0 ? 'var(--g)' : 'var(--sub)';
+      }
+      if (m2 !== undefined) {
+        const el = document.getElementById('stat-m2');
+        el.textContent = m2 > 0 ? m2 + ' active' : 'Off';
+        el.style.color = m2 > 0 ? 'var(--g)' : 'var(--sub)';
+      }
     } else {
       dot.className = 'dot dead';
       txt.textContent = 'Disconnected';
@@ -585,6 +607,16 @@ function fmtSeconds(s) {
   if (!s) return '0s';
   const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), ss = s % 60;
   return h ? `${h}h ${m}m` : m ? `${m}m ${ss}s` : `${ss}s`;
+}
+
+function fmtFromNow(ts) {
+  if (!ts) return '—';
+  const diff = ts - Date.now();
+  const abs  = Math.abs(diff);
+  const s    = Math.floor(abs / 1000);
+  const m    = Math.floor(s / 60);
+  const str  = m > 0 ? `${m}m ${s % 60}s` : `${s}s`;
+  return diff > 0 ? `in ${str}` : `${str} ago`;
 }
 
 setInterval(pollStatus, 5000);
@@ -627,6 +659,14 @@ function appendLogLine(entry) {
   term.appendChild(div);
   if (term.children.length > 1500) term.removeChild(term.firstChild);
   if (autoScroll) term.scrollTop = term.scrollHeight;
+  _updateLogCount();
+}
+
+function _updateLogCount() {
+  const el = document.getElementById('log-count');
+  if (!el) return;
+  const shown = document.getElementById('log-terminal').children.length;
+  el.textContent = logFilter ? `${shown} / ${allLogs.length} lines` : `${allLogs.length} lines`;
 }
 
 function escHtml(s) {
@@ -637,8 +677,9 @@ function filterLogs(val) {
   const term = document.getElementById('log-terminal');
   term.innerHTML = '';
   allLogs.forEach(e => appendLogLine(e));
+  _updateLogCount();
 }
-function clearLogs() { allLogs = []; document.getElementById('log-terminal').innerHTML = ''; }
+function clearLogs() { allLogs = []; document.getElementById('log-terminal').innerHTML = ''; _updateLogCount(); }
 function toggleAutoScroll() {
   autoScroll = !autoScroll;
   document.getElementById('as-btn').textContent = `⬇ Auto-scroll ${autoScroll ? 'ON' : 'OFF'}`;
@@ -647,21 +688,33 @@ connectSSE();
 
 // ─── Commands ─────────────────────────────────────────────────
 function loadCommands() {
-  fetch('/api/commands').then(r => r.json()).then(cmds => {
+  fetch('/api/commands').then(r => r.json()).then(data => {
+    // API returns { commands: [], errors: [] }
+    const cmds = Array.isArray(data) ? data : (data.commands || []);
+    const errs = Array.isArray(data) ? [] : (data.errors || []);
     allCmds = cmds;
-    renderCmds(cmds);
+    renderCmds(cmds, errs);
     const badge = document.getElementById('cmd-nav-badge');
-    badge.textContent = cmds.length;
+    badge.textContent = cmds.length + (errs.length ? ' ⚠' : '');
     badge.style.display = '';
     document.getElementById('stat-cmds').textContent = cmds.length;
   }).catch(() => toast('Failed to load commands', 'err'));
 }
 
-function renderCmds(cmds) {
+function renderCmds(cmds, errs) {
+  errs = errs || [];
   const grid  = document.getElementById('cmd-grid');
   const count = document.getElementById('cmd-count');
-  count.textContent = cmds.length + ' commands';
-  grid.innerHTML = cmds.map(c => `
+  count.textContent = cmds.length + ' commands' + (errs.length ? ` · ${errs.length} failed` : '');
+  let errBanner = '';
+  if (errs.length) {
+    const errLines = errs.map(e => `<div style="font-family:monospace;font-size:11px;color:var(--r);margin-top:4px">✗ ${escHtml(e.file)}: ${escHtml(e.error)}</div>`).join('');
+    errBanner = `<div style="grid-column:1/-1;background:rgba(255,59,110,.06);border:1px solid rgba(255,59,110,.2);border-radius:10px;padding:12px 16px;margin-bottom:4px">
+      <div style="font-size:12px;font-weight:700;color:var(--r);margin-bottom:4px">⚠ ${errs.length} command file${errs.length > 1 ? 's' : ''} failed to load</div>
+      ${errLines}
+    </div>`;
+  }
+  grid.innerHTML = errBanner + cmds.map(c => `
     <div class="cmd-card">
       <div class="cmd-name">.${escHtml(c.name)}</div>
       <div class="cmd-desc">${escHtml(c.description || 'No description')}</div>
@@ -866,8 +919,15 @@ async function loadGroupStatus() {
 
     if (d.motor) {
       const p = document.getElementById('motor-pill');
-      p.className = 'status-pill ' + (d.motor.status ? 'active' : 'inactive');
-      p.textContent = d.motor.status ? '● ON' : '● OFF';
+      const inBackoff1 = d.motor.loop && d.motor.loop.backoffMs > 0;
+      if (!d.motor.status) {
+        p.className = 'status-pill inactive'; p.textContent = '● OFF';
+      } else if (inBackoff1) {
+        p.className = 'status-pill'; p.style.cssText='background:rgba(255,193,7,.1);color:var(--y);border:1px solid rgba(255,193,7,.25)';
+        p.textContent = `⚠ Backoff ${Math.round(d.motor.loop.backoffMs/1000)}s`;
+      } else {
+        p.className = 'status-pill active'; p.style.cssText=''; p.textContent = '● ON';
+      }
       if (d.motor.message) document.getElementById('motor-msg').value = d.motor.message;
       if (d.motor.time)    document.getElementById('motor-time').value = d.motor.time;
       if (d.motor.randomTime) {
@@ -878,13 +938,27 @@ async function loadGroupStatus() {
           document.getElementById('motor-range-max').value = d.motor.randomRange.max || '';
         }
       }
-      document.getElementById('stat-m1').textContent = d.motor.status ? 'Active' : 'Off';
-      document.getElementById('stat-m1').style.color = d.motor.status ? 'var(--g)' : 'var(--sub)';
+      document.getElementById('stat-m1').textContent = d.motor.status ? (inBackoff1 ? 'Backoff' : 'Active') : 'Off';
+      document.getElementById('stat-m1').style.color = d.motor.status ? (inBackoff1 ? 'var(--y)' : 'var(--g)') : 'var(--sub)';
+      const li1 = document.getElementById('motor-loop-info');
+      if (d.motor.status && d.motor.loop) {
+        const ns = d.motor.loop.nextSendAt ? fmtFromNow(d.motor.loop.nextSendAt) : '—';
+        const ls = d.motor.loop.lastSentAt ? fmtFromNow(d.motor.loop.lastSentAt) : '—';
+        li1.style.display = '';
+        li1.innerHTML = `⏰ Next: <b style="color:var(--c)">${ns}</b> &nbsp;·&nbsp; Last: ${ls}`;
+      } else { li1.style.display = 'none'; }
     }
     if (d.motor2) {
       const p = document.getElementById('motor2-pill');
-      p.className = 'status-pill ' + (d.motor2.status ? 'active' : 'inactive');
-      p.textContent = d.motor2.status ? '● ON' : '● OFF';
+      const inBackoff2 = d.motor2.loop && d.motor2.loop.backoffMs > 0;
+      if (!d.motor2.status) {
+        p.className = 'status-pill inactive'; p.style.cssText=''; p.textContent = '● OFF';
+      } else if (inBackoff2) {
+        p.className = 'status-pill'; p.style.cssText='background:rgba(255,193,7,.1);color:var(--y);border:1px solid rgba(255,193,7,.25)';
+        p.textContent = `⚠ Backoff ${Math.round(d.motor2.loop.backoffMs/1000)}s`;
+      } else {
+        p.className = 'status-pill active'; p.style.cssText=''; p.textContent = '● ON';
+      }
       if (d.motor2.message) document.getElementById('motor2-msg').value = d.motor2.message;
       if (d.motor2.time)    document.getElementById('motor2-time').value = d.motor2.time;
       if (d.motor2.randomTime) {
@@ -895,8 +969,15 @@ async function loadGroupStatus() {
           document.getElementById('motor2-range-max').value = d.motor2.randomRange.max || '';
         }
       }
-      document.getElementById('stat-m2').textContent = d.motor2.status ? 'Active' : 'Off';
-      document.getElementById('stat-m2').style.color = d.motor2.status ? 'var(--g)' : 'var(--sub)';
+      document.getElementById('stat-m2').textContent = d.motor2.status ? (inBackoff2 ? 'Backoff' : 'Active') : 'Off';
+      document.getElementById('stat-m2').style.color = d.motor2.status ? (inBackoff2 ? 'var(--y)' : 'var(--g)') : 'var(--sub)';
+      const li2 = document.getElementById('motor2-loop-info');
+      if (d.motor2.status && d.motor2.loop) {
+        const ns2 = d.motor2.loop.nextSendAt ? fmtFromNow(d.motor2.loop.nextSendAt) : '—';
+        const ls2 = d.motor2.loop.lastSentAt ? fmtFromNow(d.motor2.loop.lastSentAt) : '—';
+        li2.style.display = '';
+        li2.innerHTML = `⏰ Next: <b style="color:var(--c)">${ns2}</b> &nbsp;·&nbsp; Last: ${ls2}`;
+      } else { li2.style.display = 'none'; }
     }
     if (d.nameLock) {
       const p = document.getElementById('lock-pill');
@@ -1031,6 +1112,15 @@ async function leaveGroup() {
     if (d.ok) dashMsg('✓ Left group ' + tid, 'ok');
     else dashMsg('✗ ' + (d.error || 'Failed'), 'err');
   } catch (_) {}
+}
+
+// ─── Health auto-refresh ─────────────────────────────────────
+let _healthAutoTimer = null;
+function toggleHealthAuto() {
+  const on = document.getElementById('health-auto-toggle').checked;
+  clearInterval(_healthAutoTimer);
+  _healthAutoTimer = null;
+  if (on) { loadHealth(); _healthAutoTimer = setInterval(loadHealth, 8000); }
 }
 
 // ─── Health ──────────────────────────────────────────────────

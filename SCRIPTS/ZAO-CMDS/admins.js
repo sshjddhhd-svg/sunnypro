@@ -1,5 +1,6 @@
 const fs = require("fs-extra");
 const path = require("path");
+const { atomicWriteJsonSync } = require("../../utils/atomicWrite");
 
 const SETTINGS_PATH = path.join(process.cwd(), "ZAO-SETTINGS.json");
 
@@ -8,7 +9,9 @@ function loadSettings() {
 }
 
 function saveSettings(cfg) {
-  fs.writeFileSync(SETTINGS_PATH, JSON.stringify(cfg, null, 4), "utf-8");
+  // atomicWriteJsonSync writes to a temp file, fsyncs, then renames — so a
+  // crash mid-write can never leave ZAO-SETTINGS.json empty or half-written.
+  atomicWriteJsonSync(SETTINGS_PATH, cfg);
 }
 
 function uniqStrings(arr) {

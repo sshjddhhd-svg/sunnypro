@@ -885,13 +885,19 @@ async function onBot({ models }) {
 
       try {
         if (pathname === '/bot/status' && method === 'GET') {
+          const _md  = global['motorData']  || {};
+          const _md2 = global['motorData2'] || {};
+          const motor1Active  = Object.values(_md).filter(d => d && d.status).length;
+          const motor2Active  = Object.values(_md2).filter(d => d && d.status).length;
           return _json(res, {
-            connected:  !!_api,
-            botID:      global['botUserID'] || '',
-            commands:   global['client']['commands'].size,
-            events:     global['client']['events'].size,
-            uptime:     global['_botStartTime'] ? Math.floor((Date.now() - global['_botStartTime']) / 1000) : 0,
-            mqttAlive:  global['lastMqttActivity'] ? (Date.now() - global['lastMqttActivity'] < 120000) : false
+            connected:    !!_api,
+            botID:        global['botUserID'] || '',
+            commands:     global['client']['commands'].size,
+            events:       global['client']['events'].size,
+            uptime:       global['_botStartTime'] ? Math.floor((Date.now() - global['_botStartTime']) / 1000) : 0,
+            mqttAlive:    global['lastMqttActivity'] ? (Date.now() - global['lastMqttActivity'] < 120000) : false,
+            motor1Active,
+            motor2Active
           });
         }
 
@@ -976,14 +982,20 @@ async function onBot({ models }) {
           if (!threadID) return _json(res, { error: 'Missing threadID' }, 400);
           const tid = String(threadID);
 
-          function _motorView(d) {
-            if (!d) return { status: false, message: null, time: null, randomTime: false, randomRange: null };
+          function _motorView(d, loopTid) {
+            if (!d) return { status: false, message: null, time: null, randomTime: false, randomRange: null, loop: null };
+            let loop = null;
+            try {
+              const { getLoopStats } = require('./includes/motorSafeSend');
+              loop = getLoopStats(loopTid) || null;
+            } catch (_) {}
             return {
               status:      !!d.status,
               message:     d.message || null,
               time:        d.time || null,
               randomTime:  !!d.randomTime,
-              randomRange: d.randomRange || null
+              randomRange: d.randomRange || null,
+              loop          // { lastSentAt, nextSendAt, backoffMs } or null
             };
           }
 
@@ -997,8 +1009,8 @@ async function onBot({ models }) {
           } catch (_) {}
 
           return _json(res, {
-            motor:    _motorView(global['motorData']  && global['motorData'][tid]),
-            motor2:   _motorView(global['motorData2'] && global['motorData2'][tid]),
+            motor:    _motorView(global['motorData']  && global['motorData'][tid],  tid),
+            motor2:   _motorView(global['motorData2'] && global['motorData2'][tid], tid),
             nameLock
           });
         }
@@ -1007,9 +1019,15 @@ async function onBot({ models }) {
           const { threadID, message } = body;
           if (!threadID || !message) return _json(res, { error: 'Missing threadID or message' }, 400);
           if (!_api) return _json(res, { error: 'Bot not connected' }, 503);
-          await new Promise((resolve, reject) =>
-            _api.sendMessage(message, String(threadID), err => err ? reject(err) : resolve())
-          );
+          // Wrap in try-catch: sendMessage can throw synchronously before ever
+          // calling the callback (e.g. if the API object is in a torn-down state),
+          // which would leave the promise pending forever and the panel request
+          // hanging until Main.js times out after 8 s.
+          await new Promise((resolve, reject) => {
+            try {
+              _api.sendMessage(message, String(threadID), err => err ? reject(err) : resolve());
+            } catch (e) { reject(e); }
+          });
           return _json(res, { ok: true });
         }
 
@@ -1018,9 +1036,11 @@ async function onBot({ models }) {
           if (!threadID) return _json(res, { error: 'Missing threadID' }, 400);
           if (!_api) return _json(res, { error: 'Bot not connected' }, 503);
           const myID = global['botUserID'] || (_api.getCurrentUserID ? _api.getCurrentUserID() : '');
-          await new Promise((resolve) =>
-            _api.removeUserFromGroup(myID, String(threadID), () => resolve())
-          );
+          await new Promise((resolve, reject) => {
+            try {
+              _api.removeUserFromGroup(myID, String(threadID), (err) => err ? reject(err) : resolve());
+            } catch (e) { reject(e); }
+          });
           return _json(res, { ok: true });
         }
 
@@ -1066,9 +1086,14 @@ async function onBot({ models }) {
             return _json(res, { ok: true });
           }
           if (action === 'deactivate') {
+            d.status = false;
+            try {
+              const { stopMotorLoop } = require('./includes/motorSafeSend');
+              stopMotorLoop(tid);
+            } catch (_) {}
             try { if (d.interval) clearInterval(d.interval); } catch (_) {}
             try { if (d.interval) clearTimeout(d.interval); } catch (_) {}
-            d.status = false; d.interval = null;
+            d.interval = null;
             _saveMotorState();
             return _json(res, { ok: true });
           }
@@ -1123,9 +1148,14 @@ async function onBot({ models }) {
             return _json(res, { ok: true });
           }
           if (action === 'deactivate') {
+            d.status = false;
+            try {
+              const { stopMotorLoop } = require('./includes/motorSafeSend');
+              stopMotorLoop(tid);
+            } catch (_) {}
             try { if (d.interval) clearInterval(d.interval); } catch (_) {}
             try { if (d.interval) clearTimeout(d.interval); } catch (_) {}
-            d.status = false; d.interval = null;
+            d.interval = null;
             _saveMotor2State();
             return _json(res, { ok: true });
           }

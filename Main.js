@@ -135,6 +135,9 @@ const server = http.createServer(async (req, res) => {
 
   if (method === 'OPTIONS') { res.writeHead(204); return res.end(); }
 
+  // Silently absorb favicon requests so they don't produce 404 log noise.
+  if (pathname === '/favicon.ico') { res.writeHead(204); return res.end(); }
+
   try {
     if ((pathname === '/' || pathname === '/index.html') && method === 'GET') {
       try {
@@ -286,10 +289,12 @@ const server = http.createServer(async (req, res) => {
       try {
         const files = fs.readdirSync(CMDS_PATH).filter(f => f.endsWith('.js'));
         const cmds = [];
+        const errors = [];
         for (const file of files) {
           try {
             const fullPath = path.join(CMDS_PATH, file);
-            delete require.cache[require.resolve(fullPath)];
+            // Do NOT delete from require.cache here — that causes heap growth on
+            // every panel page-load. Cache invalidation happens on POST /api/bot/reload-commands.
             const cmd = require(fullPath);
             if (cmd && cmd.config) {
               cmds.push({
@@ -302,9 +307,14 @@ const server = http.createServer(async (req, res) => {
                 file
               });
             }
-          } catch (_) {}
+          } catch (e) {
+            // Surface the error so the panel can warn the operator.
+            errors.push({ file, error: e.message });
+          }
         }
-        return jsonRes(res, cmds);
+        // Return both the commands list and any load errors so the panel can
+        // display a warning badge for broken command files.
+        return jsonRes(res, { commands: cmds, errors });
       } catch (e) { return jsonRes(res, { error: e.message }, 500); }
     }
 
